@@ -4,7 +4,10 @@ on:
   schedule:
     # Türkiye saati (UTC+3) ile 09:00, 11:00, 13:00, 15:00, 17:00, 19:00 ve 21:00
     - cron: '0 6,8,10,12,14,16,18 * * *'
-  workflow_dispatch: # İstediğin an GitHub üzerinden tek tıkla manuel çalıştırma imkanı
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   send-telegram-report:
@@ -30,3 +33,9 @@ jobs:
           TELEGRAM_CHANNEL_ID: "@faizradari"
         run: python bot.py --auto-slot
 
+      - name: Güncel Oran Önbelleğini (rates_cache.json) Kaydet
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add rates_cache.json
+          git diff --staged --quiet || (git commit -m "Auto-update live bank rates cache" && git push)

@@ -1,23 +1,24 @@
 {
-  "updated_at": "2026-10-30 00:45",
+  "updated_at": "2026-10-30 00:55",
   "ihtiyac_kredisi": {
     "ON Dijital (Burgan)": 3.79,
     "CEPTETEB": 3.39,
     "QNB": 3.84,
-    "Enpara.com": 4.09,
+    "Enpara.com": 3.14,
     "ING": 5.0,
     "Akbank": 3.49,
     "Garanti BBVA": 4.24,
-    "Türkiye İş Bankası": 4.29,
+    "Türkiye İş Bankası": 3.68,
     "Yapı Kredi": 4.39,
     "DenizBank": 2.89,
     "Enpara": 3.14,
     "İş Bankası": 3.68,
-    "TEB": 3.39,
     "ON Dijital": 2.99,
     "Alternatif Bank": 2.49,
     "N Kolay": 4.39,
-    "Ziraat": 3.69
+    "Ziraat": 3.69,
+    "Ziraat Bankası": 3.69,
+    "Kuveyt Türk": 3.77
   },
   "sifir_faiz_firsatlari": [
     {
