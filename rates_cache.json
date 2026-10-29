@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-30 00:10",
+  "updated_at": "2026-10-30 00:45",
   "ihtiyac_kredisi": {
     "ON Dijital (Burgan)": 3.79,
     "CEPTETEB": 3.39,
@@ -21,18 +21,6 @@
   },
   "sifir_faiz_firsatlari": [
     {
-      "bank": "Akbank",
-      "amount": "45.000 TL",
-      "term": "6 Ay",
-      "detail": "20.000 TL Kredi + 25.000 TL Taksitli Avans (%0 Faiz)"
-    },
-    {
-      "bank": "QNB",
-      "amount": "45.000 TL",
-      "term": "3-6 Ay",
-      "detail": "20.000 TL Kredi + 25.000 TL Nakit Avans (%0 Faiz)"
-    },
-    {
       "bank": "Garanti BBVA",
       "amount": "50.000 TL",
       "term": "3-6 Ay",
@@ -43,6 +31,18 @@
       "amount": "50.000 TL",
       "term": "6 Ay",
       "detail": "Yeni müşterilere özel 50.000 TL'ye varan %0 faizli kredi"
+    },
+    {
+      "bank": "Akbank",
+      "amount": "45.000 TL",
+      "term": "6 Ay",
+      "detail": "20.000 TL Kredi + 25.000 TL Taksitli Avans (%0 Faiz)"
+    },
+    {
+      "bank": "QNB",
+      "amount": "45.000 TL",
+      "term": "3-6 Ay",
+      "detail": "20.000 TL Kredi + 25.000 TL Nakit Avans (%0 Faiz)"
     },
     {
       "bank": "ON Dijital",
@@ -58,5 +58,17 @@
     "Akbank (Serbest Plus)": 48.0,
     "Garanti BBVA": 47.0,
     "Enpara.com": 46.5
+  },
+  "konut_kredisi": {
+    "Ziraat Bankası": 2.89,
+    "QNB": 2.84,
+    "Akbank": 3.15,
+    "Garanti BBVA": 3.13,
+    "VakıfBank": 2.99,
+    "Türkiye İş Bankası": 3.05,
+    "Yapı Kredi": 3.09,
+    "Halkbank": 3.19,
+    "ING": 3.19,
+    "Kuveyt Türk": 2.87
   }
 }

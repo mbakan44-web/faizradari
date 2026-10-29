@@ -14,7 +14,7 @@ class LoanOffer:
         """
         Türkiye BDDK/GİB mevzuatına göre:
         - İhtiyaç ve Taşıt kredisinde faiz üzerinden %15 KKDF + %15 BSMV (toplam %30) vergi alınır.
-        - Konut kredisinde KKDF ve BSMV %0'dır.
+        - Konut kredisinde KKDF ve BSMV %0'dır (vergiden muaftır).
         """
         r = self.monthly_rate / 100.0
         if self.loan_type in ("ihtiyac", "tasit"):
@@ -33,18 +33,21 @@ class LoanOffer:
     @property
     def allocation_fee(self) -> float:
         """
-        BDDK yasal kredi tahsis ücreti (dosya masrafı):
-        Anaparanın binde 5'i (%0.5) + ihtiyaç/taşıt kredisinde bunun üzerinden %15 BSMV (%0.575).
+        Yasal dosya/başlangıç masrafları:
+        - İhtiyaç ve Taşıt: Anaparanın binde 5'i (%0.5) + %15 BSMV (%0.575).
+        - Konut Kredisi: Binde 5 tahsis ücreti + ortalama Ekspertiz & İpotek tesis ücreti (18.500 TL).
         """
         if self.monthly_rate == 0:
             return 0.0
         if self.loan_type in ("ihtiyac", "tasit"):
             return self.principal * 0.00575
+        if self.loan_type == "konut":
+            return (self.principal * 0.005) + 18500.0
         return self.principal * 0.005
 
     @property
     def total_repayment(self) -> float:
-        """Tahsis ücreti dahil toplam cebinizden çıkacak net geri ödeme (TL)."""
+        """Masraflar dahil toplam cebinizden çıkacak net geri ödeme (TL)."""
         return (self.monthly_installment * self.months) + self.allocation_fee
 
     @property
@@ -59,7 +62,7 @@ class DepositOffer:
     annual_rate: float   # Yıllık mevduat faiz oranı (ör. 52.0)
     principal: float     # Anapara (TL)
     days: int = 32       # Vade gün sayısı
-    withholding_tax: float = 0.10  # %10 Stopaj oranı
+    withholding_tax: float = 0.10  # %10 Stopaj oranı (6 aya kadar vadeli TL mevduat)
 
     @property
     def gross_return(self) -> float:
@@ -95,6 +98,32 @@ class SpreadOffer:
         return ((self.sell_price - self.buy_price) / self.buy_price) * 100.0
 
 
+@dataclass
+class RateDropAlert:
+    bank_name: str
+    loan_type: str       # "ihtiyac", "konut", "tasit"
+    old_rate: float
+    new_rate: float
+    principal: float
+    months: int
+
+    @property
+    def old_offer(self) -> LoanOffer:
+        return LoanOffer(self.bank_name, self.old_rate, self.principal, self.months, self.loan_type)
+
+    @property
+    def new_offer(self) -> LoanOffer:
+        return LoanOffer(self.bank_name, self.new_rate, self.principal, self.months, self.loan_type)
+
+    @property
+    def total_savings(self) -> float:
+        return max(0.0, self.old_offer.total_repayment - self.new_offer.total_repayment)
+
+    @property
+    def monthly_savings(self) -> float:
+        return max(0.0, self.old_offer.monthly_installment - self.new_offer.monthly_installment)
+
+
 def format_tl(amount: float) -> str:
     """123456.78 -> '123.457 TL' formatına çevirir."""
     rounded = round(amount)
@@ -104,6 +133,5 @@ def format_tl(amount: float) -> str:
 def format_price(amount: float, decimals: int = 2) -> str:
     """Kuruşlu döviz/altın fiyatı formatlar (ör. 49,92 TL veya 6.453,20 TL)."""
     formatted = f"{amount:,.{decimals}f}"
-    # İngiliz binlik/ondalık ayıracını Türkçe formata çevir
     formatted = formatted.replace(",", "X").replace(".", ",").replace("X", ".")
     return f"{formatted} TL"
