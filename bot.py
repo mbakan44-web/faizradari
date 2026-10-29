@@ -435,7 +435,13 @@ def run_scheduler():
 if __name__ == "__main__":
     if "--set-logo" in sys.argv:
         set_channel_logo()
-    if "--setup-bot" in sys.argv:
+    if "--listen-only" in sys.argv:
+        configure_bot_profile()
+        print("İnteraktif Kredi Hesaplama Botu (@faizradari_bot) dinlemede...")
+        while True:
+            process_pending_updates()
+            time.sleep(2)
+    elif "--setup-bot" in sys.argv:
         configure_bot_profile()
         process_pending_updates()
     elif "--spread" in sys.argv:
@@ -446,9 +452,13 @@ if __name__ == "__main__":
         send_loan_report(loan_type="tasit", principal=400_000, months=36)
     elif "--mevduat" in sys.argv:
         send_deposit_report(principal=500_000, days=32)
+    elif "--set-webhook" in sys.argv:
+        idx = sys.argv.index("--set-webhook")
+        if idx + 1 < len(sys.argv):
+            wh_url = sys.argv[idx + 1].strip()
+            r = requests.post(f"{API_BASE}/setWebhook", json={"url": wh_url}, timeout=10).json()
+            print("Webhook durumu:", r)
     elif "--auto-slot" in sys.argv:
-        configure_bot_profile()
-        process_pending_updates()
         tr_hour = datetime.now(timezone(timedelta(hours=3))).hour
         if tr_hour in (11, 15, 19):
             send_spread_report()
