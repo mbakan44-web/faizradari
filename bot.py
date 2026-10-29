@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import time
 import json
@@ -14,7 +15,6 @@ from scraper import (
     get_loan_offers,
     get_deposit_offers,
     get_bank_spread_offers,
-    CACHE_FILE,
 )
 from image_generator import (
     render_loan_table_image,
@@ -28,6 +28,38 @@ load_dotenv(Path(__file__).parent / ".env", override=True)
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 CHANNEL_ID = os.getenv("TELEGRAM_CHANNEL_ID", "@faizradari").strip()
 API_BASE = f"https://api.telegram.org/bot{BOT_TOKEN}"
+OFFSET_FILE = Path(__file__).parent / ".last_update_id"
+
+
+def configure_bot_profile():
+    """
+    Telegram'da bota girildiğinde 'Bu bot ne yapabilir?' (What can this bot do?) ekranını
+    ve sol alttaki '/' komut menüsünü otomatik ayarlar.
+    """
+    description = (
+        "📡 FAİZ RADARI | İnteraktif Kredi & Mevduat Hesaplama Botu\n\n"
+        "İstediğiniz tutar ve vadede tüm bankaların vergi ve masraflar dahil NET ödeme tablosunu "
+        "anında hesaplamak için aşağıdaki 'BAŞLAT (START)' butonuna basın!\n\n"
+        "📌 Örnek Kullanım:\n"
+        "• İhtiyaç Kredisi: 150000 12\n"
+        "• Konut Kredisi: konut 2000000 120\n"
+        "• Taşıt Kredisi: tasit 400000 36\n"
+        "• Vadeli Mevduat: mevduat 500000 32\n\n"
+        "🔔 Resmi Kanalımız: @faizradari"
+    )
+    short_desc = "📊 İstediğiniz tutar ve vadede banka kredi/mevduat net ödeme tablosu hesaplayıcı. Kanal: @faizradari"
+    commands = [
+        {"command": "start", "description": "Hesaplama menüsünü ve kullanım kılavuzunu aç"},
+        {"command": "ihtiyac", "description": "İhtiyaç kredisi hesapla (Örn: /ihtiyac 150000 12)"},
+        {"command": "konut", "description": "Konut kredisi hesapla (Örn: /konut 2000000 120)"},
+        {"command": "tasit", "description": "Taşıt kredisi hesapla (Örn: /tasit 400000 36)"},
+        {"command": "mevduat", "description": "Vadeli mevduat getirisi hesapla (Örn: /mevduat 500000 32)"},
+        {"command": "makas", "description": "Canlı banka Dolar & Altın makas tablosunu getir"},
+    ]
+    requests.post(f"{API_BASE}/setMyDescription", json={"description": description}, timeout=10)
+    requests.post(f"{API_BASE}/setMyShortDescription", json={"short_description": short_desc}, timeout=10)
+    requests.post(f"{API_BASE}/setMyCommands", json={"commands": commands}, timeout=10)
+    print("[OK] Bot karşılama ekranı ve komut menüsü güncellendi!")
 
 
 def _default_reply_markup() -> str:
@@ -37,13 +69,37 @@ def _default_reply_markup() -> str:
             [
                 {
                     "text": "🧮 Kendi Kredini Hesapla",
-                    "url": "https://t.me/faizradari_bot",
+                    "url": "https://t.me/faizradari_bot?start=hesapla",
                 },
                 {
                     "text": "📲 Tabloyu Arkadaşına Gönder",
                     "url": "https://t.me/share/url?url=https://t.me/faizradari&text=Bankalar%C4%B1n%20canl%C4%B1%20kredi%2C%20mevduat%20ve%20d%C3%B6viz%20makas%20tablolar%C4%B1%20@faizradari%20kanal%C4%B1nda!",
                 },
             ]
+        ]
+    }
+    return json.dumps(markup)
+
+
+def _interactive_menu_markup() -> str:
+    """Bota özelden mesaj atan kullanıcıya çıkacak tek-tıkla hazır hesaplama butonları."""
+    markup = {
+        "inline_keyboard": [
+            [
+                {"text": "💳 100.000 TL (12 Ay)", "callback_data": "calc:ihtiyac:100000:12"},
+                {"text": "💳 250.000 TL (24 Ay)", "callback_data": "calc:ihtiyac:250000:24"},
+            ],
+            [
+                {"text": "🏠 2.000.000 TL Konut (120 Ay)", "callback_data": "calc:konut:2000000:120"},
+                {"text": "🚗 400.000 TL Taşıt (36 Ay)", "callback_data": "calc:tasit:400000:36"},
+            ],
+            [
+                {"text": "💰 500.000 TL Mevduat (32 Gün)", "callback_data": "calc:mevduat:500000:32"},
+                {"text": "💱 Canlı Dolar & Altın Makası", "callback_data": "calc:makas:0:0"},
+            ],
+            [
+                {"text": "📢 Faiz Radarı Kanalına Katıl", "url": "https://t.me/faizradari"}
+            ],
         ]
     }
     return json.dumps(markup)
@@ -168,15 +224,15 @@ def build_spread_caption(usd_spreads, gold_spreads, tickers) -> str:
     return "\n".join(lines)
 
 
-def _post_photo_to_telegram(img_path: str, caption: str) -> dict:
+def _post_photo_to_telegram(img_path: str, caption: str, target_chat_id: str = CHANNEL_ID, reply_markup: str = None) -> dict:
     with open(img_path, "rb") as photo_file:
         resp = requests.post(
             f"{API_BASE}/sendPhoto",
             data={
-                "chat_id": CHANNEL_ID,
+                "chat_id": target_chat_id,
                 "caption": caption,
                 "parse_mode": "HTML",
-                "reply_markup": _default_reply_markup(),
+                "reply_markup": reply_markup or _default_reply_markup(),
             },
             files={"photo": photo_file},
             timeout=30,
@@ -184,14 +240,12 @@ def _post_photo_to_telegram(img_path: str, caption: str) -> dict:
     return resp.json()
 
 
-def send_loan_report(loan_type: str = "ihtiyac", principal: float = 100_000, months: int = 12) -> dict:
-    """İhtiyaç, Konut veya Taşıt kredisi tablosunu üretir, varsa faiz indirimi alarmını da gönderir."""
+def send_loan_report(loan_type: str = "ihtiyac", principal: float = 100_000, months: int = 12, target_chat_id: str = CHANNEL_ID) -> dict:
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {loan_type.upper()} kredisi verileri çekiliyor ({format_tl(principal)} / {months} Ay)...")
     tickers = fetch_market_tickers()
     offers, alerts = get_loan_offers(loan_type=loan_type, principal=principal, months=months)
 
-    # Eğer faiz indirimi yakalandıysa önce FLAŞ ALARM gönder!
-    if alerts:
+    if alerts and target_chat_id == CHANNEL_ID:
         alert_img = render_rate_drop_alert_image(
             alerts=alerts,
             output_path=str(Path(__file__).parent / "latest_alert.png"),
@@ -205,7 +259,7 @@ def send_loan_report(loan_type: str = "ihtiyac", principal: float = 100_000, mon
             f"⚠️ <i>Bilgilendirme amaçlıdır, yatırım tavsiyesi değildir.</i>\n"
             f"🔔 @faizradari"
         )
-        _post_photo_to_telegram(alert_img, alert_caption)
+        _post_photo_to_telegram(alert_img, alert_caption, target_chat_id=CHANNEL_ID)
 
     img_path = render_loan_table_image(
         offers=offers,
@@ -213,16 +267,16 @@ def send_loan_report(loan_type: str = "ihtiyac", principal: float = 100_000, mon
         output_path=str(Path(__file__).parent / "latest_loan_table.png"),
     )
     caption = build_loan_caption(offers, tickers)
-    result = _post_photo_to_telegram(img_path, caption)
+    markup = _default_reply_markup() if target_chat_id == CHANNEL_ID else _interactive_menu_markup()
+    result = _post_photo_to_telegram(img_path, caption, target_chat_id=target_chat_id, reply_markup=markup)
     if result.get("ok"):
-        print(f"[BAŞARILI] {loan_type.upper()} Tablosu {CHANNEL_ID} kanalında paylaşıldı! (Mesaj ID: {result['result']['message_id']})")
+        print(f"[BAŞARILI] {loan_type.upper()} Tablosu {target_chat_id} hedefine paylaşıldı!")
     else:
         print(f"[HATA] Telegram gönderimi başarısız: {result}")
     return result
 
 
-def send_deposit_report(principal: float = 500_000, days: int = 32) -> dict:
-    """Vadeli Mevduat + %0 Faizli Nakit Fırsatları tablosunu üretir ve paylaşır."""
+def send_deposit_report(principal: float = 500_000, days: int = 32, target_chat_id: str = CHANNEL_ID) -> dict:
     print(f"[{datetime.now().strftime('%H:%M:%S')}] Mevduat verileri çekiliyor ({format_tl(principal)} / {days} Gün)...")
     tickers = fetch_market_tickers()
     deposits, zero_offers = get_deposit_offers(principal=principal, days=days)
@@ -234,16 +288,12 @@ def send_deposit_report(principal: float = 500_000, days: int = 32) -> dict:
         output_path=str(Path(__file__).parent / "latest_deposit_table.png"),
     )
     caption = build_deposit_caption(deposits, zero_offers, tickers)
-    result = _post_photo_to_telegram(img_path, caption)
-    if result.get("ok"):
-        print(f"[BAŞARILI] Mevduat Tablosu {CHANNEL_ID} kanalında paylaşıldı! (Mesaj ID: {result['result']['message_id']})")
-    else:
-        print(f"[HATA] Telegram gönderimi başarısız: {result}")
+    markup = _default_reply_markup() if target_chat_id == CHANNEL_ID else _interactive_menu_markup()
+    result = _post_photo_to_telegram(img_path, caption, target_chat_id=target_chat_id, reply_markup=markup)
     return result
 
 
-def send_spread_report() -> dict:
-    """Bankaların canlı Dolar ve Gram Altın makas verilerini çeker, görsel tabloyu üretir ve paylaşır."""
+def send_spread_report(target_chat_id: str = CHANNEL_ID) -> dict:
     print(f"[{datetime.now().strftime('%H:%M:%S')}] Banka Dolar & Altın makas verileri çekiliyor...")
     tickers = fetch_market_tickers()
     usd_spreads, gold_spreads = get_bank_spread_offers()
@@ -255,35 +305,118 @@ def send_spread_report() -> dict:
         output_path=str(Path(__file__).parent / "latest_spread_table.png"),
     )
     caption = build_spread_caption(usd_spreads, gold_spreads, tickers)
-    result = _post_photo_to_telegram(img_path, caption)
-    if result.get("ok"):
-        print(f"[BAŞARILI] Makas Tablosu {CHANNEL_ID} kanalında paylaşıldı! (Mesaj ID: {result['result']['message_id']})")
-    else:
-        print(f"[HATA] Telegram gönderimi başarısız: {result}")
+    markup = _default_reply_markup() if target_chat_id == CHANNEL_ID else _interactive_menu_markup()
+    result = _post_photo_to_telegram(img_path, caption, target_chat_id=target_chat_id, reply_markup=markup)
     return result
 
 
+def send_welcome_guide(chat_id: int) -> None:
+    """Kullanıcı bota /start dediğinde nasıl hesaplama yapacağını anlatan rehber ve butonları gönderir."""
+    welcome_text = (
+        "👋 <b>Faiz Radarı Hesaplama Botuna Hoş Geldiniz!</b>\n\n"
+        "İstediğiniz kredi veya mevduat tutarını tüm bankalar için <b>vergi ve dosya masrafları dahil</b> "
+        "anında hesaplayıp size özel tablo olarak üretirim.\n\n"
+        "📌 <b>Nasıl Hesaplama Yapılır?</b>\n"
+        "Bana doğrudan şu formatlarda mesaj yazıp gönderebilirsiniz:\n\n"
+        "💳 <b>İhtiyaç Kredisi için:</b>\n"
+        "👉 <code>150000 12</code> <i>(150.000 TL 12 Ay Vade)</i>\n"
+        "👉 <code>300000 24</code> <i>(300.000 TL 24 Ay Vade)</i>\n\n"
+        "🏠 <b>Konut (Ev) Kredisi için:</b>\n"
+        "👉 <code>konut 2500000 120</code> <i>(2.500.000 TL 120 Ay Vade)</i>\n\n"
+        "🚗 <b>Taşıt (Araç) Kredisi için:</b>\n"
+        "👉 <code>tasit 500000 36</code> <i>(500.000 TL 36 Ay Vade)</i>\n\n"
+        "💰 <b>Vadeli Mevduat Getirisi için:</b>\n"
+        "👉 <code>mevduat 750000 32</code> <i>(750.000 TL 32 Gün Vade)</i>\n\n"
+        "👇 <i>Veya aşağıdaki hazır butonlardan birine hemen tıklayabilirsiniz:</i>"
+    )
+    requests.post(
+        f"{API_BASE}/sendMessage",
+        json={
+            "chat_id": chat_id,
+            "text": welcome_text,
+            "parse_mode": "HTML",
+            "reply_markup": json.loads(_interactive_menu_markup()),
+        },
+        timeout=15,
+    )
+
+
+def handle_user_query(chat_id: int, text: str) -> None:
+    """Kullanıcının yazdığı metni (ör. '250000 18' veya 'konut 3000000 120') ayrıştırıp tabloyu gönderir."""
+    clean = text.strip().lower()
+    if clean.startswith("/start") or clean.startswith("/yardim") or clean.startswith("/help"):
+        send_welcome_guide(chat_id)
+        return
+    if clean.startswith("/makas") or clean == "makas":
+        send_spread_report(target_chat_id=str(chat_id))
+        return
+
+    # İçindeki sayıları yakala (nokta/virgül temizleyerek)
+    nums = [int(n.replace(".", "").replace(",", "")) for n in re.findall(r"\d[\d\.,]*", clean)]
+    if len(nums) >= 2:
+        amount = float(nums[0])
+        term = int(nums[1])
+        # Tutar ve vade sınır kontrolü
+        amount = max(5_000.0, min(amount, 50_000_000.0))
+        term = max(1, min(term, 360))
+
+        if "konut" in clean or "ev" in clean:
+            send_loan_report("konut", principal=amount, months=term, target_chat_id=str(chat_id))
+        elif "tasit" in clean or "taşıt" in clean or "arac" in clean or "araç" in clean:
+            send_loan_report("tasit", principal=amount, months=term, target_chat_id=str(chat_id))
+        elif "mevduat" in clean or "faiz" in clean:
+            send_deposit_report(principal=amount, days=term, target_chat_id=str(chat_id))
+        else:
+            send_loan_report("ihtiyac", principal=amount, months=term, target_chat_id=str(chat_id))
+    else:
+        send_welcome_guide(chat_id)
+
+
+def process_pending_updates() -> None:
+    """Bota gelen yeni kullanıcı mesajlarını ve buton tıklamalarını işler."""
+    offset = 0
+    if OFFSET_FILE.exists():
+        try:
+            offset = int(OFFSET_FILE.read_text(encoding="utf-8").strip())
+        except Exception:
+            offset = 0
+
+    try:
+        resp = requests.get(f"{API_BASE}/getUpdates", params={"offset": offset, "timeout": 2}, timeout=8).json()
+        if not resp.get("ok"):
+            return
+        for upd in resp.get("result", []):
+            offset = upd["update_id"] + 1
+            OFFSET_FILE.write_text(str(offset), encoding="utf-8")
+
+            if "message" in upd and "text" in upd["message"]:
+                msg = upd["message"]
+                if msg.get("chat", {}).get("type") == "private":
+                    handle_user_query(msg["chat"]["id"], msg["text"])
+
+            elif "callback_query" in upd:
+                cb = upd["callback_query"]
+                chat_id = cb["message"]["chat"]["id"]
+                data = cb.get("data", "")
+                requests.post(f"{API_BASE}/answerCallbackQuery", json={"callback_query_id": cb["id"], "text": "Tablonuz hazırlanıyor..."}, timeout=5)
+                parts = data.split(":")
+                if len(parts) == 4 and parts[0] == "calc":
+                    kind, amt, trm = parts[1], float(parts[2]), int(parts[3])
+                    if kind == "makas":
+                        send_spread_report(target_chat_id=str(chat_id))
+                    elif kind == "mevduat":
+                        send_deposit_report(principal=amt, days=trm, target_chat_id=str(chat_id))
+                    else:
+                        send_loan_report(kind, principal=amt, months=trm, target_chat_id=str(chat_id))
+    except Exception as e:
+        print("[UYARI] Update işleme hatası:", e)
+
+
 def run_scheduler():
-    """
-    Sabah 09:00'dan akşam 21:00'e kadar her 2 saatte bir:
-    - 09:00 -> İhtiyaç Kredisi Tablosu (100.000 TL / 12 Ay)
-    - 11:00 -> Bankaların Canlı Dolar & Altın Makas Tablosu
-    - 13:00 -> Konut (Ev) Kredisi Tablosu (2.000.000 TL / 120 Ay)
-    - 15:00 -> Bankaların Canlı Dolar & Altın Makas Tablosu
-    - 17:00 -> Taşıt (Araç) Kredisi Tablosu (400.000 TL / 36 Ay)
-    - 19:00 -> Bankaların Canlı Dolar & Altın Makas Tablosu
-    - 21:00 -> Vadeli Mevduat Getiri Tablosu (500.000 TL / 32 Gün) & %0 Faiz Fırsatları
-    """
     print("=================================================================")
-    print(" Faiz Radarı Tam Kapsamlı Yayın Akışı Başlatıldı (09:00 - 21:00)")
-    print(" 09:00 -> İhtiyaç Kredisi Tablosu (100.000 TL / 12 Ay)")
-    print(" 11:00 -> Bankaların Canlı Dolar & Altın Makas Tablosu")
-    print(" 13:00 -> Konut (Ev) Kredisi Tablosu (2.000.000 TL / 120 Ay)")
-    print(" 15:00 -> Bankaların Canlı Dolar & Altın Makas Tablosu")
-    print(" 17:00 -> Taşıt (Araç) Kredisi Tablosu (400.000 TL / 36 Ay)")
-    print(" 19:00 -> Bankaların Canlı Dolar & Altın Makas Tablosu")
-    print(" 21:00 -> Vadeli Mevduat Getirisi (500.000 TL / 32 Gün) & %0 Faiz")
+    print(" Faiz Radarı Tam Kapsamlı Yayın Akışı & İnteraktif Bot Başlatıldı")
     print("=================================================================")
+    configure_bot_profile()
 
     schedule.every().day.at("09:00").do(send_loan_report, loan_type="ihtiyac", principal=100_000, months=12)
     schedule.every().day.at("11:00").do(send_spread_report)
@@ -295,13 +428,17 @@ def run_scheduler():
 
     while True:
         schedule.run_pending()
-        time.sleep(30)
+        process_pending_updates()
+        time.sleep(3)
 
 
 if __name__ == "__main__":
     if "--set-logo" in sys.argv:
         set_channel_logo()
-    if "--spread" in sys.argv:
+    if "--setup-bot" in sys.argv:
+        configure_bot_profile()
+        process_pending_updates()
+    elif "--spread" in sys.argv:
         send_spread_report()
     elif "--konut" in sys.argv:
         send_loan_report(loan_type="konut", principal=2_000_000, months=120)
@@ -310,6 +447,8 @@ if __name__ == "__main__":
     elif "--mevduat" in sys.argv:
         send_deposit_report(principal=500_000, days=32)
     elif "--auto-slot" in sys.argv:
+        configure_bot_profile()
+        process_pending_updates()
         tr_hour = datetime.now(timezone(timedelta(hours=3))).hour
         if tr_hour in (11, 15, 19):
             send_spread_report()
