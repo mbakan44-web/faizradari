@@ -1,0 +1,62 @@
+{
+  "updated_at": "2026-10-30 00:10",
+  "ihtiyac_kredisi": {
+    "ON Dijital (Burgan)": 3.79,
+    "CEPTETEB": 3.39,
+    "QNB": 3.84,
+    "Enpara.com": 4.09,
+    "ING": 5.0,
+    "Akbank": 3.49,
+    "Garanti BBVA": 4.24,
+    "Türkiye İş Bankası": 4.29,
+    "Yapı Kredi": 4.39,
+    "DenizBank": 2.89,
+    "Enpara": 3.14,
+    "İş Bankası": 3.68,
+    "TEB": 3.39,
+    "ON Dijital": 2.99,
+    "Alternatif Bank": 2.49,
+    "N Kolay": 4.39,
+    "Ziraat": 3.69
+  },
+  "sifir_faiz_firsatlari": [
+    {
+      "bank": "Akbank",
+      "amount": "45.000 TL",
+      "term": "6 Ay",
+      "detail": "20.000 TL Kredi + 25.000 TL Taksitli Avans (%0 Faiz)"
+    },
+    {
+      "bank": "QNB",
+      "amount": "45.000 TL",
+      "term": "3-6 Ay",
+      "detail": "20.000 TL Kredi + 25.000 TL Nakit Avans (%0 Faiz)"
+    },
+    {
+      "bank": "Garanti BBVA",
+      "amount": "50.000 TL",
+      "term": "3-6 Ay",
+      "detail": "25.000 TL Kredi + 25.000 TL Taksitli Avans (%0 Faiz)"
+    },
+    {
+      "bank": "Enpara.com",
+      "amount": "50.000 TL",
+      "term": "6 Ay",
+      "detail": "Yeni müşterilere özel 50.000 TL'ye varan %0 faizli kredi"
+    },
+    {
+      "bank": "ON Dijital",
+      "amount": "35.000 TL",
+      "term": "6 Ay",
+      "detail": "Yeni müşterilere özel %0 faiz fırsatı"
+    }
+  ],
+  "mevduat_oranlari": {
+    "ON Dijital (ON Plus)": 51.0,
+    "CEPTETEB (Marifetli)": 50.0,
+    "ING (Turuncu Ekstra)": 50.0,
+    "Akbank (Serbest Plus)": 48.0,
+    "Garanti BBVA": 47.0,
+    "Enpara.com": 46.5
+  }
+}
