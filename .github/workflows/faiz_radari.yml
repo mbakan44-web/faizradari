@@ -27,10 +27,14 @@ jobs:
       - name: Kütüphaneleri Yükle
         run: pip install -r requirements.txt
 
-      - name: Sıradaki Tabloyu Üret ve Telegram'a Gönder
+      - name: Sıradaki Tabloyu Üret ve Telegram + X Hesaplarına Gönder
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHANNEL_ID: "@faizradari"
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
         run: python bot.py --auto-slot
 
       - name: Güncel Oran Önbelleğini (rates_cache.json) Kaydet
