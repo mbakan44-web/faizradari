@@ -37,22 +37,31 @@ X_ACCESS_TOKEN = os.getenv("X_ACCESS_TOKEN", "").strip()
 X_ACCESS_TOKEN_SECRET = os.getenv("X_ACCESS_TOKEN_SECRET", "").strip()
 
 
-def post_to_x(img_path: str, tweet_text: str) -> None:
-    """Üretilen görsel tabloyu ve zenginleştirilmiş analiz metnini @faizradari X (Twitter) hesabında paylaşır."""
+def post_to_x(img_path: str = None, tweet_text: str = "") -> None:
+    """
+    X (Twitter) paylaşım motoru:
+    - img_path verilmişse: Görsel + Metin paylaşır (Günde 1 kez).
+    - img_path None ise: Yalnızca zengin metin paylaşır (~0.01$ düşük maliyetli, günde 6 kez).
+    """
     if not (X_API_KEY and X_API_SECRET and X_ACCESS_TOKEN and X_ACCESS_TOKEN_SECRET):
         return
     try:
-        auth = tweepy.OAuth1UserHandler(X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET)
-        api_v1 = tweepy.API(auth)
         client_v2 = tweepy.Client(
             consumer_key=X_API_KEY,
             consumer_secret=X_API_SECRET,
             access_token=X_ACCESS_TOKEN,
             access_token_secret=X_ACCESS_TOKEN_SECRET,
         )
-        media = api_v1.media_upload(filename=img_path)
-        res = client_v2.create_tweet(text=tweet_text, media_ids=[media.media_id])
-        print(f"[BAŞARILI] Tablo X (@faizradari) hesabında paylaşıldı! (Tweet ID: {res.data.get('id')})")
+        media_ids = None
+        if img_path and Path(img_path).exists():
+            auth = tweepy.OAuth1UserHandler(X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET)
+            api_v1 = tweepy.API(auth)
+            media = api_v1.media_upload(filename=img_path)
+            media_ids = [media.media_id]
+
+        res = client_v2.create_tweet(text=tweet_text, media_ids=media_ids)
+        mode = "Görselli" if media_ids else "Metin"
+        print(f"[BAŞARILI] {mode} Tweet X (@faizradari) hesabında paylaşıldı! (Tweet ID: {res.data.get('id')})")
     except Exception as e:
         print(f"[UYARI] X paylaşımı yapılamadı: {e}")
 
@@ -200,7 +209,31 @@ def build_loan_caption(offers, tickers) -> str:
     return "\n".join(lines)
 
 
-def build_loan_x_text(offers) -> str:
+def should_attach_image_to_x(current_topic: str) -> bool:
+    """
+    X API maliyetini minimumda tutmak için:
+    Günde tam 7 tweet atılır ama yalnızca GÜNDE 1 KEZ görsel eklenir.
+    Haftanın gününe göre hangi konunun görsel alacağı döner:
+    - Pazartesi: İhtiyaç Kredisi (09:00)
+    - Salı: Konut Kredisi (13:00)
+    - Çarşamba: Banka Dolar & Altın Makası (11:00)
+    - Perşembe: Taşıt Kredisi (17:00)
+    - Cuma: Vadeli Mevduat (21:00)
+    - Cumartesi: Banka Dolar & Altın Makası (15:00)
+    - Pazar: Vadeli Mevduat & %0 Faiz (21:00)
+    """
+    weekday = datetime.now(timezone(timedelta(hours=3))).weekday() # 0: Pazartesi ... 6: Pazar
+    day_image_plan = {
+        0: "ihtiyac",
+        1: "konut",
+        2: "makas",
+        3: "tasit",
+        4: "mevduat",
+        5: "makas",
+        6: "mevduat",
+    }
+    target_topic = day_image_plan.get(weekday, "ihtiyac")
+    return current_topic == target_topic
     principal_str = format_tl(offers[0].principal)
     months = offers[0].months
     loan_type = offers[0].loan_type
@@ -387,7 +420,8 @@ def send_loan_report(loan_type: str = "ihtiyac", principal: float = 100_000, mon
         print(f"[HATA] Telegram gönderimi başarısız: {result}")
 
     if target_chat_id == CHANNEL_ID:
-        post_to_x(img_path, build_loan_x_text(offers))
+        attach_img = img_path if should_attach_image_to_x(loan_type) else None
+        post_to_x(attach_img, build_loan_x_text(offers))
     return result
 
 
@@ -406,7 +440,8 @@ def send_deposit_report(principal: float = 500_000, days: int = 32, target_chat_
     markup = _default_reply_markup() if target_chat_id == CHANNEL_ID else _interactive_menu_markup()
     result = _post_photo_to_telegram(img_path, caption, target_chat_id=target_chat_id, reply_markup=markup)
     if target_chat_id == CHANNEL_ID:
-        post_to_x(img_path, build_deposit_x_text(deposits))
+        attach_img = img_path if should_attach_image_to_x("mevduat") else None
+        post_to_x(attach_img, build_deposit_x_text(deposits))
     return result
 
 
@@ -425,7 +460,8 @@ def send_spread_report(target_chat_id: str = CHANNEL_ID) -> dict:
     markup = _default_reply_markup() if target_chat_id == CHANNEL_ID else _interactive_menu_markup()
     result = _post_photo_to_telegram(img_path, caption, target_chat_id=target_chat_id, reply_markup=markup)
     if target_chat_id == CHANNEL_ID:
-        post_to_x(img_path, build_spread_x_text(usd_spreads, gold_spreads))
+        attach_img = img_path if should_attach_image_to_x("makas") else None
+        post_to_x(attach_img, build_spread_x_text(usd_spreads, gold_spreads))
     return result
 
 
