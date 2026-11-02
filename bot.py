@@ -38,7 +38,7 @@ X_ACCESS_TOKEN_SECRET = os.getenv("X_ACCESS_TOKEN_SECRET", "").strip()
 
 
 def post_to_x(img_path: str, tweet_text: str) -> None:
-    """Üretilen görsel tabloyu ve 280 karakterlik özeti @faizradari X (Twitter) hesabında paylaşır."""
+    """Üretilen görsel tabloyu ve zenginleştirilmiş analiz metnini @faizradari X (Twitter) hesabında paylaşır."""
     if not (X_API_KEY and X_API_SECRET and X_ACCESS_TOKEN and X_ACCESS_TOKEN_SECRET):
         return
     try:
@@ -51,7 +51,7 @@ def post_to_x(img_path: str, tweet_text: str) -> None:
             access_token_secret=X_ACCESS_TOKEN_SECRET,
         )
         media = api_v1.media_upload(filename=img_path)
-        res = client_v2.create_tweet(text=tweet_text[:278], media_ids=[media.media_id])
+        res = client_v2.create_tweet(text=tweet_text, media_ids=[media.media_id])
         print(f"[BAŞARILI] Tablo X (@faizradari) hesabında paylaşıldı! (Tweet ID: {res.data.get('id')})")
     except Exception as e:
         print(f"[UYARI] X paylaşımı yapılamadı: {e}")
@@ -207,12 +207,24 @@ def build_loan_x_text(offers) -> str:
     label_map = {"ihtiyac": "İhtiyaç Kredisi", "konut": "Konut Kredisi", "tasit": "Taşıt Kredisi"}
     lbl = label_map.get(loan_type, "Kredi")
 
-    return (
-        f"📊 {principal_str} {lbl} ({months} Ay) Güncel Net Ödeme Tablosu!\n\n"
-        "Daha fazla ayrıntılı bilgi ve kredi hesaplaması için Telegram sayfamızı ziyaret edebilirsiniz 👇\n"
-        "https://t.me/faizradari\n\n"
-        "#kredi #faiz #banka"
-    )
+    best = offers[0]
+    worst = offers[-1]
+    diff = worst.total_repayment - best.total_repayment
+
+    lines = [
+        f"📊 {principal_str} {lbl} ({months} Ay Vade) — Güncel Banka Geri Ödeme Tablosu\n",
+        f"🏦 En Uygun İlk 3 Banka:",
+    ]
+    medals = ["🥇", "🥈", "🥉"]
+    for idx, o in enumerate(offers[:3]):
+        r_s = f"%{o.monthly_rate:.2f}".replace(".", ",")
+        lines.append(f"{medals[idx]} {o.bank_name}: Aylık Oran {r_s} | Taksit: {format_tl(o.monthly_installment)} | Toplam: {format_tl(o.total_repayment)}")
+
+    lines.append(f"\n💡 Radar Notu: En avantajlı banka ({best.bank_name}) ile son sıradaki banka arasında tam {format_tl(diff)} geri ödeme farkı bulunuyor!")
+    lines.append("\n🧮 İstediğiniz tutar ve vadeyi 7/24 ücretsiz hesaplamak için Telegram sayfamızı ve botumuzu ziyaret edebilirsiniz:")
+    lines.append("👉 https://t.me/faizradari\n")
+    lines.append("#kredi #faiz #banka #ekonomi #finans")
+    return "\n".join(lines)
 
 
 def build_deposit_caption(deposits, zero_offers, tickers) -> str:
@@ -247,12 +259,23 @@ def build_deposit_caption(deposits, zero_offers, tickers) -> str:
 def build_deposit_x_text(deposits) -> str:
     principal_str = format_tl(deposits[0].principal)
     days = deposits[0].days
-    return (
-        f"💰 {principal_str} {days} Günlük Net Mevduat Kazancı & %0 Faiz Fırsatları Tablosu!\n\n"
-        "Daha fazla ayrıntılı bilgi ve kredi hesaplaması için Telegram sayfamızı ziyaret edebilirsiniz 👇\n"
-        "https://t.me/faizradari\n\n"
-        "#mevduat #faiz #banka"
-    )
+    best = deposits[0]
+
+    lines = [
+        f"💰 {principal_str} Anaparanın {days} Günlük Net Vadeli Mevduat Getirisi Tablosu\n",
+        f"🏆 En Yüksek Faiz Veren İlk 3 Banka (Stopaj Düşülmüş Net Kazanç):",
+    ]
+    medals = ["🥇", "🥈", "🥉"]
+    for idx, d in enumerate(deposits[:3]):
+        r_s = f"%{d.annual_rate:.1f}".replace(".", ",")
+        lines.append(f"{medals[idx]} {d.bank_name} ({r_s}): Net +{format_tl(d.net_return)} | Vade Sonu: {format_tl(d.total_balance)}")
+
+    lines.append(f"\n💡 En yüksek getiri {best.bank_name} hesabında net {format_tl(best.net_return)} olarak öne çıkıyor.")
+    lines.append("🔥 Ayrıca yeni müşterilere özel 50.000 TL'ye varan %0 faizli nakit fırsatları mevcuttur.")
+    lines.append("\n📲 Tüm bankaları incelemek ve mevduatınızı hesaplamak için Telegram kanalımız:")
+    lines.append("👉 https://t.me/faizradari\n")
+    lines.append("#mevduat #faiz #tasarruf #para #yatirim")
+    return "\n".join(lines)
 
 
 def build_spread_caption(usd_spreads, gold_spreads, tickers) -> str:
@@ -285,12 +308,28 @@ def build_spread_caption(usd_spreads, gold_spreads, tickers) -> str:
 
 
 def build_spread_x_text(usd_spreads, gold_spreads) -> str:
-    return (
-        "💱 Bankaların Canlı Dolar & Gram Altın Alış-Satış Makas Tablosu!\n\n"
-        "Daha fazla ayrıntılı bilgi ve kredi hesaplaması için Telegram sayfamızı ziyaret edebilirsiniz 👇\n"
-        "https://t.me/faizradari\n\n"
-        "#dolar #altın #kur #faiz"
-    )
+    lines = [
+        "💱 Bankaların Canlı Dolar (USD) & Gram Altın Alış-Satış Makas Tablosu\n",
+        "💵 En Düşük Dolar Makası Veren Bankalar:",
+    ]
+    for idx, u in enumerate(usd_spreads[:3]):
+        buy_s = f"{u.buy_price:.2f} ₺".replace(".", ",")
+        sell_s = f"{u.sell_price:.2f} ₺".replace(".", ",")
+        sp_s = f"{u.spread_tl:.2f} ₺ (%{u.spread_pct:.2f})".replace(".", ",")
+        lines.append(f"• {u.bank_name}: Alış {buy_s} / Satış {sell_s} (Makas: {sp_s})")
+
+    lines.append("\n🪙 En Düşük Gram Altın Makası Veren Bankalar:")
+    for idx, g in enumerate(gold_spreads[:3]):
+        buy_s = f"{g.buy_price:,.0f} ₺".replace(",", ".")
+        sell_s = f"{g.sell_price:,.0f} ₺".replace(",", ".")
+        sp_s = f"{g.spread_tl:,.0f} ₺ (%{g.spread_pct:.2f})".replace(".", ",")
+        lines.append(f"• {g.bank_name}: Alış {buy_s} / Satış {sell_s} (Makas: {sp_s})")
+
+    lines.append("\n⚠️ Mesai saatleri dışında bankaların makas farkları açılmaktadır.")
+    lines.append("📊 Anlık canlı oran takibi ve detaylı bültenler için Telegram sayfamızı ziyaret edebilirsiniz:")
+    lines.append("👉 https://t.me/faizradari\n")
+    lines.append("#dolar #altın #gramaltın #döviz #kur")
+    return "\n".join(lines)
 
 
 def _post_photo_to_telegram(img_path: str, caption: str, target_chat_id: str = CHANNEL_ID, reply_markup: str = None) -> dict:
