@@ -37,15 +37,42 @@ X_ACCESS_TOKEN = os.getenv("X_ACCESS_TOKEN", "").strip()
 X_ACCESS_TOKEN_SECRET = os.getenv("X_ACCESS_TOKEN_SECRET", "").strip()
 
 
+def sanitize_x_text(text: str) -> str:
+    """
+    X API pay-per-use maliyet optimizasyonu:
+    Tweet içinde URL (http/https/t.me vb.) olduğunda 'ContentCreateWithUrl' olarak
+    değerlendirilip 0,20$ faturalandırılır.
+    URL içermeyen düz metin paylaşımları ise 'PostCreate' / 'ContentCreate' olarak
+    yalnızca ~0,01$ - 0,015$ (20 kat daha ucuz) tutar.
+    Bu fonksiyon tweet metnindeki tüm URL'leri ve link tetikleyen uzantıları temizler.
+    """
+    import re
+    # 1. Telegram linklerini kanal etiketine dönüştür
+    text = re.sub(r'https?://t\.me/faizradari_bot\S*', '@faizradari_bot', text)
+    text = re.sub(r'https?://t\.me/faizradari\S*', '@faizradari', text)
+    text = re.sub(r't\.me/faizradari\S*', '@faizradari', text)
+    # 2. Banka .com kalıntılarını düzelt (örn. enpara.com -> Enpara)
+    text = re.sub(r'enpara\.com', 'Enpara', text, flags=re.IGNORECASE)
+    # 3. Herhangi bir http/https URL'sini tamamen sil
+    text = re.sub(r'https?://\S+', '', text)
+    # 4. t.me veya bit.ly gibi domain tetikleyicileri temizle
+    text = re.sub(r'\b[a-zA-Z0-9-]+\.(com|org|net|me|io|co)\b', '', text)
+    return text.strip()
+
+
 def post_to_x(img_path: str = None, tweet_text: str = "") -> None:
     """
     X (Twitter) paylaşım motoru:
     - img_path verilmişse: Görsel + Metin paylaşır (Günde 1 kez).
     - img_path None ise: Yalnızca zengin metin paylaşır (~0.01$ düşük maliyetli, günde 6 kez).
+    - tweet_text: sanitize_x_text ile URL'lerden arındırılarak 0.01$ tarifesinde kalması sağlanır.
     """
     if not (X_API_KEY and X_API_SECRET and X_ACCESS_TOKEN and X_ACCESS_TOKEN_SECRET):
         return
     try:
+        # URL temizliği (0.20$ yerine 0.01$ PostCreate tarifesi için zorunlu)
+        cleaned_text = sanitize_x_text(tweet_text)
+
         client_v2 = tweepy.Client(
             consumer_key=X_API_KEY,
             consumer_secret=X_API_SECRET,
@@ -59,7 +86,7 @@ def post_to_x(img_path: str = None, tweet_text: str = "") -> None:
             media = api_v1.media_upload(filename=img_path)
             media_ids = [media.media_id]
 
-        res = client_v2.create_tweet(text=tweet_text, media_ids=media_ids)
+        res = client_v2.create_tweet(text=cleaned_text, media_ids=media_ids)
         mode = "Görselli" if media_ids else "Metin"
         print(f"[BAŞARILI] {mode} Tweet X (@faizradari) hesabında paylaşıldı! (Tweet ID: {res.data.get('id')})")
     except Exception as e:
@@ -267,10 +294,10 @@ def build_loan_x_text(offers) -> str:
         lines.append(f"{medals[idx]} {o.bank_name}: Aylık {r_s} | Taksit: {format_tl(o.monthly_installment)} | Toplam: {format_tl(o.total_repayment)}")
 
     ctas = [
-        f"\nSizce mevcut piyasa koşullarında bu aylık taksitler ödenebilir mi? Düşünceleriniz neler?\n\n🧮 Kendi tutarınızı hesaplamak için: https://t.me/faizradari",
-        f"\nCebinizde kalacak {diff_str} az para değil. Hangi bankayla çalışıyorsunuz?\n\n📊 Canlı tablo takibi: https://t.me/faizradari",
-        f"\nDetaylı masraf ve faiz dökümü için Telegram sayfamızı inceleyebilirsiniz 👇\n👉 https://t.me/faizradari",
-        f"\nSiz olsaydınız hangi bankayı tercih ederdiniz? 👇\n\nDetaylı bülten: https://t.me/faizradari",
+        f"\nSizce mevcut piyasa koşullarında bu aylık taksitler ödenebilir mi? Düşünceleriniz neler?\n\n🧮 Kendi tutarınızı hesaplamak için Telegram: @faizradari",
+        f"\nCebinizde kalacak {diff_str} az para değil. Hangi bankayla çalışıyorsunuz?\n\n📊 Canlı tablo takibi için Telegram: @faizradari",
+        f"\nDetaylı masraf ve faiz dökümü için Telegram kanalımız: @faizradari",
+        f"\nSiz olsaydınız hangi bankayı tercih ederdiniz? 👇\n\nDetaylı bülten: @faizradari (Telegram)",
     ]
     lines.append(random.choice(ctas))
     lines.append("\n#kredi #faiz #para")
@@ -329,9 +356,9 @@ def build_deposit_x_text(deposits) -> str:
         lines.append(f"{medals[idx]} {d.bank_name} ({r_s}): Net +{format_tl(d.net_return)} | Vade Sonu: {format_tl(d.total_balance)}")
 
     ctas = [
-        f"\nSizce mevcut piyasada mevduat faizleri enflasyona karşı koruyor mu?\n\n📲 Günlük oranlar ve %0 faiz fırsatları: https://t.me/faizradari",
-        f"\n🔥 Yeni müşterilere özel %0 faizli nakit fırsatları da devam ediyor.\nDetaylı hesaplama ve bülten: https://t.me/faizradari",
-        f"\nParanızı şu an mevduatta mı tutuyorsunuz yoksa altın/dövizde mi?\n\n📊 Analizler: https://t.me/faizradari",
+        f"\nSizce mevcut piyasada mevduat faizleri enflasyona karşı koruyor mu?\n\n📲 Günlük oranlar ve %0 faiz fırsatları için Telegram: @faizradari",
+        f"\n🔥 Yeni müşterilere özel %0 faizli nakit fırsatları da devam ediyor.\nDetaylı hesaplama ve bülten için profilimizdeki Telegram linki: @faizradari",
+        f"\nParanızı şu an mevduatta mı tutuyorsunuz yoksa altın/dövizde mi?\n\n📊 Analizler için Telegram kanalımız: @faizradari",
     ]
     lines.append(random.choice(ctas))
     lines.append("\n#mevduat #faiz #tasarruf")
@@ -397,8 +424,8 @@ def build_spread_x_text(usd_spreads, gold_spreads) -> str:
         lines.append(f"• {g.bank_name}: Alış {buy_s} / Satış {sell_s} (Fark: {sp_s})")
 
     ctas = [
-        "\nSiz altın veya döviz alırken hangi bankayı kullanıyorsunuz? Makasından memnun musunuz?\n\n👉 Anlık takip: https://t.me/faizradari",
-        "\nMesai saatleri dışında makas farkları ciddi oranda artmaktadır, dikkatli olun.\n\n📊 Canlı oranlar: https://t.me/faizradari",
+        "\nSiz altın veya döviz alırken hangi bankayı kullanıyorsunuz? Makasından memnun musunuz?\n\n👉 Anlık takip için Telegram kanalımız: @faizradari",
+        "\nMesai saatleri dışında makas farkları ciddi oranda artmaktadır, dikkatli olun.\n\n📊 Canlı oranlar Telegram kanalımızda: @faizradari",
     ]
     lines.append(random.choice(ctas))
     lines.append("\n#altın #dolar #döviz")
@@ -443,7 +470,7 @@ def send_loan_report(loan_type: str = "ihtiyac", principal: float = 100_000, mon
         _post_photo_to_telegram(alert_img, alert_caption, target_chat_id=CHANNEL_ID)
         post_to_x(
             alert_img,
-            f"🚨 FLAŞ | {a.bank_name} Faiz İndirdi!\n%{a.old_rate:.2f} ➔ %{a.new_rate:.2f}\nDetaylar: t.me/faizradari #kredi #faiz",
+            f"🚨 FLAŞ | {a.bank_name} Faiz İndirdi!\n%{a.old_rate:.2f} ➔ %{a.new_rate:.2f}\nDetaylar profilimizdeki linkte: @faizradari #kredi #faiz",
         )
 
     img_path = render_loan_table_image(
