@@ -23,7 +23,7 @@ DEFAULT_RATES = {
         "Alternatif Bank": 2.49,
         "DenizBank": 2.89,
         "ON Dijital": 2.99,
-        "Enpara.com": 3.14,
+        "Enpara": 3.14,
         "CEPTETEB": 3.39,
         "Akbank": 3.49,
         "Türkiye İş Bankası": 3.68,
@@ -57,13 +57,13 @@ DEFAULT_RATES = {
         "Fibabanka (Kiraz Hesap)": 48.5,
         "Akbank (Serbest Plus)": 48.0,
         "Garanti BBVA (E-Vadeli)": 47.0,
-        "Enpara.com (Vadeli TL)": 46.5,
+        "Enpara (Vadeli TL)": 46.5,
     },
 }
 
 ZERO_INTEREST_OFFERS = [
     {"bank": "Garanti BBVA", "amount": "50.000 TL", "term": "3-6 Ay", "detail": "25.000 TL Kredi + 25.000 TL Taksitli Avans (%0 Faiz)"},
-    {"bank": "Enpara.com", "amount": "50.000 TL", "term": "6 Ay", "detail": "Yeni müşterilere özel 50.000 TL'ye varan %0 faizli kredi"},
+    {"bank": "Enpara", "amount": "50.000 TL", "term": "6 Ay", "detail": "Yeni müşterilere özel 50.000 TL'ye varan %0 faizli kredi"},
     {"bank": "Akbank", "amount": "45.000 TL", "term": "6 Ay", "detail": "20.000 TL Kredi + 25.000 TL Taksitli Avans (%0 Faiz)"},
     {"bank": "QNB", "amount": "45.000 TL", "term": "3-6 Ay", "detail": "20.000 TL Kredi + 25.000 TL Nakit Avans (%0 Faiz)"},
     {"bank": "ON Dijital", "amount": "35.000 TL", "term": "6 Ay", "detail": "Yeni müşterilere özel %0 faiz fırsatı"},
@@ -150,7 +150,7 @@ def _scrape_loan_rates_by_type(loan_type: str, principal: float, months: int) ->
                 match = re.search(pattern, text, re.IGNORECASE)
                 if match:
                     rate_val = float(match.group(1).replace(",", "."))
-                    norm_name = "Enpara.com" if bank == "Enpara" else ("Türkiye İş Bankası" if bank == "İş Bankası" else ("Ziraat Bankası" if bank == "Ziraat" else bank))
+                    norm_name = "Enpara" if bank == "Enpara" else ("Türkiye İş Bankası" if bank == "İş Bankası" else ("Ziraat Bankası" if bank == "Ziraat" else bank))
                     if min_r <= rate_val <= max_r and not any(b == norm_name for b, _ in scraped):
                         scraped.append((norm_name, rate_val))
             if len(scraped) >= 5:
@@ -256,7 +256,7 @@ def get_bank_spread_offers() -> Tuple[List[SpreadOffer], List[SpreadOffer]]:
                     if not name or name in ("Kaynak", "Serbest Piyasa", "TCMB", "Altınkaynak", "Kapalıçarşı"):
                         continue
                     if name == "Enpara":
-                        name = "Enpara.com"
+                        name = "Enpara"
                     if name == "QNB Finansbank":
                         name = "QNB"
                     buy_v = _parse_tr_float(cols[1])
@@ -282,9 +282,9 @@ def get_bank_spread_offers() -> Tuple[List[SpreadOffer], List[SpreadOffer]]:
                     buy_v = _parse_tr_float(parts[1])
                     sell_v = _parse_tr_float(parts[2])
                     if "USD ($)" in label and 35.0 < buy_v < sell_v < 80.0:
-                        usd_map["Enpara.com"] = SpreadOffer("Enpara.com", "USD", buy_v, sell_v)
+                        usd_map["Enpara"] = SpreadOffer("Enpara", "USD", buy_v, sell_v)
                     elif "Altın (gram)" in label and "/USD" not in label and 5500.0 < buy_v < sell_v < 9000.0:
-                        gold_map["Enpara.com"] = SpreadOffer("Enpara.com", "ALTIN", buy_v, sell_v)
+                        gold_map["Enpara"] = SpreadOffer("Enpara", "ALTIN", buy_v, sell_v)
     except Exception:
         pass
 
@@ -300,7 +300,7 @@ def get_bank_spread_offers() -> Tuple[List[SpreadOffer], List[SpreadOffer]]:
         "Yapı Kredi": "Yapı Kredi",
         "Denizbank": "DenizBank",
         "Kuveyt Türk": "Kuveyt Türk",
-        "Enpara": "Enpara.com",
+        "Enpara": "Enpara",
     }
     try:
         r_gold = requests.get("https://altin.in/banka/altin", headers=HEADERS, timeout=8)
@@ -311,7 +311,7 @@ def get_bank_spread_offers() -> Tuple[List[SpreadOffer], List[SpreadOffer]]:
                 if len(parts) >= 5 and "Gram Altın" in parts:
                     raw_bank = parts[0]
                     norm_bank = bank_name_normalize.get(raw_bank, raw_bank)
-                    if norm_bank == "Enpara.com" and "Enpara.com" in gold_map:
+                    if norm_bank == "Enpara" and "Enpara" in gold_map:
                         continue
                     idx_g = parts.index("Gram Altın")
                     if len(parts) >= idx_g + 3:
