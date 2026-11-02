@@ -1,10 +1,17 @@
 name: Faiz Radari Otonom Bot (09:00 - 21:00)
 
 on:
-  schedule:
-    # Türkiye saati (UTC+3) ile 09:00, 11:00, 13:00, 15:00, 17:00, 19:00 ve 21:00
-    - cron: '0 6,8,10,12,14,16,18 * * *'
   workflow_dispatch:
+    inputs:
+      topic:
+        description: 'Gönderilecek tablo konusu (ihtiyac, makas, konut, tasit, mevduat)'
+        required: false
+        default: 'auto'
+  repository_dispatch:
+    types: [trigger-report]
+  schedule:
+    # Yedek tetikleyici (UTC): 06:00, 08:00, 10:00, 12:00, 14:00, 16:00, 18:00
+    - cron: '0 6,8,10,12,14,16,18 * * *'
 
 permissions:
   contents: write
@@ -35,7 +42,13 @@ jobs:
           X_API_SECRET: ${{ secrets.X_API_SECRET }}
           X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
           X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
-        run: python bot.py --auto-slot
+        run: |
+          TOPIC="${{ github.event.inputs.topic || github.event.client_payload.topic || 'auto' }}"
+          if [ "$TOPIC" != "auto" ]; then
+            python bot.py --auto-slot --topic="$TOPIC"
+          else
+            python bot.py --auto-slot
+          fi
 
       - name: Güncel Oran Önbelleğini (rates_cache.json) Kaydet
         run: |

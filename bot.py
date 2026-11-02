@@ -432,17 +432,35 @@ if __name__ == "__main__":
     elif "--mevduat" in sys.argv:
         send_deposit_report(principal=500_000, days=32)
     elif "--auto-slot" in sys.argv:
-        tr_hour = datetime.now(timezone(timedelta(hours=3))).hour
-        if tr_hour in (11, 15, 19):
-            send_spread_report()
-        elif tr_hour in (12, 13, 14):
-            send_loan_report(loan_type="konut", principal=2_000_000, months=120)
-        elif tr_hour in (16, 17, 18):
-            send_loan_report(loan_type="tasit", principal=400_000, months=36)
-        elif tr_hour >= 20:
-            send_deposit_report(principal=500_000, days=32)
-        else:
+        # Belirli bir konu doğrudan argüman olarak verildiyse onu çalıştır
+        target_topic = None
+        for arg in sys.argv:
+            if arg.startswith("--topic="):
+                target_topic = arg.split("=")[1].strip().lower()
+
+        if target_topic == "ihtiyac":
             send_loan_report(loan_type="ihtiyac", principal=100_000, months=12)
+        elif target_topic == "konut":
+            send_loan_report(loan_type="konut", principal=2_000_000, months=120)
+        elif target_topic == "tasit":
+            send_loan_report(loan_type="tasit", principal=400_000, months=36)
+        elif target_topic == "mevduat":
+            send_deposit_report(principal=500_000, days=32)
+        elif target_topic == "makas":
+            send_spread_report()
+        else:
+            # Yedek saat tabanlı mantık (Geniş aralıklarla)
+            tr_hour = datetime.now(timezone(timedelta(hours=3))).hour
+            if tr_hour in (10, 11, 14, 15, 18, 19):
+                send_spread_report()
+            elif tr_hour in (12, 13):
+                send_loan_report(loan_type="konut", principal=2_000_000, months=120)
+            elif tr_hour in (16, 17):
+                send_loan_report(loan_type="tasit", principal=400_000, months=36)
+            elif tr_hour >= 20:
+                send_deposit_report(principal=500_000, days=32)
+            else:
+                send_loan_report(loan_type="ihtiyac", principal=100_000, months=12)
     elif "--schedule" in sys.argv:
         run_scheduler()
     else:
