@@ -234,6 +234,10 @@ def should_attach_image_to_x(current_topic: str) -> bool:
     }
     target_topic = day_image_plan.get(weekday, "ihtiyac")
     return current_topic == target_topic
+
+
+def build_loan_x_text(offers) -> str:
+    import random
     principal_str = format_tl(offers[0].principal)
     months = offers[0].months
     loan_type = offers[0].loan_type
@@ -243,20 +247,33 @@ def should_attach_image_to_x(current_topic: str) -> bool:
     best = offers[0]
     worst = offers[-1]
     diff = worst.total_repayment - best.total_repayment
+    diff_str = format_tl(diff)
+
+    hooks = [
+        f"🚨 {principal_str} kredi çeken biri, yanlış bankayı seçerse tam {diff_str} fazla ödüyor!",
+        f"Bankaların faiz makası açıldı: {principal_str} {lbl} için bankalar arasında tam {diff_str} fark var.",
+        f"Bugün {principal_str} kredi çekecek olsanız hangi bankayı seçerdiniz? En ucuz ile en pahalı arasında {diff_str} oynuyor.",
+        f"{best.bank_name} şu an {principal_str}'de en avantajlı konumda. Aradaki fark tam {diff_str}!",
+    ]
+    hook = random.choice(hooks)
 
     lines = [
-        f"📊 {principal_str} {lbl} ({months} Ay Vade) — Güncel Banka Geri Ödeme Tablosu\n",
-        f"🏦 En Uygun İlk 3 Banka:",
+        hook + "\n",
+        f"📌 Güncel {lbl} ({months} Ay Vade) En Uygun 3 Banka:",
     ]
     medals = ["🥇", "🥈", "🥉"]
     for idx, o in enumerate(offers[:3]):
         r_s = f"%{o.monthly_rate:.2f}".replace(".", ",")
-        lines.append(f"{medals[idx]} {o.bank_name}: Aylık Oran {r_s} | Taksit: {format_tl(o.monthly_installment)} | Toplam: {format_tl(o.total_repayment)}")
+        lines.append(f"{medals[idx]} {o.bank_name}: Aylık {r_s} | Taksit: {format_tl(o.monthly_installment)} | Toplam: {format_tl(o.total_repayment)}")
 
-    lines.append(f"\n💡 Radar Notu: En avantajlı banka ({best.bank_name}) ile son sıradaki banka arasında tam {format_tl(diff)} geri ödeme farkı bulunuyor!")
-    lines.append("\n🧮 İstediğiniz tutar ve vadeyi 7/24 ücretsiz hesaplamak için Telegram sayfamızı ve botumuzu ziyaret edebilirsiniz:")
-    lines.append("👉 https://t.me/faizradari\n")
-    lines.append("#kredi #faiz #banka #ekonomi #finans")
+    ctas = [
+        f"\nSizce mevcut piyasa koşullarında bu aylık taksitler ödenebilir mi? Düşünceleriniz neler?\n\n🧮 Kendi tutarınızı hesaplamak için: https://t.me/faizradari",
+        f"\nCebinizde kalacak {diff_str} az para değil. Hangi bankayla çalışıyorsunuz?\n\n📊 Canlı tablo takibi: https://t.me/faizradari",
+        f"\nDetaylı masraf ve faiz dökümü için Telegram sayfamızı inceleyebilirsiniz 👇\n👉 https://t.me/faizradari",
+        f"\nSiz olsaydınız hangi bankayı tercih ederdiniz? 👇\n\nDetaylı bülten: https://t.me/faizradari",
+    ]
+    lines.append(random.choice(ctas))
+    lines.append("\n#kredi #faiz #para")
     return "\n".join(lines)
 
 
@@ -290,24 +307,34 @@ def build_deposit_caption(deposits, zero_offers, tickers) -> str:
 
 
 def build_deposit_x_text(deposits) -> str:
+    import random
     principal_str = format_tl(deposits[0].principal)
     days = deposits[0].days
     best = deposits[0]
 
+    hooks = [
+        f"Paranızı boşta tutmayın: {principal_str} anapara {days} günde bankalarda net kaç TL kazandırıyor?",
+        f"{principal_str} için bankaların mevduat savaşı sürüyor! En yüksek faizle en düşük arasında ciddi fark var.",
+        f"Mevduatta en yüksek getiriyi veren banka net {format_tl(best.net_return)} kazanç sunuyor. İşte ilk 3:",
+    ]
+    hook = random.choice(hooks)
+
     lines = [
-        f"💰 {principal_str} Anaparanın {days} Günlük Net Vadeli Mevduat Getirisi Tablosu\n",
-        f"🏆 En Yüksek Faiz Veren İlk 3 Banka (Stopaj Düşülmüş Net Kazanç):",
+        hook + "\n",
+        f"🏆 {days} Günlük Vadeli Mevduat (Stopaj Düşülmüş Net Getiriler):",
     ]
     medals = ["🥇", "🥈", "🥉"]
     for idx, d in enumerate(deposits[:3]):
         r_s = f"%{d.annual_rate:.1f}".replace(".", ",")
         lines.append(f"{medals[idx]} {d.bank_name} ({r_s}): Net +{format_tl(d.net_return)} | Vade Sonu: {format_tl(d.total_balance)}")
 
-    lines.append(f"\n💡 En yüksek getiri {best.bank_name} hesabında net {format_tl(best.net_return)} olarak öne çıkıyor.")
-    lines.append("🔥 Ayrıca yeni müşterilere özel 50.000 TL'ye varan %0 faizli nakit fırsatları mevcuttur.")
-    lines.append("\n📲 Tüm bankaları incelemek ve mevduatınızı hesaplamak için Telegram kanalımız:")
-    lines.append("👉 https://t.me/faizradari\n")
-    lines.append("#mevduat #faiz #tasarruf #para #yatirim")
+    ctas = [
+        f"\nSizce mevcut piyasada mevduat faizleri enflasyona karşı koruyor mu?\n\n📲 Günlük oranlar ve %0 faiz fırsatları: https://t.me/faizradari",
+        f"\n🔥 Yeni müşterilere özel %0 faizli nakit fırsatları da devam ediyor.\nDetaylı hesaplama ve bülten: https://t.me/faizradari",
+        f"\nParanızı şu an mevduatta mı tutuyorsunuz yoksa altın/dövizde mi?\n\n📊 Analizler: https://t.me/faizradari",
+    ]
+    lines.append(random.choice(ctas))
+    lines.append("\n#mevduat #faiz #tasarruf")
     return "\n".join(lines)
 
 
@@ -341,27 +368,40 @@ def build_spread_caption(usd_spreads, gold_spreads, tickers) -> str:
 
 
 def build_spread_x_text(usd_spreads, gold_spreads) -> str:
+    import random
+    u_best = usd_spreads[0] if usd_spreads else None
+    g_best = gold_spreads[0] if gold_spreads else None
+
+    hooks = [
+        "Döviz ve altın alırken bankalara fazladan komisyon ödemeyin! İşte şu an en düşük makası veren bankalar:",
+        "Akşam saatlerinde makaslar nasıl açılıyor? Banka banka güncel Dolar ve Gram Altın alış-satış farkları:",
+        "Altın ve Dolar işlemlerinde makas aralığı en dar olan bankalar belli oldu 👇",
+    ]
+    hook = random.choice(hooks)
+
     lines = [
-        "💱 Bankaların Canlı Dolar (USD) & Gram Altın Alış-Satış Makas Tablosu\n",
-        "💵 En Düşük Dolar Makası Veren Bankalar:",
+        hook + "\n",
+        "💵 En Düşük Dolar (USD) Makası:",
     ]
     for idx, u in enumerate(usd_spreads[:3]):
         buy_s = f"{u.buy_price:.2f} ₺".replace(".", ",")
         sell_s = f"{u.sell_price:.2f} ₺".replace(".", ",")
         sp_s = f"{u.spread_tl:.2f} ₺ (%{u.spread_pct:.2f})".replace(".", ",")
-        lines.append(f"• {u.bank_name}: Alış {buy_s} / Satış {sell_s} (Makas: {sp_s})")
+        lines.append(f"• {u.bank_name}: Alış {buy_s} / Satış {sell_s} (Fark: {sp_s})")
 
-    lines.append("\n🪙 En Düşük Gram Altın Makası Veren Bankalar:")
+    lines.append("\n🪙 En Düşük Gram Altın Makası:")
     for idx, g in enumerate(gold_spreads[:3]):
         buy_s = f"{g.buy_price:,.0f} ₺".replace(",", ".")
         sell_s = f"{g.sell_price:,.0f} ₺".replace(",", ".")
         sp_s = f"{g.spread_tl:,.0f} ₺ (%{g.spread_pct:.2f})".replace(".", ",")
-        lines.append(f"• {g.bank_name}: Alış {buy_s} / Satış {sell_s} (Makas: {sp_s})")
+        lines.append(f"• {g.bank_name}: Alış {buy_s} / Satış {sell_s} (Fark: {sp_s})")
 
-    lines.append("\n⚠️ Mesai saatleri dışında bankaların makas farkları açılmaktadır.")
-    lines.append("📊 Anlık canlı oran takibi ve detaylı bültenler için Telegram sayfamızı ziyaret edebilirsiniz:")
-    lines.append("👉 https://t.me/faizradari\n")
-    lines.append("#dolar #altın #gramaltın #döviz #kur")
+    ctas = [
+        "\nSiz altın veya döviz alırken hangi bankayı kullanıyorsunuz? Makasından memnun musunuz?\n\n👉 Anlık takip: https://t.me/faizradari",
+        "\nMesai saatleri dışında makas farkları ciddi oranda artmaktadır, dikkatli olun.\n\n📊 Canlı oranlar: https://t.me/faizradari",
+    ]
+    lines.append(random.choice(ctas))
+    lines.append("\n#altın #dolar #döviz")
     return "\n".join(lines)
 
 
