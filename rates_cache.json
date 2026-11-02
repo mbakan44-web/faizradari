@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-02 06:58",
+  "updated_at": "2026-11-02 10:39",
   "ihtiyac_kredisi": {
     "ON Dijital (Burgan)": 3.79,
     "CEPTETEB": 3.39,
@@ -28,7 +28,7 @@
       "detail": "25.000 TL Kredi + 25.000 TL Taksitli Avans (%0 Faiz)"
     },
     {
-      "bank": "Enpara.com",
+      "bank": "Enpara",
       "amount": "50.000 TL",
       "term": "6 Ay",
       "detail": "Yeni müşterilere özel 50.000 TL'ye varan %0 faizli kredi"
