@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-02 10:39",
+  "updated_at": "2026-11-02 14:32",
   "ihtiyac_kredisi": {
     "ON Dijital (Burgan)": 3.79,
     "CEPTETEB": 3.39,
@@ -71,5 +71,16 @@
     "Halkbank": 3.19,
     "ING": 3.19,
     "Kuveyt Türk": 2.87
+  },
+  "tasit_kredisi": {
+    "Akbank": 3.18,
+    "Garanti BBVA": 3.34,
+    "Türkiye İş Bankası": 3.49,
+    "Kuveyt Türk (Finansman)": 3.34,
+    "VakıfBank": 3.39,
+    "Ziraat Bankası": 3.29,
+    "Yapı Kredi": 3.49,
+    "QNB": 3.59,
+    "Kuveyt Türk": 3.27
   }
 }
