@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-03 14:40",
+  "updated_at": "2026-11-03 16:39",
   "ihtiyac_kredisi": {
     "ING": 5.0,
     "Odeabank": 2.99,
@@ -88,6 +88,6 @@
     "Garanti BBVA": 3.34,
     "CEPTETEB": 3.39
   },
-  "last_dispatched_slot": "2026-11-03_17_tasit",
-  "last_dispatched_at": "2026-11-03 17:40:11"
+  "last_dispatched_slot": "2026-11-03_19_makas",
+  "last_dispatched_at": "2026-11-03 19:39:23"
 }
