@@ -532,6 +532,32 @@ def send_spread_report(target_chat_id: str = CHANNEL_ID) -> dict:
     return result
 
 
+def check_and_set_dispatch_lock(slot_topic: str) -> bool:
+    """
+    Mükerrer paylaşım koruması:
+    Aynı gün ve saat içinde bu bülten zaten paylaşıldıysa True (kilitli / mükerrer) döner.
+    İlk kez çalıştırılıyorsa kilidi günceller ve False döner (paylaşıma izin verir).
+    """
+    try:
+        from scraper import _load_full_cache, _save_full_cache
+        cache = _load_full_cache()
+        now = datetime.now(timezone(timedelta(hours=3)))
+        current_slot = f"{now.strftime('%Y-%m-%d_%H')}_{slot_topic}"
+        last_slot = cache.get("last_dispatched_slot")
+
+        if last_slot == current_slot:
+            print(f"[MÜKERRER ENGELLEME] '{current_slot}' bülteni zaten az önce paylaşıldı. İkinci gönderim iptal edildi!")
+            return True
+
+        cache["last_dispatched_slot"] = current_slot
+        cache["last_dispatched_at"] = now.strftime("%Y-%m-%d %H:%M:%S")
+        _save_full_cache(cache)
+        return False
+    except Exception as e:
+        print(f"[UYARI] Kilit kontrol hatası: {e}")
+        return False
+
+
 def run_scheduler():
     print("=================================================================")
     print(" Faiz Radarı Tam Kapsamlı Yayın Akışı (Telegram + X) Başlatıldı")
@@ -574,11 +600,28 @@ if __name__ == "__main__":
     elif "--mevduat" in sys.argv:
         send_deposit_report(principal=500_000, days=32)
     elif "--auto-slot" in sys.argv:
-        # Belirli bir konu doğrudan argüman olarak verildiyse onu çalıştır
         target_topic = None
         for arg in sys.argv:
             if arg.startswith("--topic="):
                 target_topic = arg.split("=")[1].strip().lower()
+
+        if not target_topic or target_topic == "auto":
+            tr_hour = datetime.now(timezone(timedelta(hours=3))).hour
+            if tr_hour in (10, 11, 14, 15, 18, 19):
+                target_topic = "makas"
+            elif tr_hour in (12, 13):
+                target_topic = "konut"
+            elif tr_hour in (16, 17):
+                target_topic = "tasit"
+            elif tr_hour >= 20:
+                target_topic = "mevduat"
+            else:
+                target_topic = "ihtiyac"
+
+        # Mükerrer Gönderim Kilidi (GitHub Cron + GAS çift tetiklemesini engeller)
+        if check_and_set_dispatch_lock(target_topic):
+            print(f"[BİLGİ] {target_topic.upper()} bülteni zaten yayınlandı, işlem güvenle sonlandırıldı.")
+            sys.exit(0)
 
         if target_topic == "ihtiyac":
             send_loan_report(loan_type="ihtiyac", principal=100_000, months=12)
@@ -590,19 +633,6 @@ if __name__ == "__main__":
             send_deposit_report(principal=500_000, days=32)
         elif target_topic == "makas":
             send_spread_report()
-        else:
-            # Yedek saat tabanlı mantık (Geniş aralıklarla)
-            tr_hour = datetime.now(timezone(timedelta(hours=3))).hour
-            if tr_hour in (10, 11, 14, 15, 18, 19):
-                send_spread_report()
-            elif tr_hour in (12, 13):
-                send_loan_report(loan_type="konut", principal=2_000_000, months=120)
-            elif tr_hour in (16, 17):
-                send_loan_report(loan_type="tasit", principal=400_000, months=36)
-            elif tr_hour >= 20:
-                send_deposit_report(principal=500_000, days=32)
-            else:
-                send_loan_report(loan_type="ihtiyac", principal=100_000, months=12)
     elif "--schedule" in sys.argv:
         run_scheduler()
     else:

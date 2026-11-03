@@ -16,6 +16,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: faiz-radari-publish
+  cancel-in-progress: false
+
 jobs:
   send-telegram-report:
     runs-on: ubuntu-latest
