@@ -295,10 +295,17 @@ def get_loan_offers(
     # 1. Taban oranlar
     base_rates = clean_and_deduplicate_rates(DEFAULT_RATES.get(loan_type, {}), mode="min")
 
-    # 2. Önbellekteki güncel oranlar
+    # 2. Önbellekteki güncel oranlar (Eski önbellek taban orandaki indirimleri engellemesin diye min alınır)
     cached_rates = clean_and_deduplicate_rates(cache.get(cache_key, {}), mode="min")
-    old_rates = dict(base_rates)
-    old_rates.update(cached_rates)
+    old_rates: Dict[str, float] = {}
+    all_banks = set(base_rates.keys()) | set(cached_rates.keys())
+    for b in all_banks:
+        if b in base_rates and b in cached_rates:
+            old_rates[b] = min(base_rates[b], cached_rates[b])
+        elif b in base_rates:
+            old_rates[b] = base_rates[b]
+        else:
+            old_rates[b] = cached_rates[b]
 
     # 3. Canlı tarama
     scraped = _scrape_loan_rates_by_type(loan_type, principal, months)

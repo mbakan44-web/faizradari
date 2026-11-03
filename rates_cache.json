@@ -1,24 +1,23 @@
 {
-  "updated_at": "2026-11-03 06:58",
+  "updated_at": "2026-11-03 13:16",
   "ihtiyac_kredisi": {
-    "ON Dijital (Burgan)": 3.79,
-    "CEPTETEB": 3.39,
-    "QNB": 3.84,
-    "Enpara.com": 3.14,
     "ING": 5.0,
-    "Akbank": 3.49,
-    "Garanti BBVA": 4.24,
-    "Türkiye İş Bankası": 3.68,
-    "Yapı Kredi": 4.39,
+    "Odeabank": 2.99,
+    "Yapı Kredi": 4.29,
+    "Akbank": 3.39,
+    "QNB": 3.84,
     "DenizBank": 2.89,
-    "Enpara": 3.14,
-    "İş Bankası": 3.68,
-    "ON Dijital": 2.99,
     "Alternatif Bank": 3.19,
     "N Kolay": 3.99,
-    "Ziraat": 3.69,
+    "getirfinans": 2.89,
+    "Enpara": 3.14,
+    "Garanti BBVA": 3.89,
+    "Anadolubank": 3.09,
+    "CEPTETEB": 3.39,
     "Ziraat Bankası": 3.69,
-    "Kuveyt Türk": 3.77
+    "Kuveyt Türk": 3.77,
+    "ON Dijital": 2.99,
+    "Türkiye İş Bankası": 3.68
   },
   "sifir_faiz_firsatlari": [
     {
@@ -53,34 +52,40 @@
     }
   ],
   "mevduat_oranlari": {
-    "ON Dijital (ON Plus)": 51.0,
-    "CEPTETEB (Marifetli)": 50.0,
-    "ING (Turuncu Ekstra)": 50.0,
-    "Akbank (Serbest Plus)": 48.0,
+    "ON Dijital": 51.0,
+    "CEPTETEB": 50.0,
+    "ING": 50.0,
+    "Alternatif Bank": 49.0,
+    "Fibabanka": 48.5,
+    "Akbank": 48.0,
     "Garanti BBVA": 47.0,
-    "Enpara.com": 46.5
+    "Enpara": 46.5,
+    "Türkiye İş Bankası": 44.0,
+    "Yapı Kredi": 43.5
   },
   "konut_kredisi": {
-    "Ziraat Bankası": 2.89,
-    "QNB": 2.84,
-    "Akbank": 3.15,
+    "VakıfBank": 2.84,
+    "Kuveyt Türk": 2.87,
     "Garanti BBVA": 3.13,
-    "VakıfBank": 2.99,
-    "Türkiye İş Bankası": 3.05,
-    "Yapı Kredi": 3.09,
-    "Halkbank": 3.19,
+    "Ziraat Bankası": 2.89,
+    "Akbank": 3.15,
     "ING": 3.19,
-    "Kuveyt Türk": 2.87
+    "Türkiye İş Bankası": 3.05,
+    "QNB": 2.84,
+    "Yapı Kredi": 3.09,
+    "CEPTETEB": 3.2,
+    "Halkbank": 2.99
   },
   "tasit_kredisi": {
     "Akbank": 3.18,
     "Garanti BBVA": 3.34,
+    "Kuveyt Türk": 3.27,
     "Türkiye İş Bankası": 3.49,
-    "Kuveyt Türk (Finansman)": 3.34,
-    "VakıfBank": 3.39,
     "Ziraat Bankası": 3.29,
+    "VakıfBank": 3.39,
+    "CEPTETEB": 3.39,
     "Yapı Kredi": 3.49,
     "QNB": 3.59,
-    "Kuveyt Türk": 3.27
+    "Halkbank": 3.65
   }
 }
