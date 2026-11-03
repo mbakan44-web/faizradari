@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-03 10:38",
+  "updated_at": "2026-11-03 12:10",
   "ihtiyac_kredisi": {
     "ING": 5.0,
     "Odeabank": 2.99,
@@ -88,6 +88,6 @@
     "QNB": 3.59,
     "Halkbank": 3.65
   },
-  "last_dispatched_slot": "2026-11-03_13_konut",
-  "last_dispatched_at": "2026-11-03 13:38:56"
+  "last_dispatched_slot": "2026-11-03_15_makas",
+  "last_dispatched_at": "2026-11-03 15:10:14"
 }
