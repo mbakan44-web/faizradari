@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-04 06:58",
+  "updated_at": "2026-11-04 12:10",
   "ihtiyac_kredisi": {
     "N Kolay": 3.99,
     "Kuveyt Türk": 3.77,
@@ -88,6 +88,6 @@
     "Garanti BBVA": 3.34,
     "CEPTETEB": 3.39
   },
-  "last_dispatched_slot": "2026-11-04_09_ihtiyac",
-  "last_dispatched_at": "2026-11-04 09:58:09"
+  "last_dispatched_slot": "2026-11-04_15_makas",
+  "last_dispatched_at": "2026-11-04 15:10:15"
 }
