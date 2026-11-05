@@ -103,9 +103,10 @@ def configure_bot_profile():
         "• Konut Kredisi: konut 2000000 120\n"
         "• Taşıt Kredisi: tasit 400000 36\n"
         "• Vadeli Mevduat: mevduat 500000 32\n\n"
+        "🤝 Reklam & Sponsorluk: Teklifinizi doğrudan bu bota mesaj olarak yazabilirsiniz.\n"
         "🔔 Resmi Kanalımız: @faizradari"
     )
-    short_desc = "📊 İstediğiniz tutar ve vadede banka kredi/mevduat net ödeme tablosu hesaplayıcı. Kanal: @faizradari"
+    short_desc = "📊 Kredi/mevduat hesaplama ve reklam/işbirliği masası. Kanal: @faizradari"
     commands = [
         {"command": "start", "description": "Hesaplama menüsünü ve kullanım kılavuzunu aç"},
         {"command": "ihtiyac", "description": "İhtiyaç kredisi hesapla (Örn: /ihtiyac 150000 12)"},
@@ -113,6 +114,7 @@ def configure_bot_profile():
         {"command": "tasit", "description": "Taşıt kredisi hesapla (Örn: /tasit 400000 36)"},
         {"command": "mevduat", "description": "Vadeli mevduat getirisi hesapla (Örn: /mevduat 500000 32)"},
         {"command": "makas", "description": "Canlı banka Dolar & Altın makas tablosunu getir"},
+        {"command": "reklam", "description": "Reklam ve işbirliği teklifi ilet"},
     ]
     requests.post(f"{API_BASE}/setMyDescription", json={"description": description}, timeout=10)
     requests.post(f"{API_BASE}/setMyShortDescription", json={"short_description": short_desc}, timeout=10)
