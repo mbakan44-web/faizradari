@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-05 13:51",
+  "updated_at": "2026-11-05 20:54",
   "ihtiyac_kredisi": {
     "QNB": 3.84,
     "Türkiye İş Bankası": 3.68,
@@ -88,6 +88,6 @@
     "Akbank": 3.18,
     "Kuveyt Türk": 3.27
   },
-  "last_dispatched_slot": "2026-11-05_16_tasit",
-  "last_dispatched_at": "2026-11-05 16:51:53"
+  "last_dispatched_slot": "2026-11-05_23_mevduat",
+  "last_dispatched_at": "2026-11-05 23:54:35"
 }
