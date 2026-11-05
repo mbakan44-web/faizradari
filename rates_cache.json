@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-05 06:58",
+  "updated_at": "2026-11-05 10:38",
   "ihtiyac_kredisi": {
     "QNB": 3.84,
     "Türkiye İş Bankası": 3.68,
@@ -64,17 +64,17 @@
     "Yapı Kredi": 43.5
   },
   "konut_kredisi": {
+    "Yapı Kredi": 3.09,
+    "ING": 3.19,
+    "Türkiye İş Bankası": 3.05,
     "CEPTETEB": 3.2,
     "Akbank": 3.15,
-    "Ziraat Bankası": 2.89,
-    "VakıfBank": 2.84,
-    "Halkbank": 2.99,
-    "ING": 3.19,
-    "Kuveyt Türk": 2.87,
-    "Türkiye İş Bankası": 3.05,
-    "Yapı Kredi": 3.09,
     "Garanti BBVA": 3.13,
-    "QNB": 2.84
+    "Ziraat Bankası": 2.89,
+    "QNB": 2.84,
+    "Halkbank": 2.99,
+    "VakıfBank": 2.84,
+    "Kuveyt Türk": 2.87
   },
   "tasit_kredisi": {
     "Kuveyt Türk": 3.27,
@@ -88,6 +88,6 @@
     "Halkbank": 3.65,
     "Garanti BBVA": 3.34
   },
-  "last_dispatched_slot": "2026-11-05_09_ihtiyac",
-  "last_dispatched_at": "2026-11-05 09:58:09"
+  "last_dispatched_slot": "2026-11-05_13_konut",
+  "last_dispatched_at": "2026-11-05 13:38:54"
 }
