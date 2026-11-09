@@ -36,6 +36,65 @@ X_API_SECRET = os.getenv("X_API_SECRET", "").strip()
 X_ACCESS_TOKEN = os.getenv("X_ACCESS_TOKEN", "").strip()
 X_ACCESS_TOKEN_SECRET = os.getenv("X_ACCESS_TOKEN_SECRET", "").strip()
 
+WHAPI_TOKEN = os.getenv("WHAPI_TOKEN", "9HHe4hOHubOEGnfoSQ2CjR1ak1VxxqFK").strip()
+WHATSAPP_CHANNEL_ID = os.getenv("WHATSAPP_CHANNEL_ID", "120363414327685491@newsletter").strip()
+
+
+def convert_to_whatsapp(text: str) -> str:
+    """
+    Telegram HTML etiketlerini WhatsApp uyumlu markdown formatına dönüştürür.
+    WhatsApp etiketleri: *kalın*, _italik_.
+    """
+    t = re.sub(r'<b>(.*?)</b>', r'*\1*', text, flags=re.DOTALL)
+    t = re.sub(r'<strong>(.*?)</strong>', r'*\1*', t, flags=re.DOTALL)
+    t = re.sub(r'<i>(.*?)</i>', r'_\1_', t, flags=re.DOTALL)
+    t = re.sub(r'<em>(.*?)</em>', r'_\1_', t, flags=re.DOTALL)
+    t = re.sub(r'<code>(.*?)</code>', r'*\1*', t, flags=re.DOTALL)
+    t = re.sub(r'<[^>]+>', '', t)
+    t = re.sub(
+        r'🔔\s*\*?Takip:\*?\s*@faizradari',
+        '🔔 *Faiz Radarı WhatsApp Kanalı*\n'
+        '• Anlık bültenler için sağ üstteki çan simgesine tıklayarak bildirimleri açmayı unutmayın!\n'
+        '🤖 Kişiye özel net ödeme planı ve anlık hesaplama için Telegram Botumuz:\n'
+        '👉 https://t.me/faizradari_bot',
+        t
+    )
+    return t.strip()
+
+
+def post_to_whatsapp(img_path: str, caption: str) -> None:
+    """
+    Whapi.cloud üzerinden WhatsApp Kanalına (@newsletter) otomatik görsel + metin paylaşır.
+    """
+    if not (WHAPI_TOKEN and WHATSAPP_CHANNEL_ID):
+        return
+    try:
+        import base64
+        wa_text = convert_to_whatsapp(caption)
+        
+        with open(img_path, "rb") as f:
+            img_b64 = base64.b64encode(f.read()).decode("utf-8")
+        
+        payload = {
+            "to": WHATSAPP_CHANNEL_ID,
+            "media": f"data:image/png;base64,{img_b64}",
+            "caption": wa_text
+        }
+        
+        url = "https://gate.whapi.cloud/messages/image"
+        headers = {
+            "Authorization": f"Bearer {WHAPI_TOKEN}",
+            "Content-Type": "application/json",
+            "User-Agent": "FaizRadari-Bot/1.0"
+        }
+        res = requests.post(url, json=payload, headers=headers, timeout=25)
+        if res.status_code in (200, 201):
+            print(f"[BAŞARILI] Tablo ve açıklama WhatsApp Kanalında ({WHATSAPP_CHANNEL_ID}) paylaşıldı!")
+        else:
+            print(f"[UYARI] WhatsApp paylaşımı başarısız: HTTP {res.status_code} - {res.text[:200]}")
+    except Exception as e:
+        print(f"[UYARI] WhatsApp paylaşım hatası: {e}")
+
 
 def sanitize_x_text(text: str) -> str:
     """
@@ -491,6 +550,7 @@ def send_loan_report(loan_type: str = "ihtiyac", principal: float = 100_000, mon
     if target_chat_id == CHANNEL_ID:
         attach_img = img_path if should_attach_image_to_x(loan_type) else None
         post_to_x(attach_img, build_loan_x_text(offers))
+        post_to_whatsapp(img_path, caption)
     return result
 
 
@@ -511,6 +571,7 @@ def send_deposit_report(principal: float = 500_000, days: int = 32, target_chat_
     if target_chat_id == CHANNEL_ID:
         attach_img = img_path if should_attach_image_to_x("mevduat") else None
         post_to_x(attach_img, build_deposit_x_text(deposits))
+        post_to_whatsapp(img_path, caption)
     return result
 
 
@@ -531,6 +592,7 @@ def send_spread_report(target_chat_id: str = CHANNEL_ID) -> dict:
     if target_chat_id == CHANNEL_ID:
         attach_img = img_path if should_attach_image_to_x("makas") else None
         post_to_x(attach_img, build_spread_x_text(usd_spreads, gold_spreads))
+        post_to_whatsapp(img_path, caption)
     return result
 
 

@@ -48,6 +48,8 @@ jobs:
           X_API_SECRET: ${{ secrets.X_API_SECRET }}
           X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
           X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
+          WHAPI_TOKEN: ${{ secrets.WHAPI_TOKEN || '9HHe4hOHubOEGnfoSQ2CjR1ak1VxxqFK' }}
+          WHATSAPP_CHANNEL_ID: "120363414327685491@newsletter"
         run: |
           TOPIC="${{ github.event.inputs.topic || github.event.client_payload.topic || 'auto' }}"
           if [ "$TOPIC" != "auto" ]; then
