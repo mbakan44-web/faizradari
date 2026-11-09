@@ -1,23 +1,23 @@
 {
-  "updated_at": "2026-11-09 05:13",
+  "updated_at": "2026-11-09 06:29",
   "ihtiyac_kredisi": {
-    "Türkiye İş Bankası": 3.68,
-    "Kuveyt Türk": 3.77,
-    "QNB": 2.84,
-    "CEPTETEB": 3.39,
-    "Enpara": 3.69,
-    "Garanti BBVA": 3.89,
-    "N Kolay": 3.99,
-    "Anadolubank": 3.09,
-    "DenizBank": 2.89,
-    "ON Dijital": 3.19,
-    "getirfinans": 2.89,
-    "Alternatif Bank": 2.99,
     "ING": 5.0,
-    "Yapı Kredi": 4.29,
-    "Odeabank": 2.99,
     "Akbank": 3.29,
-    "Ziraat Bankası": 3.69
+    "Odeabank": 2.99,
+    "getirfinans": 2.89,
+    "ON Dijital": 3.19,
+    "N Kolay": 3.99,
+    "Garanti BBVA": 3.89,
+    "Anadolubank": 3.09,
+    "Kuveyt Türk": 3.77,
+    "Yapı Kredi": 4.29,
+    "Türkiye İş Bankası": 3.68,
+    "Enpara": 3.69,
+    "QNB": 2.84,
+    "Ziraat Bankası": 3.69,
+    "DenizBank": 2.89,
+    "CEPTETEB": 3.39,
+    "Alternatif Bank": 2.99
   },
   "sifir_faiz_firsatlari": [
     {
@@ -88,6 +88,6 @@
     "Yapı Kredi": 3.49,
     "Akbank": 3.18
   },
-  "last_dispatched_slot": "2026-11-09_08_ihtiyac",
-  "last_dispatched_at": "2026-11-09 08:13:40"
+  "last_dispatched_slot": "2026-11-09_09_ihtiyac",
+  "last_dispatched_at": "2026-11-09 09:29:06"
 }
