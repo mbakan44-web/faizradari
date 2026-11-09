@@ -198,15 +198,19 @@ def _default_reply_markup() -> str:
                     "url": "https://t.me/faizradari_bot?start=hesapla",
                 },
                 {
-                    "text": "📲 Arkadaşına Gönder",
-                    "url": "https://t.me/share/url?url=https://t.me/faizradari&text=Bankalar%C4%B1n%20canl%C4%B1%20kredi%2C%20mevduat%20ve%20d%C3%B6viz%20makas%20tablolar%C4%B1%20@faizradari%20kanal%C4%B1nda!",
+                    "text": "🟢 WhatsApp Kanalımız",
+                    "url": "https://whatsapp.com/channel/0029VbEfeZbDOQIhMaWcVg2I",
                 },
             ],
             [
                 {
                     "text": "🐦 X'te (Twitter) Paylaş",
                     "url": f"https://x.com/intent/tweet?text={encoded_x}",
-                }
+                },
+                {
+                    "text": "📲 Arkadaşına Gönder",
+                    "url": "https://t.me/share/url?url=https://t.me/faizradari&text=Bankalar%C4%B1n%20canl%C4%B1%20kredi%2C%20mevduat%20ve%20d%C3%B6viz%20makas%20tablolar%C4%B1%20@faizradari%20kanal%C4%B1nda!",
+                },
             ],
         ]
     }
@@ -229,7 +233,8 @@ def _interactive_menu_markup() -> str:
                 {"text": "💱 Canlı Dolar & Altın Makası", "callback_data": "calc:makas:0:0"},
             ],
             [
-                {"text": "📢 Faiz Radarı Kanalına Katıl", "url": "https://t.me/faizradari"}
+                {"text": "🟢 WhatsApp Kanalımız", "url": "https://whatsapp.com/channel/0029VbEfeZbDOQIhMaWcVg2I"},
+                {"text": "📢 Telegram Kanalı", "url": "https://t.me/faizradari"},
             ],
         ]
     }
