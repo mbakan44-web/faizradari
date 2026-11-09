@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-09 10:29",
+  "updated_at": "2026-11-09 12:29",
   "ihtiyac_kredisi": {
     "ING": 5.0,
     "Akbank": 3.29,
@@ -88,6 +88,6 @@
     "Yapı Kredi": 3.49,
     "Akbank": 3.18
   },
-  "last_dispatched_slot": "2026-11-09_13_konut",
-  "last_dispatched_at": "2026-11-09 13:29:04"
+  "last_dispatched_slot": "2026-11-09_15_makas",
+  "last_dispatched_at": "2026-11-09 15:29:02"
 }
