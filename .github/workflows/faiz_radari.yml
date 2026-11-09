@@ -4,16 +4,16 @@ on:
   workflow_dispatch:
     inputs:
       topic:
-        description: 'Gönderilecek tablo konusu (ihtiyac, makas, konut, tasit, mevduat)'
+        description: 'Gönderilecek tablo konusu (ihtiyac, bulten, tasit, konut, makas, mevduat)'
         required: false
         default: 'auto'
   repository_dispatch:
     types: [trigger-report]
   schedule:
-    # Yedek tetikleyici (UTC): 06:05, 08:05, 10:05, 12:05, 14:05, 16:05, 18:05
-    # (Türkiye Saati ile 09:05, 11:05, 13:05, 15:05, 17:05, 19:05, 21:05)
+    # Yedek tetikleyici (UTC): 06:05, 08:05, 10:05, 12:05, 14:05, 16:05
+    # (Türkiye Saati ile 09:05, 11:05, 13:05, 15:05, 17:05, 19:05)
     # :00 yerine :05 kullanımı GitHub Actions kuyruk tıkanıklığını ve atlamaları engeller.
-    - cron: '5 6,8,10,12,14,16,18 * * *'
+    - cron: '5 6,8,10,12,14,16 * * *'
 
 permissions:
   contents: write

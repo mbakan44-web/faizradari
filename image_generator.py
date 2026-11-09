@@ -511,3 +511,109 @@ def render_rate_drop_alert_image(
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     img.save(output_path, format="PNG", optimize=True)
     return output_path
+
+
+def render_briefing_table_image(
+    items: List[str],
+    title: str = "Sabah Bülteni",
+    output_path: str = "D:/faiz-radari/latest_briefing_table.png",
+) -> str:
+    """
+    BPT Finans tarzı modern, 10 maddeli iki sütunlu 1080x1080 Sabah Raporu infografiği üretir.
+    """
+    width, height = 1080, 1080
+    img = Image.new("RGB", (width, height), color=(8, 17, 36))
+    draw = ImageDraw.Draw(img)
+
+    # 1. Koyu lacivert degrade arka plan
+    for y in range(height):
+        r = int(8 + (12 - 8) * (y / height))
+        g = int(17 + (28 - 17) * (y / height))
+        b = int(36 + (54 - 36) * (y / height))
+        draw.line([(0, y), (width, y)], fill=(r, g, b))
+
+    # 2. Alt dekoratif piyasa grafik dalgası
+    chart_pts = [
+        (0, 1040), (80, 1020), (160, 1035), (240, 1010), (320, 1025),
+        (400, 990), (480, 1015), (560, 980), (640, 995), (720, 970),
+        (800, 985), (880, 960), (960, 975), (1080, 940)
+    ]
+    for i in range(len(chart_pts) - 1):
+        draw.line([chart_pts[i], chart_pts[i+1]], fill=(25, 55, 95), width=2)
+
+    f_header = _load_font(38, bold=True)
+    f_date = _load_font(22, bold=False)
+    f_num = _load_font(19, bold=True)
+    f_text = _load_font(17, bold=False)
+    f_brand = _load_font(16, bold=True)
+
+    # 3. Üst Başlık & Tarih
+    icon = "☀️" if "sabah" in title.lower() else "🌙"
+    draw.text((50, 45), f"{icon} {title}", font=f_header, fill=(255, 255, 255))
+
+    today_str = datetime.now().strftime("%d %B %Y")
+    months_tr = {
+        "January": "Ocak", "February": "Şubat", "March": "Mart", "April": "Nisan",
+        "May": "Mayıs", "June": "Haziran", "July": "Temmuz", "August": "Ağustos",
+        "September": "Eylül", "October": "Ekim", "November": "Kasım", "December": "Aralık"
+    }
+    for en_m, tr_m in months_tr.items():
+        today_str = today_str.replace(en_m, tr_m)
+
+    date_display = f"— {today_str}"
+    bbox_date = draw.textbbox((0, 0), date_display, font=f_date)
+    draw.text((width - 50 - (bbox_date[2] - bbox_date[0]), 55), date_display, font=f_date, fill=(100, 181, 246))
+
+    # İnce ayırıcı çizgi
+    draw.line([(50, 110), (width - 50, 110)], fill=(28, 52, 88), width=1)
+
+    # 4. İki sütun halinde 10 maddeyi yerleştir
+    def _wrap(text: str, font, max_w: int) -> List[str]:
+        words = text.split()
+        lines = []
+        cur = []
+        for w in words:
+            test = " ".join(cur + [w])
+            bbox = draw.textbbox((0, 0), test, font=font)
+            if (bbox[2] - bbox[0]) <= max_w:
+                cur.append(w)
+            else:
+                if cur:
+                    lines.append(" ".join(cur))
+                    cur = [w]
+                else:
+                    lines.append(w)
+        if cur:
+            lines.append(" ".join(cur))
+        return lines
+
+    y_start = 140
+    item_h = 165
+    col_w = 425
+
+    for idx, it in enumerate(items[:10]):
+        col = 0 if idx < 5 else 1
+        row = idx if idx < 5 else idx - 5
+        x = 50 if col == 0 else 560
+        y = y_start + (row * item_h)
+
+        num_str = f"{idx+1:02d}"
+        draw.text((x, y), num_str, font=f_num, fill=(56, 189, 248))
+
+        lines = _wrap(it, f_text, col_w)
+        line_y = y
+        for l in lines:
+            draw.text((x + 36, line_y), l, font=f_text, fill=(241, 245, 249))
+            line_y += 25
+
+    # 5. Alt marka rozeti (Watermark)
+    badge_w = 170
+    badge_h = 42
+    bx = width - 50 - badge_w
+    by = height - 55
+    draw.rounded_rectangle([(bx, by), (bx + badge_w, by + badge_h)], radius=8, fill=(16, 32, 60), outline=(56, 189, 248), width=1)
+    draw.text((bx + 16, by + 10), "📡 FAİZ RADARI", font=f_brand, fill=(255, 255, 255))
+
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    img.save(output_path, format="PNG", optimize=True)
+    return output_path

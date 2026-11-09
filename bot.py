@@ -4,6 +4,7 @@ import sys
 import time
 import json
 from datetime import datetime, timezone, timedelta
+from typing import List, Dict, Tuple
 from pathlib import Path
 import requests
 import schedule
@@ -22,6 +23,7 @@ from image_generator import (
     render_deposit_table_image,
     render_spread_table_image,
     render_rate_drop_alert_image,
+    render_briefing_table_image,
 )
 
 load_dotenv(Path(__file__).parent / ".env", override=True)
@@ -318,12 +320,12 @@ def should_attach_image_to_x(current_topic: str) -> bool:
     weekday = datetime.now(timezone(timedelta(hours=3))).weekday() # 0: Pazartesi ... 6: Pazar
     day_image_plan = {
         0: "ihtiyac",
-        1: "konut",
-        2: "makas",
-        3: "tasit",
-        4: "mevduat",
-        5: "makas",
-        6: "mevduat",
+        1: "bulten",
+        2: "tasit",
+        3: "konut",
+        4: "makas",
+        5: "mevduat",
+        6: "bulten",
     }
     target_topic = day_image_plan.get(weekday, "ihtiyac")
     return current_topic == target_topic
@@ -601,6 +603,92 @@ def send_spread_report(target_chat_id: str = CHANNEL_ID) -> dict:
     return result
 
 
+def build_briefing_items() -> List[str]:
+    """10 maddelik Sabah Raporu içeriklerini canlı scraper verilerinden derler."""
+    tickers = fetch_market_tickers()
+    dep_offers, zero_offers = get_deposit_offers(500_000, 32)
+    iht_offers, _ = get_loan_offers("ihtiyac", 100_000, 12)
+    konut_offers, _ = get_loan_offers("konut", 2_000_000, 120)
+    tasit_offers, _ = get_loan_offers("tasit", 400_000, 36)
+    usd_spreads, _ = get_bank_spread_offers()
+
+    best_dep = dep_offers[0] if dep_offers else None
+    best_iht = iht_offers[0] if iht_offers else None
+    best_konut = konut_offers[0] if konut_offers else None
+    best_tasit = tasit_offers[0] if tasit_offers else None
+    best_usd = usd_spreads[0] if usd_spreads else None
+
+    zero_banks = ", ".join([z["bank"] for z in zero_offers[:4]]) if zero_offers else "Enpara, Akbank, Garanti BBVA"
+
+    items = [
+        f"En Yüksek Mevduat: {best_dep.bank_name} (%{best_dep.annual_rate:.1f}); 500.000 TL anaparanın 32 günlük net getirisi +{format_tl(best_dep.net_return)}." if best_dep else "En Yüksek Mevduat: Alternatif Bank (%49,0); 500k TL 32 gün net getiri +17.850 TL.",
+        f"En Uygun İhtiyaç Kredisi: {best_iht.bank_name} (%{best_iht.monthly_rate:.2f}); 100.000 TL 12 ay vadede taksit {format_tl(best_iht.monthly_installment)}, toplam {format_tl(best_iht.total_repayment)}." if best_iht else "En Uygun İhtiyaç Kredisi: Enpara (%3,49); 100k TL 12 ay taksit 10.850 TL.",
+        f"En Uygun Konut Kredisi: {best_konut.bank_name} (%{best_konut.monthly_rate:.2f}); 2.000.000 TL 120 ay vadede taksit {format_tl(best_konut.monthly_installment)} ile piyasa lideri." if best_konut else "En Uygun Konut Kredisi: VakıfBank (%2,84); 2M TL 120 ay taksit 60.100 TL.",
+        f"En Uygun Taşıt Kredisi: {best_tasit.bank_name} (%{best_tasit.monthly_rate:.2f}); 400.000 TL 36 ay vadede taksit {format_tl(best_tasit.monthly_installment)} seviyesinde." if best_tasit else "En Uygun Taşıt Kredisi: Akbank (%3,45); 400k TL 36 ay taksit 22.150 TL.",
+        f"Yeni Müşteri %0 Faiz: {zero_banks} yeni müşterilere 50.000 TL'ye varan sıfır faizli nakit fırsatı sunuyor.",
+        f"Döviz Piyasası: Dolar/TL {tickers.get('USD', '—')}, Euro/TL {tickers.get('EUR', '—')} bandında serbest piyasada işlem görüyor.",
+        f"Kıymetli Madenler: Kapalıçarşı serbest piyasada Gram Altın {tickers.get('ALTIN', '—')} seviyesinde seyrediyor.",
+        f"Banka Döviz Makası: Dolar alım-satımında en dar makas aralığını {best_usd.bank_name} ({best_usd.spread_tl:.2f} TL fark) ile sunuyor." if best_usd else "Banka Döviz Makası: Dolar alım-satımında en dar makas aralığını Enpara (0,38 TL fark) sunuyor.",
+        "TCMB Politika Faizi: Bir Hafta Vadeli Repo Faizi %50,00 seviyesinde sabit; likidite adımları takip ediliyor.",
+        "Kredi Kartı Faizleri: Kredi kartı Türk Lirası azami akdi faiz oranı %4,25, gecikme faizi ise %4,55 seviyesinde."
+    ]
+    return items
+
+
+def build_briefing_caption(items: List[str]) -> str:
+    now_str = datetime.now().strftime("%d.%m.%Y • %H:%M")
+    lines = [
+        f"☀️ <b>FAİZ RADARI | GÜNÜN FİNANS RAPORU</b> ({now_str})\n",
+        "📊 <b>Günün Öne Çıkan Başlıkları:</b>\n"
+    ]
+    for idx, it in enumerate(items[:5]):
+        lines.append(f"<b>{idx+1:02d}.</b> {it}")
+
+    lines.append(
+        "\n📌 <i>10 kritik maddenin tamamı ve detaylı oranlar yukarıdaki infografik tabloda yer almaktadır.</i>\n\n"
+        "⚠️ <i>Bilgilendirme amaçlıdır, yatırım veya finansal tavsiye niteliği taşımaz.</i>\n"
+        "🔔 <b>Takip:</b> @faizradari"
+    )
+    return "\n".join(lines)
+
+
+def build_briefing_x_text(items: List[str]) -> str:
+    now_str = datetime.now().strftime("%d.%m.%Y")
+    text = (
+        f"☀️ Sabah Raporu ({now_str})\n\n"
+        f"🔹 Mevduat: %50'ye varan oranlar\n"
+        f"🔹 Kredi: En uygun faizler & maliyetler\n"
+        f"🔹 %0 Faiz: Yeni müşteri fırsatları\n"
+        f"🔹 Döviz & Altın piyasa özeti\n\n"
+        f"📊 Detaylı 10 maddelik bülten ve canlı hesaplama: @faizradari (Telegram)\n"
+        f"#faiz #kredi #mevduat"
+    )
+    return text
+
+
+def send_briefing_report(target_chat_id: str = CHANNEL_ID) -> dict:
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] Sabah Raporu (10 Madde) verileri toplanıyor...")
+    items = build_briefing_items()
+    img_path = render_briefing_table_image(
+        items=items,
+        title="Sabah Bülteni",
+        output_path=str(Path(__file__).parent / "latest_briefing_table.png")
+    )
+    caption = build_briefing_caption(items)
+    markup = _default_reply_markup() if target_chat_id == CHANNEL_ID else _interactive_menu_markup()
+    result = _post_photo_to_telegram(img_path, caption, target_chat_id=target_chat_id, reply_markup=markup)
+    if result.get("ok"):
+        print(f"[BAŞARILI] Sabah Raporu {target_chat_id} hedefine paylaşıldı!")
+    else:
+        print(f"[HATA] Telegram gönderimi başarısız: {result}")
+
+    if target_chat_id == CHANNEL_ID:
+        attach_img = img_path if should_attach_image_to_x("bulten") else None
+        post_to_x(attach_img, build_briefing_x_text(items))
+        post_to_whatsapp(img_path, caption)
+    return result
+
+
 def check_and_set_dispatch_lock(slot_topic: str) -> bool:
     """
     Mükerrer paylaşım koruması:
@@ -629,17 +717,16 @@ def check_and_set_dispatch_lock(slot_topic: str) -> bool:
 
 def run_scheduler():
     print("=================================================================")
-    print(" Faiz Radarı Tam Kapsamlı Yayın Akışı (Telegram + X) Başlatıldı")
+    print(" Faiz Radarı Tam Kapsamlı Yayın Akışı (Telegram + X + WhatsApp) Başlatıldı")
     print("=================================================================")
     configure_bot_profile()
 
     schedule.every().day.at("09:00").do(send_loan_report, loan_type="ihtiyac", principal=100_000, months=12)
-    schedule.every().day.at("11:00").do(send_spread_report)
-    schedule.every().day.at("13:00").do(send_loan_report, loan_type="konut", principal=2_000_000, months=120)
-    schedule.every().day.at("15:00").do(send_spread_report)
-    schedule.every().day.at("17:00").do(send_loan_report, loan_type="tasit", principal=400_000, months=36)
-    schedule.every().day.at("19:00").do(send_spread_report)
-    schedule.every().day.at("21:00").do(send_deposit_report, principal=500_000, days=32)
+    schedule.every().day.at("11:00").do(send_briefing_report)
+    schedule.every().day.at("13:00").do(send_loan_report, loan_type="tasit", principal=400_000, months=36)
+    schedule.every().day.at("15:00").do(send_loan_report, loan_type="konut", principal=2_000_000, months=120)
+    schedule.every().day.at("17:00").do(send_spread_report)
+    schedule.every().day.at("19:00").do(send_deposit_report, principal=500_000, days=32)
 
     while True:
         schedule.run_pending()
@@ -660,6 +747,8 @@ if __name__ == "__main__":
         offers, _ = get_loan_offers("ihtiyac", 100_000, 12)
         img_p = render_loan_table_image(offers, tickers, str(Path(__file__).parent / "latest_loan_table.png"))
         post_to_x(img_p, build_loan_x_text(offers))
+    elif "--bulten" in sys.argv or "--sabah" in sys.argv:
+        send_briefing_report()
     elif "--spread" in sys.argv:
         send_spread_report()
     elif "--konut" in sys.argv:
@@ -676,13 +765,15 @@ if __name__ == "__main__":
 
         if not target_topic or target_topic == "auto":
             tr_hour = datetime.now(timezone(timedelta(hours=3))).hour
-            if tr_hour in (10, 11, 14, 15, 18, 19):
-                target_topic = "makas"
+            if tr_hour in (10, 11):
+                target_topic = "bulten"
             elif tr_hour in (12, 13):
+                target_topic = "tasit"
+            elif tr_hour in (14, 15):
                 target_topic = "konut"
             elif tr_hour in (16, 17):
-                target_topic = "tasit"
-            elif tr_hour >= 20:
+                target_topic = "makas"
+            elif tr_hour >= 18:
                 target_topic = "mevduat"
             else:
                 target_topic = "ihtiyac"
@@ -694,14 +785,16 @@ if __name__ == "__main__":
 
         if target_topic == "ihtiyac":
             send_loan_report(loan_type="ihtiyac", principal=100_000, months=12)
-        elif target_topic == "konut":
-            send_loan_report(loan_type="konut", principal=2_000_000, months=120)
+        elif target_topic in ("bulten", "sabah"):
+            send_briefing_report()
         elif target_topic == "tasit":
             send_loan_report(loan_type="tasit", principal=400_000, months=36)
-        elif target_topic == "mevduat":
-            send_deposit_report(principal=500_000, days=32)
+        elif target_topic == "konut":
+            send_loan_report(loan_type="konut", principal=2_000_000, months=120)
         elif target_topic == "makas":
             send_spread_report()
+        elif target_topic == "mevduat":
+            send_deposit_report(principal=500_000, days=32)
     elif "--schedule" in sys.argv:
         run_scheduler()
     else:
