@@ -515,104 +515,183 @@ def render_rate_drop_alert_image(
 
 def render_briefing_table_image(
     items: List[str],
-    title: str = "Sabah Bülteni",
+    title: str = "GÜNÜN FİNANS RAPORU",
     output_path: str = "D:/faiz-radari/latest_briefing_table.png",
 ) -> str:
     """
-    BPT Finans tarzı modern, 10 maddeli iki sütunlu 1080x1080 Sabah Raporu infografiği üretir.
+    Faiz Radarı'nın özgün, modern kart tasarımlı 1080x1080 'GÜNÜN FİNANS RAPORU' infografiği.
+    10 ayrı finans ve faiz maddesini 2 sütunlu şık gösterge paneli (dashboard) kartları halinde çizer.
     """
     width, height = 1080, 1080
-    img = Image.new("RGB", (width, height), color=(8, 17, 36))
+    img = Image.new("RGB", (width, height), color=(8, 13, 24))
     draw = ImageDraw.Draw(img)
 
-    # 1. Koyu lacivert degrade arka plan
+    # 1. Koyu lacivert / obsidyen degrade arka plan
     for y in range(height):
-        r = int(8 + (12 - 8) * (y / height))
-        g = int(17 + (28 - 17) * (y / height))
-        b = int(36 + (54 - 36) * (y / height))
+        r = int(7 + (13 - 7) * (y / height))
+        g = int(11 + (22 - 11) * (y / height))
+        b = int(22 + (38 - 22) * (y / height))
         draw.line([(0, y), (width, y)], fill=(r, g, b))
 
-    # 2. Alt dekoratif piyasa grafik dalgası
+    # Üst neon çizgi (Zümrüt Yeşili -> Camgöbeği -> Mavi)
+    for x in range(width):
+        ratio = x / width
+        cr = int(16 * (1 - ratio) + 14 * ratio)
+        cg = int(185 * (1 - ratio) + 165 * ratio)
+        cb = int(129 * (1 - ratio) + 233 * ratio)
+        draw.line([(x, 0), (x, 3)], fill=(cr, cg, cb))
+
+    # Alt zemin hafif dekoratif radar/piyasa çizgileri (çok hafif saydam)
     chart_pts = [
-        (0, 1040), (80, 1020), (160, 1035), (240, 1010), (320, 1025),
-        (400, 990), (480, 1015), (560, 980), (640, 995), (720, 970),
-        (800, 985), (880, 960), (960, 975), (1080, 940)
+        (0, 1030), (90, 1010), (180, 1025), (270, 995), (360, 1015),
+        (450, 975), (540, 1005), (630, 960), (720, 985), (810, 950),
+        (900, 970), (990, 945), (1080, 930)
     ]
     for i in range(len(chart_pts) - 1):
-        draw.line([chart_pts[i], chart_pts[i+1]], fill=(25, 55, 95), width=2)
+        draw.line([chart_pts[i], chart_pts[i+1]], fill=(18, 30, 52), width=2)
 
-    f_header = _load_font(38, bold=True)
-    f_date = _load_font(22, bold=False)
-    f_num = _load_font(19, bold=True)
-    f_text = _load_font(17, bold=False)
-    f_brand = _load_font(16, bold=True)
+    # Font tanımları
+    f_brand_tag = _load_font(12, bold=True)
+    f_header = _load_font(34, bold=True)
+    f_date = _load_font(15, bold=True)
+    f_status = _load_font(12, bold=False)
+    f_card_num = _load_font(13, bold=True)
+    f_card_title = _load_font(15, bold=True)
+    f_card_text = _load_font(14, bold=False)
+    f_footer_note = _load_font(12, bold=False)
+    f_footer_social = _load_font(13, bold=True)
+    f_footer_brand = _load_font(14, bold=True)
 
-    # 3. Üst Başlık & Tarih
-    icon = "☀️" if "sabah" in title.lower() else "🌙"
-    draw.text((50, 45), f"{icon} {title}", font=f_header, fill=(255, 255, 255))
+    # 2. Üst Başlık & Tarih Alanı
+    # Sol Üst Marka Rozeti
+    draw.rounded_rectangle([(40, 24), (320, 52)], radius=6, fill=(12, 33, 48), outline=(14, 165, 233), width=1)
+    draw.text((54, 30), "📡 FAİZ RADARI  |  ORAN İSTİHBARATI", font=f_brand_tag, fill=(56, 189, 248))
 
-    today_str = datetime.now().strftime("%d %B %Y")
+    # Ana Başlık
+    clean_title = title.upper()
+    draw.text((40, 62), f"📊 {clean_title}", font=f_header, fill=(255, 255, 255))
+
+    # Sağ Üst Tarih & Canlı Durum Rozeti
+    today_str = datetime.now().strftime("%d %B %Y").upper()
     months_tr = {
-        "January": "Ocak", "February": "Şubat", "March": "Mart", "April": "Nisan",
-        "May": "Mayıs", "June": "Haziran", "July": "Temmuz", "August": "Ağustos",
-        "September": "Eylül", "October": "Ekim", "November": "Kasım", "December": "Aralık"
+        "JANUARY": "OCAK", "FEBRUARY": "ŞUBAT", "MARCH": "MART", "APRIL": "NİSAN",
+        "MAY": "MAYIS", "JUNE": "HAZİRAN", "JULY": "TEMMUZ", "AUGUST": "AĞUSTOS",
+        "SEPTEMBER": "EYLÜL", "OCTOBER": "EKİM", "NOVEMBER": "KASIM", "DECEMBER": "ARALIK"
     }
     for en_m, tr_m in months_tr.items():
         today_str = today_str.replace(en_m, tr_m)
 
-    date_display = f"— {today_str}"
-    bbox_date = draw.textbbox((0, 0), date_display, font=f_date)
-    draw.text((width - 50 - (bbox_date[2] - bbox_date[0]), 55), date_display, font=f_date, fill=(100, 181, 246))
+    date_label = f"📅 {today_str} • 11:00"
+    bbox_date = draw.textbbox((0, 0), date_label, font=f_date)
+    dw = bbox_date[2] - bbox_date[0]
+    draw.rounded_rectangle([(width - 40 - dw - 24, 28), (width - 40, 60)], radius=6, fill=(15, 23, 42), outline=(51, 65, 85), width=1)
+    draw.text((width - 40 - dw - 12, 35), date_label, font=f_date, fill=(226, 232, 240))
+    draw.text((width - 195, 70), "🟢 Canlı Piyasa Analizi", font=f_status, fill=(52, 211, 153))
 
-    # İnce ayırıcı çizgi
-    draw.line([(50, 110), (width - 50, 110)], fill=(28, 52, 88), width=1)
+    # İnce Üst Ayırıcı Çizgi
+    draw.line([(40, 118), (width - 40, 118)], fill=(30, 41, 59), width=1)
 
-    # 4. İki sütun halinde 10 maddeyi yerleştir
-    def _wrap(text: str, font, max_w: int) -> List[str]:
+    # 3. Kategori Temaları (Her karta özgü kurumsal renk paleti)
+    card_themes = [
+        {"color": (16, 185, 129), "bg": (6, 78, 59)},    # 01 Mevduat (Zümrüt Yeşili)
+        {"color": (56, 189, 248), "bg": (12, 74, 110)},  # 02 İhtiyaç (Gökyüzü Mavisi)
+        {"color": (251, 146, 60), "bg": (124, 45, 18)},  # 03 Konut (Sıcak Turuncu)
+        {"color": (167, 139, 250), "bg": (76, 29, 149)}, # 04 Taşıt (Asil Mor)
+        {"color": (250, 204, 21), "bg": (113, 63, 18)},  # 05 %0 Faiz (Altın Sarısı)
+        {"color": (45, 212, 191), "bg": (19, 78, 74)},   # 06 Döviz (Teal)
+        {"color": (251, 191, 36), "bg": (120, 53, 15)},  # 07 Altın / Emtia (Kehribar)
+        {"color": (96, 165, 250), "bg": (30, 58, 138)},  # 08 Döviz Makası (Mavi)
+        {"color": (244, 63, 94), "bg": (136, 19, 55)},   # 09 TCMB Politika (Mercan Kırmızı)
+        {"color": (129, 140, 248), "bg": (49, 46, 129)}, # 10 Kredi Kartı (İndigo)
+    ]
+
+    # Metin kaydırma yardımcısı
+    def _wrap_text(text: str, font, max_w: int) -> List[str]:
         words = text.split()
-        lines = []
-        cur = []
+        res_lines = []
+        cur_words = []
         for w in words:
-            test = " ".join(cur + [w])
-            bbox = draw.textbbox((0, 0), test, font=font)
-            if (bbox[2] - bbox[0]) <= max_w:
-                cur.append(w)
+            test_line = " ".join(cur_words + [w])
+            bb = draw.textbbox((0, 0), test_line, font=font)
+            if (bb[2] - bb[0]) <= max_w:
+                cur_words.append(w)
             else:
-                if cur:
-                    lines.append(" ".join(cur))
-                    cur = [w]
+                if cur_words:
+                    res_lines.append(" ".join(cur_words))
+                    cur_words = [w]
                 else:
-                    lines.append(w)
-        if cur:
-            lines.append(" ".join(cur))
-        return lines
+                    res_lines.append(w)
+        if cur_words:
+            res_lines.append(" ".join(cur_words))
+        return res_lines
 
-    y_start = 140
-    item_h = 165
-    col_w = 425
+    # 4. 10 Maddelik Gösterge Kartları (2 Sütun x 5 Satır)
+    y_start = 136
+    card_w = 485
+    card_h = 148
+    gap_y = 14
 
     for idx, it in enumerate(items[:10]):
         col = 0 if idx < 5 else 1
         row = idx if idx < 5 else idx - 5
-        x = 50 if col == 0 else 560
-        y = y_start + (row * item_h)
+        x = 40 if col == 0 else 555
+        y = y_start + (row * (card_h + gap_y))
 
+        theme = card_themes[idx % len(card_themes)]
+        color_accent = theme["color"]
+        bg_accent = theme["bg"]
+
+        # Kart arka planı (Koyu camgöbeği/lacivert panel)
+        draw.rounded_rectangle([(x, y), (x + card_w, y + card_h)], radius=12, fill=(13, 21, 37), outline=(30, 45, 69), width=1)
+
+        # Kartın solundaki renkli dikey vurgu şeridi
+        draw.rounded_rectangle([(x, y + 8), (x + 5, y + card_h - 8)], radius=2, fill=color_accent)
+
+        # Başlık ve detay ayrımı
+        if ": " in it:
+            item_cat, item_detail = it.split(": ", 1)
+        else:
+            item_cat, item_detail = f"Madde {idx+1}", it
+
+        # Numara Rozeti (örn: 01, 02)
         num_str = f"{idx+1:02d}"
-        draw.text((x, y), num_str, font=f_num, fill=(56, 189, 248))
+        draw.rounded_rectangle([(x + 16, y + 12), (x + 48, y + 36)], radius=6, fill=bg_accent, outline=color_accent, width=1)
+        draw.text((x + 23, y + 16), num_str, font=f_card_num, fill=color_accent)
 
-        lines = _wrap(it, f_text, col_w)
-        line_y = y
-        for l in lines:
-            draw.text((x + 36, line_y), l, font=f_text, fill=(241, 245, 249))
-            line_y += 25
+        # Kart Başlığı
+        draw.text((x + 56, y + 15), item_cat.upper(), font=f_card_title, fill=(255, 255, 255))
 
-    # 5. Alt marka rozeti (Watermark)
-    badge_w = 170
-    badge_h = 42
-    bx = width - 50 - badge_w
-    by = height - 55
-    draw.rounded_rectangle([(bx, by), (bx + badge_w, by + badge_h)], radius=8, fill=(16, 32, 60), outline=(56, 189, 248), width=1)
-    draw.text((bx + 16, by + 10), "📡 FAİZ RADARI", font=f_brand, fill=(255, 255, 255))
+        # Kart İçerik Metni (Maksimum 425 piksele satır kaydırılır)
+        lines = _wrap_text(item_detail, f_card_text, card_w - 36)
+        text_y = y + 46
+        for l in lines[:4]:  # En fazla 4 satır sığdır
+            draw.text((x + 18, text_y), l, font=f_card_text, fill=(218, 226, 236))
+            text_y += 22
+
+    # 5. Alt Bilgi Alanı (Footer)
+    footer_y = 964
+    draw.line([(40, footer_y), (width - 40, footer_y)], fill=(30, 41, 59), width=1)
+
+    draw.text(
+        (40, footer_y + 12),
+        "⚠️ Veriler bankaların ve kurumların kamuya açık kaynaklarından derlenmiş olup bilgilendirme amaçlıdır. Yatırım tavsiyesi içermez.",
+        font=f_footer_note,
+        fill=(100, 116, 139)
+    )
+    draw.text(
+        (40, footer_y + 36),
+        "🔔 Canlı Hesaplama & Takip: Telegram @faizradari  •  X: @faizradari  •  WhatsApp Kanalı",
+        font=f_footer_social,
+        fill=(148, 163, 184)
+    )
+
+    # Sağ Alt Kurumsal Rozet
+    badge_w = 210
+    badge_h = 44
+    bx = width - 40 - badge_w
+    by = footer_y + 18
+    draw.rounded_rectangle([(bx, by), (bx + badge_w, by + badge_h)], radius=8, fill=(15, 23, 42), outline=(16, 185, 129), width=1)
+    draw.text((bx + 18, by + 12), "⚡ FAİZ RADARI CANLI", font=f_footer_brand, fill=(255, 255, 255))
 
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     img.save(output_path, format="PNG", optimize=True)

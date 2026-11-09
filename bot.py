@@ -655,23 +655,23 @@ def build_briefing_caption(items: List[str]) -> str:
 def build_briefing_x_text(items: List[str]) -> str:
     now_str = datetime.now().strftime("%d.%m.%Y")
     text = (
-        f"☀️ Sabah Raporu ({now_str})\n\n"
+        f"📊 Günün Finans Raporu ({now_str})\n\n"
         f"🔹 Mevduat: %50'ye varan oranlar\n"
         f"🔹 Kredi: En uygun faizler & maliyetler\n"
         f"🔹 %0 Faiz: Yeni müşteri fırsatları\n"
         f"🔹 Döviz & Altın piyasa özeti\n\n"
-        f"📊 Detaylı 10 maddelik bülten ve canlı hesaplama: @faizradari (Telegram)\n"
+        f"Detaylı 10 maddelik infografik ve canlı hesaplama: @faizradari (Telegram)\n"
         f"#faiz #kredi #mevduat"
     )
     return text
 
 
 def send_briefing_report(target_chat_id: str = CHANNEL_ID) -> dict:
-    print(f"[{datetime.now().strftime('%H:%M:%S')}] Sabah Raporu (10 Madde) verileri toplanıyor...")
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] Günün Finans Raporu (10 Madde) verileri toplanıyor...")
     items = build_briefing_items()
     img_path = render_briefing_table_image(
         items=items,
-        title="Sabah Bülteni",
+        title="GÜNÜN FİNANS RAPORU",
         output_path=str(Path(__file__).parent / "latest_briefing_table.png")
     )
     caption = build_briefing_caption(items)
