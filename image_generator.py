@@ -941,3 +941,85 @@ def render_breaking_news_image(
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     img.save(output_path, format="PNG", optimize=True)
     return output_path
+
+
+def render_vertical_story_image(
+    square_image_path: str,
+    title: str = "GÜNÜN FİNANS RAPORU",
+    output_path: str = "D:/faiz-radari/latest_vertical_story.png",
+) -> str:
+    """
+    1080x1080 boyutundaki kare infografik tablolarımızı TikTok, Instagram Story/Reels
+    ve YouTube Shorts için tam uyumlu 1080x1920 (9:16 dikey ekran) formatına dönüştürür.
+    TikTok'un sağ buton ve alt metin güvenli alanlarını (safe-zone) korur.
+    """
+    v_width, v_height = 1080, 1920
+    canvas = Image.new("RGB", (v_width, v_height), color=(8, 13, 24))
+    draw = ImageDraw.Draw(canvas)
+
+    # 1. Koyu dikey degrade arka plan
+    for y in range(v_height):
+        r = int(7 + (14 - 7) * (y / v_height))
+        g = int(11 + (22 - 11) * (y / v_height))
+        b = int(22 + (40 - 22) * (y / v_height))
+        draw.line([(0, y), (v_width, y)], fill=(r, g, b))
+
+    # Üst neon çizgi
+    for x in range(v_width):
+        ratio = x / v_width
+        cr = int(16 * (1 - ratio) + 14 * ratio)
+        cg = int(185 * (1 - ratio) + 165 * ratio)
+        cb = int(129 * (1 - ratio) + 233 * ratio)
+        draw.line([(x, 0), (x, 6)], fill=(cr, cg, cb))
+
+    f_top = _load_font(16, bold=True)
+    f_main = _load_font(40, bold=True)
+    f_sub = _load_font(20, bold=False)
+    f_cta_h = _load_font(22, bold=True)
+    f_cta_p = _load_font(18, bold=False)
+    f_brand = _load_font(16, bold=True)
+
+    # 2. Üst Güvenli Alan & Başlık (TikTok üst çubuğunun altında kalır)
+    draw.rounded_rectangle([(60, 140), (440, 185)], radius=8, fill=(12, 33, 48), outline=(14, 165, 233), width=2)
+    draw.text((78, 150), "📡 FAİZ RADARI  |  ORAN İSTİHBARATI", font=f_top, fill=(56, 189, 248))
+
+    draw.text((60, 210), title.upper(), font=f_main, fill=(255, 255, 255))
+    draw.text((60, 275), "⚡ Bankaların Güncel Faiz & Getiri Oranları", font=f_sub, fill=(148, 163, 184))
+
+    draw.line([(60, 325), (v_width - 60, 325)], fill=(30, 41, 59), width=2)
+
+    # 3. Ortalanmış Kare İnfografik Tablosu
+    # 1080x1080 görseli 980x980 boyutuna ölçekleyip tam ortaya güvenli yerleştiririz
+    p = Path(square_image_path)
+    if p.exists():
+        sq_img = Image.open(p).convert("RGBA")
+        target_size = 980
+        sq_resized = sq_img.resize((target_size, target_size), Image.Resampling.LANCZOS)
+
+        pos_x = (v_width - target_size) // 2
+        pos_y = 360
+
+        # Tablo arkasına şık neon çerçeve kartı
+        draw.rounded_rectangle([(pos_x - 6, pos_y - 6), (pos_x + target_size + 6, pos_y + target_size + 6)], radius=18, fill=(15, 23, 42), outline=(30, 58, 95), width=2)
+        canvas.paste(sq_resized, (pos_x, pos_y), sq_resized if sq_resized.mode == "RGBA" else None)
+
+    # 4. Alt Güvenli Alan (TikTok alt başlık ve ses barı öncesi CTA kartı)
+    card_y = 1380
+    card_h = 160
+    draw.rounded_rectangle([(60, card_y), (v_width - 60, card_y + card_h)], radius=16, fill=(13, 21, 37), outline=(16, 185, 129), width=2)
+
+    draw.text((90, card_y + 24), "📲 Canlı Hesaplama & Tüm Banka Listesi:", font=f_cta_h, fill=(52, 211, 153))
+    draw.text((90, card_y + 68), "Profildeki linkten Telegram botumuzla saniyeler içinde hesaplayın!", font=f_cta_p, fill=(241, 245, 249))
+    draw.text((90, card_y + 106), "👉 t.me/faizradari  •  @faizradari", font=f_brand, fill=(56, 189, 248))
+
+    # Alt yasal uyarı (TikTok alt güvenli alanı)
+    draw.text(
+        (60, 1565),
+        "⚠️ Kamuya açık banka verileridir. Yatırım tavsiyesi niteliği taşımaz.",
+        font=_load_font(14, bold=False),
+        fill=(100, 116, 139)
+    )
+
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    canvas.save(output_path, format="PNG", optimize=True)
+    return output_path

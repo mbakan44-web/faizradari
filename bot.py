@@ -26,6 +26,7 @@ from image_generator import (
     render_briefing_table_image,
     render_weekly_recap_image,
     render_breaking_news_image,
+    render_vertical_story_image,
 )
 
 load_dotenv(Path(__file__).parent / ".env", override=True)
@@ -42,6 +43,10 @@ X_ACCESS_TOKEN_SECRET = os.getenv("X_ACCESS_TOKEN_SECRET", "").strip()
 
 WHAPI_TOKEN = os.getenv("WHAPI_TOKEN", "9HHe4hOHubOEGnfoSQ2CjR1ak1VxxqFK").strip()
 WHATSAPP_CHANNEL_ID = os.getenv("WHATSAPP_CHANNEL_ID", "120363414327685491@newsletter").strip()
+
+INSTAGRAM_ACCOUNT_ID = os.getenv("INSTAGRAM_ACCOUNT_ID", "").strip()
+INSTAGRAM_ACCESS_TOKEN = os.getenv("INSTAGRAM_ACCESS_TOKEN", "").strip()
+ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID", "702244471").strip()
 
 
 def convert_to_whatsapp(text: str) -> str:
@@ -98,6 +103,62 @@ def post_to_whatsapp(img_path: str, caption: str) -> None:
             print(f"[UYARI] WhatsApp paylaşımı başarısız: HTTP {res.status_code} - {res.text[:200]}")
     except Exception as e:
         print(f"[UYARI] WhatsApp paylaşım hatası: {e}")
+
+
+def post_to_instagram(image_url: str, caption: str) -> None:
+    """
+    Meta Graph API (Instagram Content Publishing API) üzerinden
+    Instagram İşletme/İçerik Üreticisi hesabına otomatik gönderi paylaşır.
+    """
+    if not (INSTAGRAM_ACCOUNT_ID and INSTAGRAM_ACCESS_TOKEN and image_url):
+        return
+    try:
+        # 1. Media Container oluştur
+        create_url = f"https://graph.facebook.com/v19.0/{INSTAGRAM_ACCOUNT_ID}/media"
+        params = {
+            "image_url": image_url,
+            "caption": caption,
+            "access_token": INSTAGRAM_ACCESS_TOKEN
+        }
+        res1 = requests.post(create_url, data=params, timeout=30).json()
+        creation_id = res1.get("id")
+        if not creation_id:
+            print(f"[UYARI] Instagram media container oluşturulamadı: {res1}")
+            return
+
+        # 2. Gönderiyi Yayınla
+        pub_url = f"https://graph.facebook.com/v19.0/{INSTAGRAM_ACCOUNT_ID}/media_publish"
+        res2 = requests.post(pub_url, data={"creation_id": creation_id, "access_token": INSTAGRAM_ACCESS_TOKEN}, timeout=30).json()
+        if res2.get("id"):
+            print(f"[BAŞARILI] Gönderi Instagram hesabında yayınlandı! (ID: {res2.get('id')})")
+        else:
+            print(f"[UYARI] Instagram yayınlama hatası: {res2}")
+    except Exception as e:
+        print(f"[UYARI] Instagram API hatası: {e}")
+
+
+def send_vertical_story_to_admin(square_img_path: str, title: str = "GÜNÜN FİNANS RAPORU", topic: str = "story") -> None:
+    """
+    Kare tabloyu 1080x1920 dikey TikTok & Instagram Reels/Story şablonuna dönüştürüp
+    yönetici Telegram hesabına hazır etiket ve açıklamasıyla iletir.
+    Böylece yönetici tek tıkla TikTok'ta trend müzik ekleyerek paylaşabilir.
+    """
+    if not ADMIN_CHAT_ID:
+        return
+    try:
+        out_v = str(Path(__file__).parent / f"latest_vertical_{topic}.png")
+        render_vertical_story_image(square_img_path, title=title, output_path=out_v)
+        caption = (
+            f"🎬 <b>TIKTOK & INSTAGRAM REELS İÇİN HAZIR DİKEY GÖRSEL</b> (9:16)\n\n"
+            f"📌 <b>Örnek Başlık:</b>\n"
+            f"Bankaların güncel faizleri ve maliyetleri güncellendi! Siz bu oranlar hakkında ne düşünüyorsunuz? 👇\n\n"
+            f"📲 Canlı hesaplama profildeki linkte: @faizradari\n"
+            f"#faiz #kredi #mevduat #finans #para #banka #ekonomi"
+        )
+        _post_photo_to_telegram(out_v, caption, target_chat_id=ADMIN_CHAT_ID)
+        print(f"[BİLGİ] TikTok/Reels dikey şablonu yöneticiye ({ADMIN_CHAT_ID}) iletildi!")
+    except Exception as e:
+        print(f"[UYARI] Dikey hikaye yöneticiye iletilemedi: {e}")
 
 
 def sanitize_x_text(text: str) -> str:
@@ -688,6 +749,7 @@ def send_briefing_report(target_chat_id: str = CHANNEL_ID) -> dict:
         attach_img = img_path if should_attach_image_to_x("bulten") else None
         post_to_x(attach_img, build_briefing_x_text(items))
         post_to_whatsapp(img_path, caption)
+        send_vertical_story_to_admin(img_path, title="GÜNÜN FİNANS RAPORU", topic="bulten")
     return result
 
 
@@ -856,6 +918,11 @@ if __name__ == "__main__":
         send_deposit_report(principal=500_000, days=32)
     elif "--haftalik" in sys.argv or "--karne" in sys.argv:
         send_weekly_recap_report()
+    elif "--tiktok" in sys.argv or "--story" in sys.argv:
+        p = str(Path(__file__).parent / "latest_briefing_table.png")
+        if not Path(p).exists():
+            p = str(Path(__file__).parent / "latest_deposit_table.png")
+        send_vertical_story_to_admin(p, title="GÜNÜN FİNANS RAPORU", topic="bulten")
     elif "--haber" in sys.argv:
         headline = "TCMB Politika Faizini Sabit Bıraktı"
         details = "Merkez Bankası piyasa beklentileri doğrultusunda politika faizini sabit tuttu. Sıkı para politikası duruşu korunuyor."
