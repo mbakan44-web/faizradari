@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-10 14:45",
+  "updated_at": "2026-11-10 16:29",
   "ihtiyac_kredisi": {
     "ING": 5.0,
     "Kuveyt Türk": 3.77,
@@ -88,6 +88,6 @@
     "Türkiye İş Bankası": 3.29,
     "VakıfBank": 3.39
   },
-  "last_dispatched_slot": "2026-11-10_17_makas",
-  "last_dispatched_at": "2026-11-10 17:45:38"
+  "last_dispatched_slot": "2026-11-10_19_makas",
+  "last_dispatched_at": "2026-11-10 19:29:09"
 }
