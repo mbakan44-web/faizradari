@@ -50,6 +50,7 @@ ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID", "702244471").strip()
 
 BUFFER_API_KEY = os.getenv("BUFFER_API_KEY", "V5XMW26ILFn0vGh-JEcGgMeopgyd2Q8HgHPyMTAOBAI").strip()
 BUFFER_TIKTOK_CHANNEL_ID = os.getenv("BUFFER_TIKTOK_CHANNEL_ID", "6af3513f62b70b94b0e575f0").strip()
+BUFFER_INSTAGRAM_CHANNEL_ID = os.getenv("BUFFER_INSTAGRAM_CHANNEL_ID", "6af362bc62b70b94b0e67a0e").strip()
 
 
 def convert_to_whatsapp(text: str) -> str:
@@ -216,6 +217,67 @@ def post_to_buffer_tiktok(image_url: str, caption: str) -> bool:
             return False
     except Exception as e:
         print(f"[UYARI] Buffer API hatası: {e}")
+        return False
+
+
+def post_to_buffer_instagram(image_url: str, caption: str) -> bool:
+    """
+    Buffer GraphQL API üzerinden Instagram (@faizradari) hesabına anında otomatik feed gönderisi paylaşır.
+    """
+    if not (BUFFER_API_KEY and BUFFER_INSTAGRAM_CHANNEL_ID and image_url):
+        return False
+    try:
+        mutation = """
+        mutation CreatePost($input: CreatePostInput!) {
+          createPost(input: $input) {
+            ... on PostActionSuccess {
+              post {
+                id
+                status
+              }
+            }
+            ... on MutationError {
+              message
+            }
+          }
+        }
+        """
+        variables = {
+            "input": {
+                "channelId": BUFFER_INSTAGRAM_CHANNEL_ID,
+                "text": caption,
+                "schedulingType": "automatic",
+                "mode": "shareNow",
+                "needsApproval": False,
+                "metadata": {
+                    "instagram": {
+                        "type": "post",
+                        "shouldShareToFeed": True
+                    }
+                },
+                "assets": [
+                    {
+                        "image": {
+                            "url": image_url
+                        }
+                    }
+                ]
+            }
+        }
+        headers = {
+            "Authorization": f"Bearer {BUFFER_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        res = requests.post("https://api.buffer.com", json={"query": mutation, "variables": variables}, headers=headers, timeout=30).json()
+        post_data = res.get("data", {}).get("createPost", {})
+        if "post" in post_data:
+            print(f"[BAŞARILI] Gönderi Buffer üzerinden Instagram hesabına iletildi! (Post ID: {post_data['post']['id']})")
+            return True
+        else:
+            print(f"[UYARI] Buffer Instagram gönderim hatası: {post_data.get('message', res)}")
+            return False
+    except Exception as e:
+        print(f"[UYARI] Buffer Instagram API hatası: {e}")
         return False
 
 
@@ -700,6 +762,11 @@ def send_deposit_report(principal: float = 500_000, days: int = 32, target_chat_
         attach_img = img_path if should_attach_image_to_x("mevduat") else None
         post_to_x(attach_img, build_deposit_x_text(deposits))
         post_to_whatsapp(img_path, caption)
+        send_vertical_story_to_admin(img_path, title="GÜNCEL MEVDUAT FAİZLERİ", topic="mevduat")
+        public_img_url = "https://raw.githubusercontent.com/mbakan44-web/faizradari/main/latest_vertical_story.png"
+        dep_caption = "Bankaların en yüksek mevduat faiz oranları tablosu! 💰 Canlı hesaplama profildeki linkte: @faizradari #mevduat #faiz #para #birikim #ekonomi"
+        post_to_buffer_tiktok(public_img_url, dep_caption)
+        post_to_buffer_instagram(public_img_url, dep_caption)
     return result
 
 
@@ -811,6 +878,7 @@ def send_briefing_report(target_chat_id: str = CHANNEL_ID) -> dict:
         public_img_url = "https://raw.githubusercontent.com/mbakan44-web/faizradari/main/latest_vertical_story.png"
         tt_caption = "Bankaların güncel faiz oranları ve günün finans raporu! 📊 Canlı hesaplama profildeki linkte: @faizradari #faiz #kredi #mevduat #finans #ekonomi"
         post_to_buffer_tiktok(public_img_url, tt_caption)
+        post_to_buffer_instagram(public_img_url, tt_caption)
     return result
 
 
@@ -979,7 +1047,7 @@ if __name__ == "__main__":
         send_deposit_report(principal=500_000, days=32)
     elif "--haftalik" in sys.argv or "--karne" in sys.argv:
         send_weekly_recap_report()
-    elif "--tiktok" in sys.argv or "--story" in sys.argv:
+    elif "--tiktok" in sys.argv or "--story" in sys.argv or "--instagram" in sys.argv or "--buffer" in sys.argv:
         p = str(Path(__file__).parent / "latest_briefing_table.png")
         if not Path(p).exists():
             p = str(Path(__file__).parent / "latest_deposit_table.png")
@@ -987,6 +1055,7 @@ if __name__ == "__main__":
         public_img_url = "https://raw.githubusercontent.com/mbakan44-web/faizradari/main/latest_vertical_story.png"
         tt_caption = "Bankaların güncel faiz oranları tablosu! 📊 Canlı hesaplama profildeki linkte: @faizradari #faiz #kredi #mevduat #finans #ekonomi"
         post_to_buffer_tiktok(public_img_url, tt_caption)
+        post_to_buffer_instagram(public_img_url, tt_caption)
     elif "--haber" in sys.argv:
         headline = "TCMB Politika Faizini Sabit Bıraktı"
         details = "Merkez Bankası piyasa beklentileri doğrultusunda politika faizini sabit tuttu. Sıkı para politikası duruşu korunuyor."
