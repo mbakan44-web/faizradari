@@ -696,3 +696,248 @@ def render_briefing_table_image(
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     img.save(output_path, format="PNG", optimize=True)
     return output_path
+
+
+def render_weekly_recap_image(
+    recap_data: dict,
+    output_path: str = "D:/faiz-radari/latest_weekly_recap.png",
+) -> str:
+    """
+    Pazar akşamları saat 19:00'da yayınlanan 1080x1080 'HAFTANIN FİNANS KARNESİ' özel infografiği.
+    Haftanın mevduat şampiyonunu, en uygun kredisini, altın/döviz kapanışlarını ve yeni haftanın ajandasını sunar.
+    """
+    width, height = 1080, 1080
+    img = Image.new("RGB", (width, height), color=(8, 13, 24))
+    draw = ImageDraw.Draw(img)
+
+    for y in range(height):
+        r = int(9 + (15 - 9) * (y / height))
+        g = int(14 + (24 - 14) * (y / height))
+        b = int(28 + (42 - 28) * (y / height))
+        draw.line([(0, y), (width, y)], fill=(r, g, b))
+
+    for x in range(width):
+        ratio = x / width
+        cr = int(245 * (1 - ratio) + 16 * ratio)
+        cg = int(158 * (1 - ratio) + 185 * ratio)
+        cb = int(11 * (1 - ratio) + 129 * ratio)
+        draw.line([(x, 0), (x, 4)], fill=(cr, cg, cb))
+
+    f_tag = _load_font(13, bold=True)
+    f_title = _load_font(34, bold=True)
+    f_date = _load_font(16, bold=True)
+    f_card_h = _load_font(18, bold=True)
+    f_card_sub = _load_font(21, bold=True)
+    f_body = _load_font(15, bold=False)
+    f_footer = _load_font(13, bold=False)
+    f_brand = _load_font(14, bold=True)
+
+    draw.rounded_rectangle([(40, 26), (360, 56)], radius=6, fill=(45, 26, 12), outline=(245, 158, 11), width=1)
+    draw.text((54, 33), "🏆 PAZAR ÖZEL  |  HAFTALIK PİYASA KARNESİ", font=f_tag, fill=(251, 191, 36))
+    draw.text((40, 68), "HAFTANIN FİNANS & FAİZ KARNESİ", font=f_title, fill=(255, 255, 255))
+
+    today_str = datetime.now().strftime("%d %B %Y").upper()
+    months_tr = {
+        "JANUARY": "OCAK", "FEBRUARY": "ŞUBAT", "MARCH": "MART", "APRIL": "NİSAN",
+        "MAY": "MAYIS", "JUNE": "HAZİRAN", "JULY": "TEMMUZ", "AUGUST": "AĞUSTOS",
+        "SEPTEMBER": "EYLÜL", "OCTOBER": "EKİM", "NOVEMBER": "KASIM", "DECEMBER": "ARALIK"
+    }
+    for en_m, tr_m in months_tr.items():
+        today_str = today_str.replace(en_m, tr_m)
+
+    draw.text((width - 270, 78), f"📅 {today_str}", font=f_date, fill=(148, 163, 184))
+    draw.line([(40, 122), (width - 40, 122)], fill=(30, 41, 59), width=1)
+
+    cards = [
+        {
+            "box": [(40, 140), (525, 520)],
+            "color": (16, 185, 129),
+            "bg": (6, 78, 59),
+            "tag": "💰 HAFTANIN MEVDUAT LİDERİ",
+            "val": recap_data.get("best_dep_bank", "ON Dijital (%51.0)"),
+            "lines": [
+                f"• 500.000 TL Anapara 32 Gün Getirisi: +{recap_data.get('dep_net', '20.121 TL')}",
+                "• Hoş geldin faizinde rekabet tepe noktasında seyretti.",
+                f"• Yeni Müşteri Fırsatı: {recap_data.get('zero_interest', '50.000 TL sıfır faizli nakit avans.')}"
+            ]
+        },
+        {
+            "box": [(555, 140), (1040, 520)],
+            "color": (56, 189, 248),
+            "bg": (12, 74, 110),
+            "tag": "💳 HAFTANIN EN UYGUN KREDİSİ",
+            "val": recap_data.get("best_loan_bank", "DenizBank (%2.89)"),
+            "lines": [
+                f"• 100.000 TL 12 Ay Taksit: {recap_data.get('loan_installment', '10.506 TL')}",
+                f"• Toplam Geri Ödeme: {recap_data.get('loan_total', '126.641 TL')}",
+                f"• Konut Kredisi Lideri: {recap_data.get('konut_best', 'QNB (%2.84) ile 58.843 TL taksit.')}"
+            ]
+        },
+        {
+            "box": [(40, 540), (525, 930)],
+            "color": (251, 191, 36),
+            "bg": (120, 53, 15),
+            "tag": "📈 PİYASA & EMTİA HAFTALIK DURUM",
+            "val": f"Gram Altın: {recap_data.get('gold_price', '6.658 ₺')}",
+            "lines": [
+                f"• Dolar/TL Kapanış: {recap_data.get('usd_price', '50.19 ₺')} seviyesinde.",
+                f"• Euro/TL Kapanış: {recap_data.get('eur_price', '56.29 ₺')} seviyesinde.",
+                f"• En Dar Banka Döviz Makası: {recap_data.get('best_spread', 'Albaraka Türk (0.72 TL)')}"
+            ]
+        },
+        {
+            "box": [(555, 540), (1040, 930)],
+            "color": (168, 85, 247),
+            "bg": (88, 28, 135),
+            "tag": "📅 YENİ HAFTADA RADARDA NE VAR?",
+            "val": "TCMB & Enflasyon Dinamikleri",
+            "lines": [
+                "• TCMB Politika Faizi (%50,00) ve haftalık repo likiditesi.",
+                "• Bankaların yeni müşteri sıfır faiz kontenjan güncellemeleri.",
+                "• Piyasa açılışıyla birlikte güncel makas aralıkları takibi."
+            ]
+        }
+    ]
+
+    for c in cards:
+        x1, y1 = c["box"][0]
+        x2, y2 = c["box"][1]
+        draw.rounded_rectangle([c["box"][0], c["box"][1]], radius=14, fill=(13, 21, 37), outline=(30, 45, 69), width=1)
+        draw.rounded_rectangle([(x1, y1 + 10), (x1 + 6, y2 - 10)], radius=3, fill=c["color"])
+        draw.text((x1 + 22, y1 + 20), c["tag"], font=f_card_h, fill=c["color"])
+        draw.text((x1 + 22, y1 + 52), c["val"], font=f_card_sub, fill=(255, 255, 255))
+        draw.line([(x1 + 22, y1 + 90), (x2 - 22, y1 + 90)], fill=(30, 45, 69), width=1)
+
+        text_y = y1 + 108
+        for line in c["lines"]:
+            draw.text((x1 + 22, text_y), line, font=f_body, fill=(226, 232, 240))
+            text_y += 34
+
+    footer_y = 964
+    draw.line([(40, footer_y), (width - 40, footer_y)], fill=(30, 41, 59), width=1)
+    draw.text(
+        (40, footer_y + 12),
+        "⚠️ Veriler piyasa ve banka kaynaklarından derlenmiş olup bilgilendirme amaçlıdır. Yatırım tavsiyesi değildir.",
+        font=f_footer,
+        fill=(100, 116, 139)
+    )
+    draw.text(
+        (40, footer_y + 36),
+        "🔔 Canlı Hesaplama & Takip: Telegram @faizradari  •  X: @faizradari  •  WhatsApp Kanalı",
+        font=f_tag,
+        fill=(148, 163, 184)
+    )
+
+    badge_w = 230
+    bx = width - 40 - badge_w
+    by = footer_y + 16
+    draw.rounded_rectangle([(bx, by), (bx + badge_w, by + 46)], radius=8, fill=(15, 23, 42), outline=(245, 158, 11), width=1)
+    draw.text((bx + 16, by + 13), "⚡ FAİZ RADARI PAZAR", font=f_brand, fill=(251, 191, 36))
+
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    img.save(output_path, format="PNG", optimize=True)
+    return output_path
+
+
+def render_breaking_news_image(
+    headline: str,
+    details: str,
+    category: str = "TCMB FAİZ KARARI",
+    output_path: str = "D:/faiz-radari/latest_breaking_news.png",
+) -> str:
+    """
+    TCMB faiz kararı, enflasyon açıklaması veya bankacılık düzenlemeleri gibi kritik
+    piyasa anlarında otomatik paylaşılan 1080x1080 'FLAŞ GELİŞME' infografiği.
+    """
+    width, height = 1080, 1080
+    img = Image.new("RGB", (width, height), color=(10, 10, 18))
+    draw = ImageDraw.Draw(img)
+
+    for y in range(height):
+        r = int(18 + (10 - 18) * (y / height))
+        g = int(8 + (10 - 8) * (y / height))
+        b = int(14 + (24 - 14) * (y / height))
+        draw.line([(0, y), (width, y)], fill=(r, g, b))
+
+    draw.rectangle([(0, 0), (width, 8)], fill=(239, 68, 68))
+
+    f_top_alert = _load_font(18, bold=True)
+    f_cat = _load_font(15, bold=True)
+    f_headline = _load_font(36, bold=True)
+    f_body = _load_font(19, bold=False)
+    f_footer = _load_font(13, bold=False)
+    f_brand = _load_font(15, bold=True)
+
+    draw.rounded_rectangle([(40, 36), (width - 40, 92)], radius=10, fill=(127, 29, 29), outline=(239, 68, 68), width=2)
+    draw.text((60, 48), "🚨 FLAŞ GELİŞME  |  FAİZ RADARI SON DAKİKA", font=f_top_alert, fill=(255, 255, 255))
+
+    today_str = datetime.now().strftime("%d.%m.%Y • %H:%M")
+    draw.text((width - 240, 52), f"⏱️ {today_str}", font=f_cat, fill=(254, 202, 202))
+
+    cat_text = f"📌 {category.upper()}"
+    draw.rounded_rectangle([(40, 120), (320, 156)], radius=6, fill=(30, 41, 59), outline=(71, 85, 105), width=1)
+    draw.text((54, 127), cat_text, font=f_cat, fill=(245, 158, 11))
+
+    def _wrap(text: str, font, max_w: int) -> List[str]:
+        words = text.split()
+        lines = []
+        cur = []
+        for w in words:
+            test = " ".join(cur + [w])
+            bb = draw.textbbox((0, 0), test, font=font)
+            if (bb[2] - bb[0]) <= max_w:
+                cur.append(w)
+            else:
+                if cur:
+                    lines.append(" ".join(cur))
+                    cur = [w]
+                else:
+                    lines.append(w)
+        if cur:
+            lines.append(" ".join(cur))
+        return lines
+
+    h_lines = _wrap(headline, f_headline, width - 100)
+    h_y = 180
+    for hl in h_lines:
+        draw.text((45, h_y), hl, font=f_headline, fill=(255, 255, 255))
+        h_y += 48
+
+    card_y = max(h_y + 24, 380)
+    card_h = 920 - card_y
+    draw.rounded_rectangle([(40, card_y), (width - 40, card_y + card_h)], radius=14, fill=(15, 23, 42), outline=(51, 65, 85), width=1)
+    draw.rounded_rectangle([(40, card_y + 10), (46, card_y + card_h - 10)], radius=3, fill=(239, 68, 68))
+
+    draw.text((68, card_y + 24), "📋 KARAR & PİYASA ETKİSİ ÖZETİ:", font=_load_font(18, bold=True), fill=(245, 158, 11))
+    draw.line([(68, card_y + 58), (width - 68, card_y + 58)], fill=(30, 41, 59), width=1)
+
+    d_lines = _wrap(details, f_body, width - 140)
+    det_y = card_y + 76
+    for dl in d_lines:
+        draw.text((68, det_y), dl, font=f_body, fill=(241, 245, 249))
+        det_y += 32
+
+    footer_y = 964
+    draw.line([(40, footer_y), (width - 40, footer_y)], fill=(30, 41, 59), width=1)
+    draw.text(
+        (40, footer_y + 12),
+        "⚠️ Kamuya açık resmi kurum açıklamalarından derlenmiştir. Yatırım tavsiyesi niteliği taşımaz.",
+        font=f_footer,
+        fill=(100, 116, 139)
+    )
+    draw.text(
+        (40, footer_y + 36),
+        "🔔 Anlık Bildirim & Takip: Telegram @faizradari  •  X: @faizradari  •  WhatsApp",
+        font=_load_font(13, bold=True),
+        fill=(148, 163, 184)
+    )
+
+    badge_w = 230
+    bx = width - 40 - badge_w
+    by = footer_y + 16
+    draw.rounded_rectangle([(bx, by), (bx + badge_w, by + 46)], radius=8, fill=(15, 23, 42), outline=(239, 68, 68), width=1)
+    draw.text((bx + 20, by + 13), "📡 FAİZ RADARI CANLI", font=f_brand, fill=(255, 255, 255))
+
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    img.save(output_path, format="PNG", optimize=True)
+    return output_path

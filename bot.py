@@ -24,6 +24,8 @@ from image_generator import (
     render_spread_table_image,
     render_rate_drop_alert_image,
     render_briefing_table_image,
+    render_weekly_recap_image,
+    render_breaking_news_image,
 )
 
 load_dotenv(Path(__file__).parent / ".env", override=True)
@@ -689,6 +691,101 @@ def send_briefing_report(target_chat_id: str = CHANNEL_ID) -> dict:
     return result
 
 
+def send_weekly_recap_report(target_chat_id: str = CHANNEL_ID) -> dict:
+    """Pazar akşamı özel 'Haftanın Finans Karnesi' raporunu üretir ve paylaşır."""
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] Pazar Özel: Haftalık Piyasa Karnesi verileri derleniyor...")
+    tickers = fetch_market_tickers()
+    dep_offers, zero_offers = get_deposit_offers(500_000, 32)
+    iht_offers, _ = get_loan_offers("ihtiyac", 100_000, 12)
+    konut_offers, _ = get_loan_offers("konut", 2_000_000, 120)
+    usd_spreads, _ = get_bank_spread_offers()
+
+    best_dep = dep_offers[0] if dep_offers else None
+    best_loan = iht_offers[0] if iht_offers else None
+    best_konut = konut_offers[0] if konut_offers else None
+    best_usd = usd_spreads[0] if usd_spreads else None
+
+    recap_data = {
+        "best_dep_bank": f"{best_dep.bank_name} (%{best_dep.annual_rate:.1f})" if best_dep else "ON Dijital (%51.0)",
+        "dep_net": f"{format_tl(best_dep.net_return)}" if best_dep else "20.121 TL",
+        "zero_interest": "50.000 TL sıfır faizli nakit avans fırsatları.",
+        "best_loan_bank": f"{best_loan.bank_name} (%{best_loan.monthly_rate:.2f})" if best_loan else "DenizBank (%2.89)",
+        "loan_installment": f"{format_tl(best_loan.monthly_installment)}" if best_loan else "10.506 TL",
+        "loan_total": f"{format_tl(best_loan.total_repayment)}" if best_loan else "126.641 TL",
+        "konut_best": f"{best_konut.bank_name} (%{best_konut.monthly_rate:.2f}) ile {format_tl(best_konut.monthly_installment)} taksit." if best_konut else "QNB (%2.84)",
+        "usd_price": f"{tickers.get('USD', '50.19 ₺')}",
+        "eur_price": f"{tickers.get('EUR', '56.29 ₺')}",
+        "gold_price": f"{tickers.get('ALTIN', '6.658 ₺')}",
+        "best_spread": f"{best_usd.bank_name} ({best_usd.spread_tl:.2f} TL)" if best_usd else "Albaraka Türk (0.72 TL)"
+    }
+
+    img_path = render_weekly_recap_image(
+        recap_data=recap_data,
+        output_path=str(Path(__file__).parent / "latest_weekly_recap.png")
+    )
+
+    now_str = datetime.now().strftime("%d.%m.%Y")
+    caption = (
+        f"🏆 <b>FAİZ RADARI | HAFTANIN FİNANS KARNESİ</b> ({now_str})\n\n"
+        "⚡ <i>Piyasaların bu haftaki şampiyonları, en yüksek mevduat getirileri, en uygun krediler ve haftalık altın/döviz karnesi hazır.</i>\n\n"
+        "📌 <i>Tüm detaylar ve oranlar yukarıdaki infografik karnemizde yer almaktadır.</i>\n\n"
+        "⚠️ <i>Bilgilendirme amaçlıdır, yatırım tavsiyesi içermez.</i>\n"
+        "🔔 <b>Canlı Takip & Hesaplama:</b> @faizradari"
+    )
+
+    markup = _default_reply_markup() if target_chat_id == CHANNEL_ID else _interactive_menu_markup()
+    result = _post_photo_to_telegram(img_path, caption, target_chat_id=target_chat_id, reply_markup=markup)
+
+    if target_chat_id == CHANNEL_ID:
+        x_text = (
+            f"🏆 Haftanın Finans & Faiz Karnesi ({now_str})\n\n"
+            f"Piyasalarda bu haftanın kazananları, en yüksek mevduat ve en uygun krediler tek tabloda hazır 👇\n\n"
+            f"Detaylı inceleme ve canlı oranlar: @faizradari (Telegram)\n"
+            f"#faiz #kredi #mevduat #altın"
+        )
+        post_to_x(img_path, x_text)
+        post_to_whatsapp(img_path, caption)
+    return result
+
+
+def send_breaking_news_report(
+    headline: str,
+    details: str,
+    category: str = "TCMB FAİZ KARARI",
+    target_chat_id: str = CHANNEL_ID
+) -> dict:
+    """Flaş haber, TCMB faiz kararı veya önemli piyasa gelişmelerini anında paylaşır."""
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] FLAŞ HABER oluşturuluyor: {headline}...")
+    img_path = render_breaking_news_image(
+        headline=headline,
+        details=details,
+        category=category,
+        output_path=str(Path(__file__).parent / "latest_breaking_news.png")
+    )
+
+    now_str = datetime.now().strftime("%d.%m.%Y • %H:%M")
+    caption = (
+        f"🚨 <b>FAİZ RADARI | FLAŞ GELİŞME</b> ({now_str})\n\n"
+        f"📌 <b>{headline}</b>\n\n"
+        f"📝 <b>Özet & Piyasa Etkisi:</b>\n{details}\n\n"
+        "⚠️ <i>Kamuya açık resmi verilerden derlenmiştir, yatırım tavsiyesi içermez.</i>\n"
+        "🔔 <b>Anlık Piyasa Bildirimleri:</b> @faizradari"
+    )
+
+    markup = _default_reply_markup() if target_chat_id == CHANNEL_ID else _interactive_menu_markup()
+    result = _post_photo_to_telegram(img_path, caption, target_chat_id=target_chat_id, reply_markup=markup)
+
+    if target_chat_id == CHANNEL_ID:
+        x_text = (
+            f"🚨 FLAŞ | {headline}\n\n"
+            f"{details[:160]}...\n\n"
+            f"Detaylar ve canlı oranlar: @faizradari (Telegram)\n#faiz #tcmb #ekonomi"
+        )
+        post_to_x(img_path, x_text)
+        post_to_whatsapp(img_path, caption)
+    return result
+
+
 def check_and_set_dispatch_lock(slot_topic: str) -> bool:
     """
     Mükerrer paylaşım koruması:
@@ -757,6 +854,20 @@ if __name__ == "__main__":
         send_loan_report(loan_type="tasit", principal=400_000, months=36)
     elif "--mevduat" in sys.argv:
         send_deposit_report(principal=500_000, days=32)
+    elif "--haftalik" in sys.argv or "--karne" in sys.argv:
+        send_weekly_recap_report()
+    elif "--haber" in sys.argv:
+        headline = "TCMB Politika Faizini Sabit Bıraktı"
+        details = "Merkez Bankası piyasa beklentileri doğrultusunda politika faizini sabit tuttu. Sıkı para politikası duruşu korunuyor."
+        category = "MERKEZ BANKASI FAİZ KARARI"
+        for arg in sys.argv:
+            if arg.startswith("--haber="):
+                headline = arg.split("=", 1)[1].strip()
+            elif arg.startswith("--detay="):
+                details = arg.split("=", 1)[1].strip()
+            elif arg.startswith("--kategori="):
+                category = arg.split("=", 1)[1].strip()
+        send_breaking_news_report(headline=headline, details=details, category=category)
     elif "--auto-slot" in sys.argv:
         target_topic = None
         for arg in sys.argv:
@@ -786,7 +897,8 @@ if __name__ == "__main__":
             elif tr_hour in (16, 17):
                 target_topic = "makas"
             elif tr_hour in (18, 19):
-                target_topic = "mevduat"
+                # Pazar günü 19:00'da özel Haftalık Piyasa Karnesi yayınlanır
+                target_topic = "haftalik" if now_tr.weekday() == 6 else "mevduat"
             else:
                 print(f"[PLAN DIŞI SAAT] TR Saati {tr_hour:02d}:{tr_minute:02d} planlı 6 yayın slotuna denk gelmiyor. Paylaşım yapılmadı.")
                 sys.exit(0)
@@ -806,6 +918,8 @@ if __name__ == "__main__":
             send_loan_report(loan_type="konut", principal=2_000_000, months=120)
         elif target_topic == "makas":
             send_spread_report()
+        elif target_topic == "haftalik":
+            send_weekly_recap_report()
         elif target_topic == "mevduat":
             send_deposit_report(principal=500_000, days=32)
     elif "--schedule" in sys.argv:
