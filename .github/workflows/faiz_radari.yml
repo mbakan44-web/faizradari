@@ -50,6 +50,8 @@ jobs:
           X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
           WHAPI_TOKEN: ${{ secrets.WHAPI_TOKEN || '9HHe4hOHubOEGnfoSQ2CjR1ak1VxxqFK' }}
           WHATSAPP_CHANNEL_ID: "120363414327685491@newsletter"
+          BUFFER_API_KEY: ${{ secrets.BUFFER_API_KEY || 'V5XMW26ILFn0vGh-JEcGgMeopgyd2Q8HgHPyMTAOBAI' }}
+          BUFFER_TIKTOK_CHANNEL_ID: "6af3513f62b70b94b0e575f0"
         run: |
           TOPIC="${{ github.event.inputs.topic || github.event.client_payload.topic || 'auto' }}"
           if [ "$TOPIC" != "auto" ]; then
@@ -62,5 +64,5 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add rates_cache.json
-          git diff --staged --quiet || (git commit -m "Auto-update live bank rates cache" && git push)
+          git add rates_cache.json latest_vertical_story.png latest_briefing_table.png
+          git diff --staged --quiet || (git commit -m "Auto-update live bank rates cache and visuals" && git push)

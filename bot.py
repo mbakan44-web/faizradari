@@ -48,6 +48,9 @@ INSTAGRAM_ACCOUNT_ID = os.getenv("INSTAGRAM_ACCOUNT_ID", "").strip()
 INSTAGRAM_ACCESS_TOKEN = os.getenv("INSTAGRAM_ACCESS_TOKEN", "").strip()
 ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID", "702244471").strip()
 
+BUFFER_API_KEY = os.getenv("BUFFER_API_KEY", "V5XMW26ILFn0vGh-JEcGgMeopgyd2Q8HgHPyMTAOBAI").strip()
+BUFFER_TIKTOK_CHANNEL_ID = os.getenv("BUFFER_TIKTOK_CHANNEL_ID", "6af3513f62b70b94b0e575f0").strip()
+
 
 def convert_to_whatsapp(text: str) -> str:
     """
@@ -159,6 +162,61 @@ def send_vertical_story_to_admin(square_img_path: str, title: str = "GÜNÜN Fİ
         print(f"[BİLGİ] TikTok/Reels dikey şablonu yöneticiye ({ADMIN_CHAT_ID}) iletildi!")
     except Exception as e:
         print(f"[UYARI] Dikey hikaye yöneticiye iletilemedi: {e}")
+
+
+def post_to_buffer_tiktok(image_url: str, caption: str) -> bool:
+    """
+    Buffer GraphQL API üzerinden TikTok (@faizradari) hesabına anında otomatik paylaşım yapar.
+    """
+    if not (BUFFER_API_KEY and BUFFER_TIKTOK_CHANNEL_ID and image_url):
+        return False
+    try:
+        mutation = """
+        mutation CreatePost($input: CreatePostInput!) {
+          createPost(input: $input) {
+            ... on PostActionSuccess {
+              post {
+                id
+                status
+              }
+            }
+            ... on MutationError {
+              message
+            }
+          }
+        }
+        """
+        variables = {
+            "input": {
+                "channelId": BUFFER_TIKTOK_CHANNEL_ID,
+                "text": caption,
+                "schedulingType": "automatic",
+                "mode": "shareNow",
+                "needsApproval": False,
+                "assets": [
+                    {
+                        "image": {
+                            "url": image_url
+                        }
+                    }
+                ]
+            }
+        }
+        headers = {
+            "Authorization": f"Bearer {BUFFER_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        res = requests.post("https://api.buffer.com", json={"query": mutation, "variables": variables}, headers=headers, timeout=30).json()
+        post_data = res.get("data", {}).get("createPost", {})
+        if "post" in post_data:
+            print(f"[BAŞARILI] Gönderi Buffer üzerinden TikTok hesabına iletildi! (Post ID: {post_data['post']['id']})")
+            return True
+        else:
+            print(f"[UYARI] Buffer TikTok gönderim hatası: {post_data.get('message', res)}")
+            return False
+    except Exception as e:
+        print(f"[UYARI] Buffer API hatası: {e}")
+        return False
 
 
 def sanitize_x_text(text: str) -> str:
@@ -750,6 +808,9 @@ def send_briefing_report(target_chat_id: str = CHANNEL_ID) -> dict:
         post_to_x(attach_img, build_briefing_x_text(items))
         post_to_whatsapp(img_path, caption)
         send_vertical_story_to_admin(img_path, title="GÜNÜN FİNANS RAPORU", topic="bulten")
+        public_img_url = "https://raw.githubusercontent.com/mbakan44-web/faizradari/main/latest_vertical_story.png"
+        tt_caption = "Bankaların güncel faiz oranları ve günün finans raporu! 📊 Canlı hesaplama profildeki linkte: @faizradari #faiz #kredi #mevduat #finans #ekonomi"
+        post_to_buffer_tiktok(public_img_url, tt_caption)
     return result
 
 
@@ -923,6 +984,9 @@ if __name__ == "__main__":
         if not Path(p).exists():
             p = str(Path(__file__).parent / "latest_deposit_table.png")
         send_vertical_story_to_admin(p, title="GÜNÜN FİNANS RAPORU", topic="bulten")
+        public_img_url = "https://raw.githubusercontent.com/mbakan44-web/faizradari/main/latest_vertical_story.png"
+        tt_caption = "Bankaların güncel faiz oranları tablosu! 📊 Canlı hesaplama profildeki linkte: @faizradari #faiz #kredi #mevduat #finans #ekonomi"
+        post_to_buffer_tiktok(public_img_url, tt_caption)
     elif "--haber" in sys.argv:
         headline = "TCMB Politika Faizini Sabit Bıraktı"
         details = "Merkez Bankası piyasa beklentileri doğrultusunda politika faizini sabit tuttu. Sıkı para politikası duruşu korunuyor."

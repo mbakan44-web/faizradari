@@ -2,5 +2,7 @@
 .venv/
 __pycache__/
 *.png
+!latest_vertical_story.png
+!latest_briefing_table.png
 .last_update_id
 google_webhook_kodu.gs
