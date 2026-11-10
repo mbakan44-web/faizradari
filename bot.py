@@ -635,35 +635,35 @@ def build_briefing_items() -> List[str]:
     return items
 
 
-def build_briefing_caption(items: List[str]) -> str:
+def build_briefing_caption(items: List[str] = None) -> str:
+    import random
     now_str = datetime.now().strftime("%d.%m.%Y • %H:%M")
-    lines = [
-        f"☀️ <b>FAİZ RADARI | GÜNÜN FİNANS RAPORU</b> ({now_str})\n",
-        "📊 <b>Günün Öne Çıkan Başlıkları:</b>\n"
+    hooks = [
+        "Piyasalarda güne başlarken faiz, kredi, mevduat ve dövizdeki en kritik 10 gelişmeyi sizler için tek tabloda derledik.",
+        "Cebinizi ve yatırımlarınızı doğrudan ilgilendiren günün en önemli 10 finans & faiz başlığını özetledik.",
+        "Bankaların güncel oranları, piyasa dengeleri ve öne çıkan fırsatlarla günün kapsamlı finans özeti hazır.",
+        "Faiz Radarı masasında bugün: Mevduat getirileri, en uygun krediler ve piyasaların nabzı tek infografikte."
     ]
-    for idx, it in enumerate(items[:5]):
-        lines.append(f"<b>{idx+1:02d}.</b> {it}")
-
-    lines.append(
-        "\n📌 <i>10 kritik maddenin tamamı ve detaylı oranlar yukarıdaki infografik tabloda yer almaktadır.</i>\n\n"
-        "⚠️ <i>Bilgilendirme amaçlıdır, yatırım veya finansal tavsiye niteliği taşımaz.</i>\n"
-        "🔔 <b>Takip:</b> @faizradari"
-    )
+    hook = random.choice(hooks)
+    lines = [
+        f"📊 <b>FAİZ RADARI | GÜNÜN FİNANS RAPORU</b> ({now_str})\n",
+        f"⚡ {hook}\n",
+        "📌 <i>Tüm maddeleri ve detaylı piyasa oranlarını yukarıdaki infografik tablomuzdan inceleyebilirsiniz.</i>\n",
+        "⚠️ <i>Bilgilendirme amaçlıdır, yatırım tavsiyesi içermez.</i>\n",
+        "🔔 <b>Canlı Takip & Hesaplama:</b> @faizradari"
+    ]
     return "\n".join(lines)
 
 
-def build_briefing_x_text(items: List[str]) -> str:
+def build_briefing_x_text(items: List[str] = None) -> str:
+    import random
     now_str = datetime.now().strftime("%d.%m.%Y")
-    text = (
-        f"📊 Günün Finans Raporu ({now_str})\n\n"
-        f"🔹 Mevduat: %50'ye varan oranlar\n"
-        f"🔹 Kredi: En uygun faizler & maliyetler\n"
-        f"🔹 %0 Faiz: Yeni müşteri fırsatları\n"
-        f"🔹 Döviz & Altın piyasa özeti\n\n"
-        f"Detaylı 10 maddelik infografik ve canlı hesaplama: @faizradari (Telegram)\n"
-        f"#faiz #kredi #mevduat"
-    )
-    return text
+    hooks = [
+        f"📊 Günün Finans Raporu ({now_str})\n\nPiyasalarda güne başlarken faiz, kredi, mevduat ve dövizdeki en kritik 10 gelişmeyi sizler için derledik 👇\n\nCanlı oranlar ve hesaplama: @faizradari (Telegram)\n#faiz #kredi #mevduat #dolar #altın",
+        f"📊 Günün Finans Raporu ({now_str})\n\nCebinizi ve yatırımlarınızı doğrudan ilgilendiren günün öne çıkan 10 finans başlığı hazır 👇\n\nDetaylı analiz & takip: @faizradari (Telegram)\n#faiz #kredi #mevduat #finans",
+        f"📊 Günün Finans Raporu ({now_str})\n\nBankaların güncel faizleri, sıfır faizli fırsatlar ve piyasanın nabzı tek tabloda 👇\n\nCanlı takip ve bot hesaplama: @faizradari (Telegram)\n#faiz #kredi #mevduat"
+    ]
+    return random.choice(hooks)
 
 
 def send_briefing_report(target_chat_id: str = CHANNEL_ID) -> dict:
