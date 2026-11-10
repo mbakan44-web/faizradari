@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-10 10:29",
+  "updated_at": "2026-11-10 12:29",
   "ihtiyac_kredisi": {
     "ING": 5.0,
     "Kuveyt Türk": 3.77,
@@ -88,6 +88,6 @@
     "VakıfBank": 3.39,
     "Garanti BBVA": 3.25
   },
-  "last_dispatched_slot": "2026-11-10_13_konut",
-  "last_dispatched_at": "2026-11-10 13:29:07"
+  "last_dispatched_slot": "2026-11-10_15_makas",
+  "last_dispatched_at": "2026-11-10 15:29:03"
 }
