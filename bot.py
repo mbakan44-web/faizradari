@@ -763,9 +763,21 @@ if __name__ == "__main__":
             if arg.startswith("--topic="):
                 target_topic = arg.split("=")[1].strip().lower()
 
+        now_tr = datetime.now(timezone(timedelta(hours=3)))
+        tr_hour = now_tr.hour
+        tr_minute = now_tr.minute
+        is_force = "--force" in sys.argv
+
+        # 1. Gece Sessiz Saatler Koruma Kilidi (20:00 - 08:30 arası ASLA otomatik paylaşım yapılmaz)
+        if not is_force and (tr_hour >= 20 or tr_hour < 8 or (tr_hour == 8 and tr_minute < 30)):
+            print(f"[GECE SESSİZ SAAT KORUMASI] TR Saati {tr_hour:02d}:{tr_minute:02d}. Gece saatlerinde (20:00 - 08:30) bildirim/paylaşım engellendi.")
+            sys.exit(0)
+
+        # 2. Otomatik slot tespiti (Yalnızca 6 resmi yayın aralığı)
         if not target_topic or target_topic == "auto":
-            tr_hour = datetime.now(timezone(timedelta(hours=3))).hour
-            if tr_hour in (10, 11):
+            if tr_hour in (8, 9):
+                target_topic = "ihtiyac"
+            elif tr_hour in (10, 11):
                 target_topic = "bulten"
             elif tr_hour in (12, 13):
                 target_topic = "tasit"
@@ -773,10 +785,11 @@ if __name__ == "__main__":
                 target_topic = "konut"
             elif tr_hour in (16, 17):
                 target_topic = "makas"
-            elif tr_hour >= 18:
+            elif tr_hour in (18, 19):
                 target_topic = "mevduat"
             else:
-                target_topic = "ihtiyac"
+                print(f"[PLAN DIŞI SAAT] TR Saati {tr_hour:02d}:{tr_minute:02d} planlı 6 yayın slotuna denk gelmiyor. Paylaşım yapılmadı.")
+                sys.exit(0)
 
         # Mükerrer Gönderim Kilidi (GitHub Cron + GAS çift tetiklemesini engeller)
         if check_and_set_dispatch_lock(target_topic):
