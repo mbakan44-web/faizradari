@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-11 14:32",
+  "updated_at": "2026-11-11 16:32",
   "ihtiyac_kredisi": {
     "QNB": 2.84,
     "Odeabank": 2.99,
@@ -88,6 +88,6 @@
     "Akbank": 3.4,
     "Türkiye İş Bankası": 3.29
   },
-  "last_dispatched_slot": "2026-11-11_17_tasit",
-  "last_dispatched_at": "2026-11-11 17:32:24"
+  "last_dispatched_slot": "2026-11-11_19_makas",
+  "last_dispatched_at": "2026-11-11 19:32:25"
 }
