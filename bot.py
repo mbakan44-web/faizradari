@@ -281,6 +281,37 @@ def post_to_buffer_instagram(image_url: str, caption: str) -> bool:
         return False
 
 
+def dispatch_to_buffer_omnichannel(square_img_path: str, title: str, caption: str) -> None:
+    """
+    Kare tablo görselinden dikey 9:16 format üretir, GitHub Actions ortamındaysa CDN'e anında pushlar,
+    ardından Buffer API üzerinden hem TikTok hem Instagram hesaplarında otomatik yayınlar.
+    """
+    try:
+        from image_generator import render_vertical_story_image
+        import time
+        v_path = str(Path(__file__).parent / "latest_vertical_story.png")
+        render_vertical_story_image(square_image_path=square_img_path, title=title, output_path=v_path)
+
+        # GitHub Actions ortamında çalışıyorsak görseli Buffer çağırmadan önce pushla
+        if os.getenv("GITHUB_ACTIONS") == "true":
+            try:
+                import subprocess
+                subprocess.run(["git", "config", "user.name", "github-actions[bot]"], check=False)
+                subprocess.run(["git", "config", "user.email", "github-actions[bot]@users.noreply.github.com"], check=False)
+                subprocess.run(["git", "add", "latest_vertical_story.png"], check=False)
+                subprocess.run(["git", "commit", "-m", "Auto-update live visual for Buffer CDN"], check=False)
+                subprocess.run(["git", "push"], check=False)
+                time.sleep(3)
+            except Exception as pe:
+                print(f"[UYARI] Buffer öncesi görsel pushlanamadı: {pe}")
+
+        public_img_url = f"https://raw.githubusercontent.com/mbakan44-web/faizradari/main/latest_vertical_story.png?v={int(time.time())}"
+        post_to_buffer_tiktok(public_img_url, caption)
+        post_to_buffer_instagram(public_img_url, caption)
+    except Exception as e:
+        print(f"[UYARI] Buffer omnichannel gönderim hatası: {e}")
+
+
 def sanitize_x_text(text: str) -> str:
     """
     X API pay-per-use maliyet optimizasyonu:
@@ -757,6 +788,9 @@ def send_loan_report(loan_type: str = "ihtiyac", principal: float = 100_000, mon
         attach_img = img_path if should_attach_image_to_x(loan_type) else None
         post_to_x(attach_img, build_loan_x_text(offers))
         post_to_whatsapp(img_path, caption)
+        v_title = f"{loan_type.upper()} KREDİSİ FAİZ ORANLARI"
+        tt_caption = f"Bankaların güncel {loan_type} kredisi faiz oranları tablosu! 📊 Canlı hesaplama profildeki linkte: @faizradari #faiz #kredi #{loan_type} #ekonomi #para"
+        dispatch_to_buffer_omnichannel(img_path, v_title, tt_caption)
     return result
 
 
@@ -779,10 +813,8 @@ def send_deposit_report(principal: float = 500_000, days: int = 32, target_chat_
         post_to_x(attach_img, build_deposit_x_text(deposits))
         post_to_whatsapp(img_path, caption)
         send_vertical_story_to_admin(img_path, title="GÜNCEL MEVDUAT FAİZLERİ", topic="mevduat")
-        public_img_url = "https://raw.githubusercontent.com/mbakan44-web/faizradari/main/latest_vertical_story.png"
         dep_caption = "Bankaların en yüksek mevduat faiz oranları tablosu! 💰 Canlı hesaplama profildeki linkte: @faizradari #mevduat #faiz #para #birikim #ekonomi"
-        post_to_buffer_tiktok(public_img_url, dep_caption)
-        post_to_buffer_instagram(public_img_url, dep_caption)
+        dispatch_to_buffer_omnichannel(img_path, "GÜNCEL MEVDUAT FAİZLERİ", dep_caption)
     return result
 
 
@@ -804,6 +836,8 @@ def send_spread_report(target_chat_id: str = CHANNEL_ID) -> dict:
         attach_img = img_path if should_attach_image_to_x("makas") else None
         post_to_x(attach_img, build_spread_x_text(usd_spreads, gold_spreads))
         post_to_whatsapp(img_path, caption)
+        spread_caption = "Bankaların güncel dolar ve altın makas aralıkları tablosu! 💰 Canlı takip profildeki linkte: @faizradari #dolar #altın #makas #faiz #ekonomi"
+        dispatch_to_buffer_omnichannel(img_path, "BANKA DÖVİZ & ALTIN MAKASLARI", spread_caption)
     return result
 
 
@@ -891,10 +925,8 @@ def send_briefing_report(target_chat_id: str = CHANNEL_ID) -> dict:
         post_to_x(attach_img, build_briefing_x_text(items))
         post_to_whatsapp(img_path, caption)
         send_vertical_story_to_admin(img_path, title="GÜNÜN FİNANS RAPORU", topic="bulten")
-        public_img_url = "https://raw.githubusercontent.com/mbakan44-web/faizradari/main/latest_vertical_story.png"
         tt_caption = "Bankaların güncel faiz oranları ve günün finans raporu! 📊 Canlı hesaplama profildeki linkte: @faizradari #faiz #kredi #mevduat #finans #ekonomi"
-        post_to_buffer_tiktok(public_img_url, tt_caption)
-        post_to_buffer_instagram(public_img_url, tt_caption)
+        dispatch_to_buffer_omnichannel(img_path, "GÜNÜN FİNANS RAPORU", tt_caption)
     return result
 
 
@@ -952,6 +984,8 @@ def send_weekly_recap_report(target_chat_id: str = CHANNEL_ID) -> dict:
         )
         post_to_x(img_path, x_text)
         post_to_whatsapp(img_path, caption)
+        recap_caption = "Piyasalarda haftanın şampiyonları ve finans karnesi! 🏆 Canlı oranlar profildeki linkte: @faizradari #faiz #kredi #mevduat #altın #ekonomi"
+        dispatch_to_buffer_omnichannel(img_path, "HAFTALIK FİNANS KARNESİ", recap_caption)
     return result
 
 
@@ -1017,6 +1051,8 @@ def send_breaking_news_report(
         )
         post_to_x(img_path, x_text)
         post_to_whatsapp(img_path, caption)
+        recap_caption = "Piyasalarda haftanın şampiyonları ve finans karnesi! 🏆 Canlı oranlar profildeki linkte: @faizradari #faiz #kredi #mevduat #altın #ekonomi"
+        dispatch_to_buffer_omnichannel(img_path, "HAFTALIK FİNANS KARNESİ", recap_caption)
     return result
 
 
