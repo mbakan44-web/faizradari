@@ -981,10 +981,10 @@ def render_vertical_story_image(
 
     # 2. Üst Güvenli Alan & Başlık (TikTok üst çubuğunun altında kalır)
     draw.rounded_rectangle([(60, 140), (440, 185)], radius=8, fill=(12, 33, 48), outline=(14, 165, 233), width=2)
-    draw.text((78, 150), "📡 FAİZ RADARI  |  ORAN İSTİHBARATI", font=f_top, fill=(56, 189, 248))
+    draw.text((78, 150), "FAİZ RADARI  |  ORAN İSTİHBARATI", font=f_top, fill=(56, 189, 248))
 
     draw.text((60, 210), title.upper(), font=f_main, fill=(255, 255, 255))
-    draw.text((60, 275), "⚡ Bankaların Güncel Faiz & Getiri Oranları", font=f_sub, fill=(148, 163, 184))
+    draw.text((60, 275), "Bankaların Güncel Faiz & Getiri Oranları", font=f_sub, fill=(148, 163, 184))
 
     draw.line([(60, 325), (v_width - 60, 325)], fill=(30, 41, 59), width=2)
 
@@ -1008,14 +1008,14 @@ def render_vertical_story_image(
     card_h = 160
     draw.rounded_rectangle([(60, card_y), (v_width - 60, card_y + card_h)], radius=16, fill=(13, 21, 37), outline=(16, 185, 129), width=2)
 
-    draw.text((90, card_y + 24), "📲 Canlı Hesaplama & Tüm Banka Listesi:", font=f_cta_h, fill=(52, 211, 153))
+    draw.text((90, card_y + 24), "CANLI HESAPLAMA & TÜM BANKA LİSTESİ:", font=f_cta_h, fill=(52, 211, 153))
     draw.text((90, card_y + 68), "Profildeki linkten Telegram botumuzla saniyeler içinde hesaplayın!", font=f_cta_p, fill=(241, 245, 249))
-    draw.text((90, card_y + 106), "👉 t.me/faizradari  •  @faizradari", font=f_brand, fill=(56, 189, 248))
+    draw.text((90, card_y + 106), "t.me/faizradari  •  @faizradari", font=f_brand, fill=(56, 189, 248))
 
     # Alt yasal uyarı (TikTok alt güvenli alanı)
     draw.text(
         (60, 1565),
-        "⚠️ Kamuya açık banka verileridir. Yatırım tavsiyesi niteliği taşımaz.",
+        "Kamuya açık banka verileridir. Yatırım tavsiyesi niteliği taşımaz.",
         font=_load_font(14, bold=False),
         fill=(100, 116, 139)
     )
