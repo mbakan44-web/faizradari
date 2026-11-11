@@ -699,6 +699,22 @@ def _post_photo_to_telegram(img_path: str, caption: str, target_chat_id: str = C
     return resp.json()
 
 
+def _post_animation_to_telegram(animation_path: str, caption: str, target_chat_id: str = CHANNEL_ID, reply_markup: str = None) -> dict:
+    with open(animation_path, "rb") as anim_file:
+        resp = requests.post(
+            f"{API_BASE}/sendAnimation",
+            data={
+                "chat_id": target_chat_id,
+                "caption": caption,
+                "parse_mode": "HTML",
+                "reply_markup": reply_markup or _default_reply_markup(),
+            },
+            files={"animation": anim_file},
+            timeout=30,
+        )
+    return resp.json()
+
+
 def send_loan_report(loan_type: str = "ihtiyac", principal: float = 100_000, months: int = 12, target_chat_id: str = CHANNEL_ID) -> dict:
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {loan_type.upper()} kredisi verileri çekiliyor ({format_tl(principal)} / {months} Ay)...")
     tickers = fetch_market_tickers()
@@ -939,6 +955,33 @@ def send_weekly_recap_report(target_chat_id: str = CHANNEL_ID) -> dict:
     return result
 
 
+def send_celebration_report(target_chat_id: str = CHANNEL_ID) -> dict:
+    """1.500+ Abone özel kutlama animasyonunu Telegram'a gönderir."""
+    gif_path = str(Path(__file__).parent / "faiz_radari_1500_kutlama.gif")
+    if not Path(gif_path).exists():
+        from create_celebration_gif import generate_celebration_gif
+        generate_celebration_gif(gif_path)
+
+    caption = (
+        "🎉 <b>1.500+ KİŞİLİK DEV BİR AİLE OLDUK!</b> 🚀\n\n"
+        "⚡ <i>Faiz Radarı topluluğu olarak kısa sürede 1.500 değerli üyemizi geride bıraktık!</i>\n\n"
+        "🤝 <b>Katkılarınız, güveniniz ve takibiniz için sonsuz teşekkürler.</b>\n\n"
+        "📊 <b>Neler Yapıyoruz?</b>\n"
+        "• Tüm bankaların güncel mevduat & kredi oranlarını anlık radarımıza alıyoruz.\n"
+        "• Masrafsız, gizli kesintisiz en avantajlı finans fırsatlarını tarafsız sunuyoruz.\n"
+        "• Dolar, altın ve makas analizleriyle paranızın değerini korumanıza destek oluyoruz.\n\n"
+        "🔔 <i>Birlikte daha güçlüyüz. Canlı takip ve hesaplama için dostlarınızla paylaşmayı unutmayın:</i>\n"
+        "👉 <b>@faizradari</b>"
+    )
+    markup = _default_reply_markup() if target_chat_id == CHANNEL_ID else _interactive_menu_markup()
+    res = _post_animation_to_telegram(gif_path, caption, target_chat_id=target_chat_id, reply_markup=markup)
+    if res.get("ok"):
+        print(f"[BAŞARILI] 1500 Kutlama GIF'i {target_chat_id} hedefine paylaşıldı!")
+    else:
+        print(f"[HATA] Telegram kutlama gönderimi başarısız: {res}")
+    return res
+
+
 def send_breaking_news_report(
     headline: str,
     details: str,
@@ -975,6 +1018,33 @@ def send_breaking_news_report(
         post_to_x(img_path, x_text)
         post_to_whatsapp(img_path, caption)
     return result
+
+
+def send_celebration_report(target_chat_id: str = CHANNEL_ID) -> dict:
+    """1.500+ Abone özel kutlama animasyonunu Telegram'a gönderir."""
+    gif_path = str(Path(__file__).parent / "faiz_radari_1500_kutlama.gif")
+    if not Path(gif_path).exists():
+        from create_celebration_gif import generate_celebration_gif
+        generate_celebration_gif(gif_path)
+
+    caption = (
+        "🎉 <b>1.500+ KİŞİLİK DEV BİR AİLE OLDUK!</b> 🚀\n\n"
+        "⚡ <i>Faiz Radarı topluluğu olarak kısa sürede 1.500 değerli üyemizi geride bıraktık!</i>\n\n"
+        "🤝 <b>Katkılarınız, güveniniz ve takibiniz için sonsuz teşekkürler.</b>\n\n"
+        "📊 <b>Neler Yapıyoruz?</b>\n"
+        "• Tüm bankaların güncel mevduat & kredi oranlarını anlık radarımıza alıyoruz.\n"
+        "• Masrafsız, gizli kesintisiz en avantajlı finans fırsatlarını tarafsız sunuyoruz.\n"
+        "• Dolar, altın ve makas analizleriyle paranızın değerini korumanıza destek oluyoruz.\n\n"
+        "🔔 <i>Birlikte daha güçlüyüz. Canlı takip ve hesaplama için dostlarınızla paylaşmayı unutmayın:</i>\n"
+        "👉 <b>@faizradari</b>"
+    )
+    markup = _default_reply_markup() if target_chat_id == CHANNEL_ID else _interactive_menu_markup()
+    res = _post_animation_to_telegram(gif_path, caption, target_chat_id=target_chat_id, reply_markup=markup)
+    if res.get("ok"):
+        print(f"[BAŞARILI] 1500 Kutlama GIF'i {target_chat_id} hedefine paylaşıldı!")
+    else:
+        print(f"[HATA] Telegram kutlama gönderimi başarısız: {res}")
+    return res
 
 
 def check_and_set_dispatch_lock(slot_topic: str) -> bool:
@@ -1068,6 +1138,9 @@ if __name__ == "__main__":
             elif arg.startswith("--kategori="):
                 category = arg.split("=", 1)[1].strip()
         send_breaking_news_report(headline=headline, details=details, category=category)
+    elif "--kutlama" in sys.argv:
+        target = CHANNEL_ID if "--kanal" in sys.argv else ADMIN_CHAT_ID
+        send_celebration_report(target_chat_id=target)
     elif "--auto-slot" in sys.argv:
         target_topic = None
         for arg in sys.argv:
