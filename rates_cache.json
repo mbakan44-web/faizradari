@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-12 06:29",
+  "updated_at": "2026-11-12 08:29",
   "ihtiyac_kredisi": {
     "Türkiye İş Bankası": 3.68,
     "Yapı Kredi": 4.29,
@@ -88,6 +88,6 @@
     "Akbank": 3.4,
     "Türkiye İş Bankası": 3.29
   },
-  "last_dispatched_slot": "2026-11-12_09_ihtiyac",
-  "last_dispatched_at": "2026-11-12 09:29:04"
+  "last_dispatched_slot": "2026-11-12_11_makas",
+  "last_dispatched_at": "2026-11-12 11:29:04"
 }
