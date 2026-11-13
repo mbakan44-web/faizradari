@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-13 06:29",
+  "updated_at": "2026-11-13 08:29",
   "ihtiyac_kredisi": {
     "QNB": 2.84,
     "ON Dijital": 3.19,
@@ -89,6 +89,6 @@
     "CEPTETEB": 3.29,
     "Yapı Kredi": 3.49
   },
-  "last_dispatched_slot": "2026-11-13_09_ihtiyac",
-  "last_dispatched_at": "2026-11-13 09:29:06"
+  "last_dispatched_slot": "2026-11-13_11_makas",
+  "last_dispatched_at": "2026-11-13 11:29:03"
 }
