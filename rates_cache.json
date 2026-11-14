@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-14 14:29",
+  "updated_at": "2026-11-14 16:29",
   "ihtiyac_kredisi": {
     "Anadolubank": 3.09,
     "N Kolay": 3.99,
@@ -89,6 +89,6 @@
     "Halkbank": 3.65,
     "Ziraat Bankası": 3.29
   },
-  "last_dispatched_slot": "2026-11-14_17_tasit",
-  "last_dispatched_at": "2026-11-14 17:29:04"
+  "last_dispatched_slot": "2026-11-14_19_makas",
+  "last_dispatched_at": "2026-11-14 19:29:22"
 }
