@@ -973,20 +973,20 @@ def render_vertical_story_image(
         draw.line([(x, 0), (x, 6)], fill=(cr, cg, cb))
 
     f_top = _load_font(16, bold=True)
-    f_main = _load_font(40, bold=True)
-    f_sub = _load_font(20, bold=False)
-    f_cta_h = _load_font(22, bold=True)
+    f_main = _load_font(38, bold=True)
+    f_sub = _load_font(21, bold=True)
+    f_btn = _load_font(22, bold=True)
     f_cta_p = _load_font(18, bold=False)
-    f_brand = _load_font(16, bold=True)
+    f_brand = _load_font(18, bold=True)
 
     # 2. Üst Güvenli Alan & Başlık (TikTok üst çubuğunun altında kalır)
-    draw.rounded_rectangle([(60, 140), (440, 185)], radius=8, fill=(12, 33, 48), outline=(14, 165, 233), width=2)
-    draw.text((78, 150), "FAİZ RADARI  |  ORAN İSTİHBARATI", font=f_top, fill=(56, 189, 248))
+    draw.rounded_rectangle([(60, 135), (480, 182)], radius=10, fill=(18, 28, 52), outline=(250, 204, 21), width=2)
+    draw.text((78, 147), "GÜNCEL BANKA ORANLARI AÇIKLANDI", font=f_top, fill=(250, 204, 21))
 
-    draw.text((60, 210), title.upper(), font=f_main, fill=(255, 255, 255))
-    draw.text((60, 275), "Bankaların Güncel Faiz & Getiri Oranları", font=f_sub, fill=(148, 163, 184))
+    draw.text((60, 205), title.upper(), font=f_main, fill=(255, 255, 255))
+    draw.text((60, 268), "İstediğiniz tutarı profildeki canlı bot saniyede hesaplar!", font=f_sub, fill=(52, 211, 153))
 
-    draw.line([(60, 325), (v_width - 60, 325)], fill=(30, 41, 59), width=2)
+    draw.line([(60, 320), (v_width - 60, 320)], fill=(30, 41, 59), width=2)
 
     # 3. Ortalanmış Kare İnfografik Tablosu
     # 1080x1080 görseli 980x980 boyutuna ölçekleyip tam ortaya güvenli yerleştiririz
@@ -997,25 +997,32 @@ def render_vertical_story_image(
         sq_resized = sq_img.resize((target_size, target_size), Image.Resampling.LANCZOS)
 
         pos_x = (v_width - target_size) // 2
-        pos_y = 360
+        pos_y = 350
 
         # Tablo arkasına şık neon çerçeve kartı
         draw.rounded_rectangle([(pos_x - 6, pos_y - 6), (pos_x + target_size + 6, pos_y + target_size + 6)], radius=18, fill=(15, 23, 42), outline=(30, 58, 95), width=2)
         canvas.paste(sq_resized, (pos_x, pos_y), sq_resized if sq_resized.mode == "RGBA" else None)
 
     # 4. Alt Güvenli Alan (TikTok alt başlık ve ses barı öncesi CTA kartı)
-    card_y = 1380
-    card_h = 160
-    draw.rounded_rectangle([(60, card_y), (v_width - 60, card_y + card_h)], radius=16, fill=(13, 21, 37), outline=(16, 185, 129), width=2)
+    card_y = 1365
+    card_h = 195
+    draw.rounded_rectangle([(60, card_y), (v_width - 60, card_y + card_h)], radius=18, fill=(13, 21, 37), outline=(250, 204, 21), width=2)
 
-    draw.text((90, card_y + 24), "CANLI HESAPLAMA & TÜM BANKA LİSTESİ:", font=f_cta_h, fill=(52, 211, 153))
-    draw.text((90, card_y + 68), "Profildeki linkten Telegram botumuzla saniyeler içinde hesaplayın!", font=f_cta_p, fill=(241, 245, 249))
-    draw.text((90, card_y + 106), "t.me/faizradari  •  @faizradari", font=f_brand, fill=(56, 189, 248))
+    # Neon Yeşil Eylem Butonu (Tıklama Çağrısı)
+    btn_box = [(85, card_y + 18), (v_width - 85, card_y + 76)]
+    draw.rounded_rectangle(btn_box, radius=29, fill=(16, 185, 129), outline=(52, 211, 153), width=2)
+    b_txt = "► KREDİ TUTARINI YAZ, ROBOT HESAPLASIN ◄"
+    bbb = draw.textbbox((0, 0), b_txt, font=f_btn)
+    bw = bbb[2] - bbb[0]
+    draw.text(((v_width - bw) // 2, card_y + 32), b_txt, font=f_btn, fill=(10, 24, 18))
+
+    draw.text((90, card_y + 94), "Sıfır faizli nakit avans & gizli masraf kontrolü profildeki linkte:", font=f_cta_p, fill=(241, 245, 249))
+    draw.text((90, card_y + 134), "► t.me/faizradari  •  @faizradari", font=f_brand, fill=(56, 189, 248))
 
     # Alt yasal uyarı (TikTok alt güvenli alanı)
     draw.text(
-        (60, 1565),
-        "Kamuya açık banka verileridir. Yatırım tavsiyesi niteliği taşımaz.",
+        (60, 1585),
+        "• Kamuya açık banka verileridir. Yatırım tavsiyesi niteliği taşımaz.",
         font=_load_font(14, bold=False),
         fill=(100, 116, 139)
     )
@@ -1023,3 +1030,45 @@ def render_vertical_story_image(
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     canvas.save(output_path, format="PNG", optimize=True)
     return output_path
+
+
+def render_vertical_story_video(
+    v_image_path: str,
+    audio_path: str = None,
+    output_path: str = None,
+    duration: int = 8
+) -> str:
+    """
+    1080x1920 boyutundaki dikey hikaye görselini telifsiz fon müziğiyle
+    birleştirerek TikTok ve Instagram Reels için tam uyumlu Full HD MP4 video üretir.
+    """
+    import subprocess
+    try:
+        import imageio_ffmpeg
+        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        ffmpeg_exe = "ffmpeg"
+
+    base_dir = Path(__file__).parent
+    if not audio_path or not Path(audio_path).exists():
+        audio_path = str(base_dir / "bg_music_loop.mp3")
+
+    if not output_path:
+        output_path = str(base_dir / "latest_story_video.mp4")
+
+    cmd = [
+        ffmpeg_exe, "-y",
+        "-loop", "1",
+        "-i", str(v_image_path),
+        "-i", str(audio_path),
+        "-c:v", "libx264",
+        "-tune", "stillimage",
+        "-c:a", "aac",
+        "-b:a", "128k",
+        "-pix_fmt", "yuv420p",
+        "-shortest",
+        "-t", str(duration),
+        str(output_path)
+    ]
+    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return str(output_path)

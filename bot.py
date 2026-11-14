@@ -165,11 +165,12 @@ def send_vertical_story_to_admin(square_img_path: str, title: str = "GÜNÜN Fİ
         print(f"[UYARI] Dikey hikaye yöneticiye iletilemedi: {e}")
 
 
-def post_to_buffer_tiktok(image_url: str, caption: str) -> bool:
+def post_to_buffer_tiktok(media_url: str, caption: str, is_video: bool = False) -> bool:
     """
     Buffer GraphQL API üzerinden TikTok (@faizradari) hesabına anında otomatik paylaşım yapar.
+    is_video=True olduğunda müzikli MP4 video olarak iletir, aksi halde dikey görsel olarak paylaşır.
     """
-    if not (BUFFER_API_KEY and BUFFER_TIKTOK_CHANNEL_ID and image_url):
+    if not (BUFFER_API_KEY and BUFFER_TIKTOK_CHANNEL_ID and media_url):
         return False
     try:
         mutation = """
@@ -187,6 +188,7 @@ def post_to_buffer_tiktok(image_url: str, caption: str) -> bool:
           }
         }
         """
+        asset_field = "video" if is_video else "image"
         variables = {
             "input": {
                 "channelId": BUFFER_TIKTOK_CHANNEL_ID,
@@ -196,8 +198,8 @@ def post_to_buffer_tiktok(image_url: str, caption: str) -> bool:
                 "needsApproval": False,
                 "assets": [
                     {
-                        "image": {
-                            "url": image_url
+                        asset_field: {
+                            "url": media_url
                         }
                     }
                 ]
@@ -207,22 +209,28 @@ def post_to_buffer_tiktok(image_url: str, caption: str) -> bool:
             "Authorization": f"Bearer {BUFFER_API_KEY}",
             "Content-Type": "application/json"
         }
-        res = requests.post("https://api.buffer.com", json={"query": mutation, "variables": variables}, headers=headers, timeout=30).json()
+        res = requests.post("https://api.buffer.com", json={"query": mutation, "variables": variables}, headers=headers, timeout=35).json()
         post_data = res.get("data", {}).get("createPost", {})
         if "post" in post_data:
-            print(f"[BAŞARILI] Gönderi Buffer üzerinden TikTok hesabına iletildi! (Post ID: {post_data['post']['id']})")
+            print(f"[BAŞARILI] Gönderi Buffer üzerinden TikTok hesabına iletildi! (Post ID: {post_data['post']['id']} - {'Video' if is_video else 'Görsel'})")
             return True
         else:
             print(f"[UYARI] Buffer TikTok gönderim hatası: {post_data.get('message', res)}")
+            # Video gönderimi başarısız olduysa ve görsel adresi varsa görsel olarak yedekle
+            if is_video:
+                img_fallback = media_url.replace(".mp4", ".png")
+                print(f"[BİLGİ] TikTok video gönderilemedi, görsel yedeğe dönülüyor...")
+                return post_to_buffer_tiktok(img_fallback, caption, is_video=False)
             return False
     except Exception as e:
         print(f"[UYARI] Buffer API hatası: {e}")
         return False
 
 
-def post_to_buffer_instagram(image_url: str, caption: str) -> bool:
+def post_to_buffer_instagram(image_url: str, caption: str, first_comment: str = None) -> bool:
     """
     Buffer GraphQL API üzerinden Instagram (@faizradari) hesabına anında otomatik feed gönderisi paylaşır.
+    first_comment verilmişse gönderinin altına otomatik sabitlenmiş yönlendirme yorumu ekler.
     """
     if not (BUFFER_API_KEY and BUFFER_INSTAGRAM_CHANNEL_ID and image_url):
         return False
@@ -242,6 +250,13 @@ def post_to_buffer_instagram(image_url: str, caption: str) -> bool:
           }
         }
         """
+        ig_metadata = {
+            "type": "post",
+            "shouldShareToFeed": True
+        }
+        if first_comment:
+            ig_metadata["firstComment"] = first_comment
+
         variables = {
             "input": {
                 "channelId": BUFFER_INSTAGRAM_CHANNEL_ID,
@@ -250,10 +265,7 @@ def post_to_buffer_instagram(image_url: str, caption: str) -> bool:
                 "mode": "shareNow",
                 "needsApproval": False,
                 "metadata": {
-                    "instagram": {
-                        "type": "post",
-                        "shouldShareToFeed": True
-                    }
+                    "instagram": ig_metadata
                 },
                 "assets": [
                     {
@@ -268,7 +280,7 @@ def post_to_buffer_instagram(image_url: str, caption: str) -> bool:
             "Authorization": f"Bearer {BUFFER_API_KEY}",
             "Content-Type": "application/json"
         }
-        res = requests.post("https://api.buffer.com", json={"query": mutation, "variables": variables}, headers=headers, timeout=30).json()
+        res = requests.post("https://api.buffer.com", json={"query": mutation, "variables": variables}, headers=headers, timeout=35).json()
         post_data = res.get("data", {}).get("createPost", {})
         if "post" in post_data:
             print(f"[BAŞARILI] Gönderi Buffer üzerinden Instagram hesabına iletildi! (Post ID: {post_data['post']['id']})")
@@ -281,33 +293,112 @@ def post_to_buffer_instagram(image_url: str, caption: str) -> bool:
         return False
 
 
-def dispatch_to_buffer_omnichannel(square_img_path: str, title: str, caption: str) -> None:
+def build_social_hook_caption(topic: str) -> tuple[str, str]:
     """
-    Kare tablo görselinden dikey 9:16 format üretir, GitHub Actions ortamındaysa CDN'e anında pushlar,
-    ardından Buffer API üzerinden hem TikTok hem Instagram hesaplarında otomatik yayınlar.
+    TikTok ve Instagram için yüksek merak uyandıran, yoruma ve profile tıklamaya yönlendiren
+    (Curiosity Gap / FOMO / Pinned CTA) özel kanca açıklaması ve ilk yorum metni üretir.
+    """
+    hooks = {
+        "ihtiyac": (
+            "🚨 Bankaların en güncel ihtiyaç kredisi faiz oranları ortaya çıktı!\n\n"
+            "💡 Tablodaki tutar 100.000 TL; siz farklı bir tutar mı çekeceksiniz?\n"
+            "👉 Profildeki linkten Telegram botumuza istediğiniz tutarı yazın, robotumuz saniyeler içinde en karlı bankayı hesaplasın!\n\n"
+            "💬 Siz hangi bankadan kredi çekmeyi düşünüyorsunuz? Tutarı yoruma yazın, en karlı bankayı hesaplayalım! 👇\n\n"
+            "#faiz #kredi #ihtiyackredisi #para #finans #ekonomi #faizsizkredi #tasarruf",
+            "📌 İstediğiniz kredi tutarını ücretsiz hesaplamak için profildeki linkten Telegram botumuza yazabilirsiniz! Hangi bankayı hesaplayalım? Yorumlara yazın 👇"
+        ),
+        "tasit": (
+            "🚗 Taşıt kredisinde en ucuz ve en pahalı bankalar listelendi!\n\n"
+            "💡 Araç alırken binlerce lira fazla faiz ödemeyin.\n"
+            "👉 Kendi istediğiniz araç tutarı ve vadeyi profildeki linkten Telegram botumuza yazın, tüm bankaların gizli masraflar dahil net maliyetini saniyesinde görün!\n\n"
+            "💬 Hangi aracı almayı düşünüyorsunuz? Yoruma yazın, kredi maliyetini çıkaralım! 👇\n\n"
+            "#araba #tasitkredisi #kredi #faiz #otomobil #para #finans #ekonomi",
+            "📌 Kendi bütçenize göre araç kredisini ücretsiz hesaplamak için profildeki Telegram linkimize tıklayın! Hangi aracı düşünüyorsunuz? 👇"
+        ),
+        "konut": (
+            "🏠 Konut kredisi faiz oranları güncellendi! En uygun oran hangi bankada?\n\n"
+            "💡 2 Milyon TL'lik konut kredisinde bankalar arasındaki aylık taksit farkı dudak uçuklatıyor!\n"
+            "👉 İstediğiniz ev kredisi tutarını profildeki linkten Telegram botumuza yazın, en düşük taksiti tek tıkla bulun!\n\n"
+            "💬 Ev almayı düşünüyor musunuz? Yoruma yazın 👇\n\n"
+            "#konutkredisi #ev #emlak #kredi #faiz #para #ekonomi #yatirim",
+            "📌 İstediğiniz konut kredisi tutarını ve taksitini ücretsiz hesaplamak için profildeki Telegram botumuza yazabilirsiniz! 👇"
+        ),
+        "mevduat": (
+            "💰 Bankaların en yüksek mevduat faiz oranları tablosu açıklandı!\n\n"
+            "💡 500.000 TL'nin 32 günlük net getirisi ve %50+ veren şampiyon bankalar tek ekranda.\n"
+            "👉 Kendi birikiminizin net faiz getirisini profildeki linkten Telegram botumuzla anında hesaplayın!\n\n"
+            "💬 Hangi bankada mevduatınız var? Yoruma yazın 👇\n\n"
+            "#mevduat #faiz #para #birikim #yatirim #finans #ekonomi #dolar #altin",
+            "📌 Kendi birikiminizin net getirisini ve sıfır faizli nakit avansları görmek için profildeki Telegram botumuza gelin! 👇"
+        ),
+        "makas": (
+            "⚡ Bankaların Dolar ve Altın makas aralıkları ifşa oldu!\n\n"
+            "💡 Döviz ve altın alırken bankalara gizli makas komisyonu kaptırmayın.\n"
+            "👉 En düşük makaslı bankaları anlık takip etmek için profildeki linkten Telegram kanalımıza gelin!\n\n"
+            "💬 Altın mı, döviz mi, mevduat mı? Tercihiniz hangisi? 👇\n\n"
+            "#dolar #altin #doviz #makas #faiz #ekonomi #yatirim #para",
+            "📌 En karlı altın ve döviz makaslarını canlı takip etmek için profildeki linkten Telegram kanalımıza katılın! 👇"
+        ),
+        "bulten": (
+            "📊 Günün en kritik 10 finans & faiz gelişmesi tek infografikte!\n\n"
+            "💡 Krediden mevduata, piyasaları cebinizden önce takip edin.\n"
+            "👉 Canlı oran robotumuz ve günlük bültenlerimiz profildeki Telegram linkimizde!\n\n"
+            "💬 Piyasaların yönü sizce ne olur? Yorumlarda buluşalım 👇\n\n"
+            "#finans #ekonomi #faiz #kredi #mevduat #dolar #altin #haber",
+            "📌 Tüm bankaların canlı oranları ve ücretsiz kredi hesaplama botu profildeki Telegram linkimizde! 👇"
+        ),
+    }
+    return hooks.get(topic, hooks["ihtiyac"])
+
+
+def dispatch_to_buffer_omnichannel(square_img_path: str, title: str, topic: str = "ihtiyac") -> None:
+    """
+    Kare tablo görselinden:
+    1. Yüksek kontrastlı, neon yeşil CTA butonlu 1080x1920 dikey görsel üretir.
+    2. Telifsiz fon müziğiyle 8 saniyelik 1080x1920 Full HD MP4 video üretir.
+    3. GitHub Actions ortamındaysa CDN'e anında pushlar.
+    4. TikTok'a müzikli MP4 video veya dikey görsel olarak iletir.
+    5. Instagram'a dikey görsel + ilk yorum kancasıyla (firstComment) iletir.
     """
     try:
-        from image_generator import render_vertical_story_image
+        from image_generator import render_vertical_story_image, render_vertical_story_video
         import time
         v_path = str(Path(__file__).parent / "latest_vertical_story.png")
+        video_path = str(Path(__file__).parent / "latest_story_video.mp4")
+
+        # 1. Dikey Görsel
         render_vertical_story_image(square_image_path=square_img_path, title=title, output_path=v_path)
 
-        # GitHub Actions ortamında çalışıyorsak görseli Buffer çağırmadan önce pushla
+        # 2. Müzikli Video
+        try:
+            render_vertical_story_video(v_image_path=v_path, output_path=video_path, duration=8)
+        except Exception as ve:
+            print(f"[UYARI] Dikey video oluşturulamadı, görsele devam edilecek: {ve}")
+
+        # 3. GitHub Actions Ortamındaysa CDN'e pushla
         if os.getenv("GITHUB_ACTIONS") == "true":
             try:
                 import subprocess
                 subprocess.run(["git", "config", "user.name", "github-actions[bot]"], check=False)
                 subprocess.run(["git", "config", "user.email", "github-actions[bot]@users.noreply.github.com"], check=False)
-                subprocess.run(["git", "add", "latest_vertical_story.png"], check=False)
-                subprocess.run(["git", "commit", "-m", "Auto-update live visual for Buffer CDN"], check=False)
+                subprocess.run(["git", "add", "latest_vertical_story.png", "latest_story_video.mp4"], check=False)
+                subprocess.run(["git", "commit", "-m", "Auto-update live visual & video for Buffer CDN"], check=False)
                 subprocess.run(["git", "push"], check=False)
                 time.sleep(3)
             except Exception as pe:
-                print(f"[UYARI] Buffer öncesi görsel pushlanamadı: {pe}")
+                print(f"[UYARI] Buffer öncesi medya pushlanamadı: {pe}")
 
-        public_img_url = f"https://raw.githubusercontent.com/mbakan44-web/faizradari/main/latest_vertical_story.png?v={int(time.time())}"
-        post_to_buffer_tiktok(public_img_url, caption)
-        post_to_buffer_instagram(public_img_url, caption)
+        timestamp = int(time.time())
+        public_img_url = f"https://raw.githubusercontent.com/mbakan44-web/faizradari/main/latest_vertical_story.png?v={timestamp}"
+        public_video_url = f"https://raw.githubusercontent.com/mbakan44-web/faizradari/main/latest_story_video.mp4?v={timestamp}"
+
+        caption, first_comment = build_social_hook_caption(topic)
+
+        # TikTok: Müzikli video ile gönder (yedek olarak görsel)
+        post_to_buffer_tiktok(public_video_url, caption, is_video=True)
+
+        # Instagram: Görsel feed gönderisi + otomatik ilk yorum
+        post_to_buffer_instagram(public_img_url, caption, first_comment=first_comment)
     except Exception as e:
         print(f"[UYARI] Buffer omnichannel gönderim hatası: {e}")
 
@@ -789,8 +880,7 @@ def send_loan_report(loan_type: str = "ihtiyac", principal: float = 100_000, mon
         post_to_x(attach_img, build_loan_x_text(offers))
         post_to_whatsapp(img_path, caption)
         v_title = f"{loan_type.upper()} KREDİSİ FAİZ ORANLARI"
-        tt_caption = f"Bankaların güncel {loan_type} kredisi faiz oranları tablosu! 📊 Canlı hesaplama profildeki linkte: @faizradari #faiz #kredi #{loan_type} #ekonomi #para"
-        dispatch_to_buffer_omnichannel(img_path, v_title, tt_caption)
+        dispatch_to_buffer_omnichannel(img_path, v_title, topic=loan_type)
     return result
 
 
@@ -813,8 +903,7 @@ def send_deposit_report(principal: float = 500_000, days: int = 32, target_chat_
         post_to_x(attach_img, build_deposit_x_text(deposits))
         post_to_whatsapp(img_path, caption)
         send_vertical_story_to_admin(img_path, title="GÜNCEL MEVDUAT FAİZLERİ", topic="mevduat")
-        dep_caption = "Bankaların en yüksek mevduat faiz oranları tablosu! 💰 Canlı hesaplama profildeki linkte: @faizradari #mevduat #faiz #para #birikim #ekonomi"
-        dispatch_to_buffer_omnichannel(img_path, "GÜNCEL MEVDUAT FAİZLERİ", dep_caption)
+        dispatch_to_buffer_omnichannel(img_path, "GÜNCEL MEVDUAT FAİZLERİ", topic="mevduat")
     return result
 
 
@@ -836,8 +925,7 @@ def send_spread_report(target_chat_id: str = CHANNEL_ID) -> dict:
         attach_img = img_path if should_attach_image_to_x("makas") else None
         post_to_x(attach_img, build_spread_x_text(usd_spreads, gold_spreads))
         post_to_whatsapp(img_path, caption)
-        spread_caption = "Bankaların güncel dolar ve altın makas aralıkları tablosu! 💰 Canlı takip profildeki linkte: @faizradari #dolar #altın #makas #faiz #ekonomi"
-        dispatch_to_buffer_omnichannel(img_path, "BANKA DÖVİZ & ALTIN MAKASLARI", spread_caption)
+        dispatch_to_buffer_omnichannel(img_path, "BANKA DÖVİZ & ALTIN MAKASLARI", topic="makas")
     return result
 
 
@@ -925,8 +1013,7 @@ def send_briefing_report(target_chat_id: str = CHANNEL_ID) -> dict:
         post_to_x(attach_img, build_briefing_x_text(items))
         post_to_whatsapp(img_path, caption)
         send_vertical_story_to_admin(img_path, title="GÜNÜN FİNANS RAPORU", topic="bulten")
-        tt_caption = "Bankaların güncel faiz oranları ve günün finans raporu! 📊 Canlı hesaplama profildeki linkte: @faizradari #faiz #kredi #mevduat #finans #ekonomi"
-        dispatch_to_buffer_omnichannel(img_path, "GÜNÜN FİNANS RAPORU", tt_caption)
+        dispatch_to_buffer_omnichannel(img_path, "GÜNÜN FİNANS RAPORU", topic="bulten")
     return result
 
 
@@ -984,8 +1071,7 @@ def send_weekly_recap_report(target_chat_id: str = CHANNEL_ID) -> dict:
         )
         post_to_x(img_path, x_text)
         post_to_whatsapp(img_path, caption)
-        recap_caption = "Piyasalarda haftanın şampiyonları ve finans karnesi! 🏆 Canlı oranlar profildeki linkte: @faizradari #faiz #kredi #mevduat #altın #ekonomi"
-        dispatch_to_buffer_omnichannel(img_path, "HAFTALIK FİNANS KARNESİ", recap_caption)
+        dispatch_to_buffer_omnichannel(img_path, "HAFTALIK FİNANS KARNESİ", topic="mevduat")
     return result
 
 
@@ -1051,8 +1137,7 @@ def send_breaking_news_report(
         )
         post_to_x(img_path, x_text)
         post_to_whatsapp(img_path, caption)
-        recap_caption = "Piyasalarda haftanın şampiyonları ve finans karnesi! 🏆 Canlı oranlar profildeki linkte: @faizradari #faiz #kredi #mevduat #altın #ekonomi"
-        dispatch_to_buffer_omnichannel(img_path, "HAFTALIK FİNANS KARNESİ", recap_caption)
+        dispatch_to_buffer_omnichannel(img_path, "HAFTALIK FİNANS KARNESİ", topic="mevduat")
     return result
 
 
