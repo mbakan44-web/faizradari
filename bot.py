@@ -227,11 +227,12 @@ def post_to_buffer_tiktok(media_url: str, caption: str, is_video: bool = False) 
         return False
 
 
-def post_to_buffer_instagram(image_url: str, caption: str) -> bool:
+def post_to_buffer_instagram(media_url: str, caption: str, is_video: bool = True) -> bool:
     """
-    Buffer GraphQL API üzerinden Instagram (@faizradari) hesabına anında otomatik feed gönderisi paylaşır.
+    Buffer GraphQL API üzerinden Instagram (@faizradari) hesabına anında otomatik paylaşım yapar.
+    is_video=True olduğunda sesli Instagram Reel olarak yayınlar, aksi halde feed görseli olarak iletir.
     """
-    if not (BUFFER_API_KEY and BUFFER_INSTAGRAM_CHANNEL_ID and image_url):
+    if not (BUFFER_API_KEY and BUFFER_INSTAGRAM_CHANNEL_ID and media_url):
         return False
     try:
         mutation = """
@@ -249,6 +250,8 @@ def post_to_buffer_instagram(image_url: str, caption: str) -> bool:
           }
         }
         """
+        asset_field = "video" if is_video else "image"
+        post_type = "reel" if is_video else "post"
         variables = {
             "input": {
                 "channelId": BUFFER_INSTAGRAM_CHANNEL_ID,
@@ -258,14 +261,14 @@ def post_to_buffer_instagram(image_url: str, caption: str) -> bool:
                 "needsApproval": False,
                 "metadata": {
                     "instagram": {
-                        "type": "post",
+                        "type": post_type,
                         "shouldShareToFeed": True
                     }
                 },
                 "assets": [
                     {
-                        "image": {
-                            "url": image_url
+                        asset_field: {
+                            "url": media_url
                         }
                     }
                 ]
@@ -278,10 +281,14 @@ def post_to_buffer_instagram(image_url: str, caption: str) -> bool:
         res = requests.post("https://api.buffer.com", json={"query": mutation, "variables": variables}, headers=headers, timeout=35).json()
         post_data = res.get("data", {}).get("createPost", {})
         if "post" in post_data:
-            print(f"[BAŞARILI] Gönderi Buffer üzerinden Instagram hesabına iletildi! (Post ID: {post_data['post']['id']})")
+            print(f"[BAŞARILI] Gönderi Buffer üzerinden Instagram hesabına iletildi! (Post ID: {post_data['post']['id']} - {'Reel' if is_video else 'Görsel'})")
             return True
         else:
             print(f"[UYARI] Buffer Instagram gönderim hatası: {post_data.get('message', res)}")
+            if is_video:
+                img_fallback = media_url.replace(".mp4", ".png")
+                print(f"[BİLGİ] Instagram Reel gönderilemedi, görsel yedeğe dönülüyor...")
+                return post_to_buffer_instagram(img_fallback, caption, is_video=False)
             return False
     except Exception as e:
         print(f"[UYARI] Buffer Instagram API hatası: {e}")
@@ -392,8 +399,8 @@ def dispatch_to_buffer_omnichannel(square_img_path: str, title: str, topic: str 
         # TikTok: Müzikli video ile gönder (yedek olarak görsel)
         post_to_buffer_tiktok(public_video_url, caption, is_video=True)
 
-        # Instagram: Görsel feed gönderisi
-        post_to_buffer_instagram(public_img_url, caption)
+        # Instagram: Müzikli Reels videosu olarak gönder (yedek olarak görsel)
+        post_to_buffer_instagram(public_video_url, caption, is_video=True)
     except Exception as e:
         print(f"[UYARI] Buffer omnichannel gönderim hatası: {e}")
 
