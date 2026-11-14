@@ -227,10 +227,9 @@ def post_to_buffer_tiktok(media_url: str, caption: str, is_video: bool = False) 
         return False
 
 
-def post_to_buffer_instagram(image_url: str, caption: str, first_comment: str = None) -> bool:
+def post_to_buffer_instagram(image_url: str, caption: str) -> bool:
     """
     Buffer GraphQL API üzerinden Instagram (@faizradari) hesabına anında otomatik feed gönderisi paylaşır.
-    first_comment verilmişse gönderinin altına otomatik sabitlenmiş yönlendirme yorumu ekler.
     """
     if not (BUFFER_API_KEY and BUFFER_INSTAGRAM_CHANNEL_ID and image_url):
         return False
@@ -250,13 +249,6 @@ def post_to_buffer_instagram(image_url: str, caption: str, first_comment: str = 
           }
         }
         """
-        ig_metadata = {
-            "type": "post",
-            "shouldShareToFeed": True
-        }
-        if first_comment:
-            ig_metadata["firstComment"] = first_comment
-
         variables = {
             "input": {
                 "channelId": BUFFER_INSTAGRAM_CHANNEL_ID,
@@ -265,7 +257,10 @@ def post_to_buffer_instagram(image_url: str, caption: str, first_comment: str = 
                 "mode": "shareNow",
                 "needsApproval": False,
                 "metadata": {
-                    "instagram": ig_metadata
+                    "instagram": {
+                        "type": "post",
+                        "shouldShareToFeed": True
+                    }
                 },
                 "assets": [
                     {
@@ -397,8 +392,8 @@ def dispatch_to_buffer_omnichannel(square_img_path: str, title: str, topic: str 
         # TikTok: Müzikli video ile gönder (yedek olarak görsel)
         post_to_buffer_tiktok(public_video_url, caption, is_video=True)
 
-        # Instagram: Görsel feed gönderisi + otomatik ilk yorum
-        post_to_buffer_instagram(public_img_url, caption, first_comment=first_comment)
+        # Instagram: Görsel feed gönderisi
+        post_to_buffer_instagram(public_img_url, caption)
     except Exception as e:
         print(f"[UYARI] Buffer omnichannel gönderim hatası: {e}")
 
