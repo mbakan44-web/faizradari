@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-14 12:29",
+  "updated_at": "2026-11-14 13:24",
   "ihtiyac_kredisi": {
     "Anadolubank": 3.09,
     "N Kolay": 3.99,
@@ -89,6 +89,6 @@
     "CEPTETEB": 3.29,
     "Yapı Kredi": 3.49
   },
-  "last_dispatched_slot": "2026-11-14_15_makas",
-  "last_dispatched_at": "2026-11-14 15:29:03"
+  "last_dispatched_slot": "2026-11-14_16_makas",
+  "last_dispatched_at": "2026-11-14 16:24:13"
 }
