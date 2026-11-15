@@ -1175,13 +1175,21 @@ def check_and_set_dispatch_lock(slot_topic: str) -> bool:
     Mükerrer paylaşım koruması:
     Aynı gün ve saat içinde bu bülten zaten paylaşıldıysa True (kilitli / mükerrer) döner.
     İlk kez çalıştırılıyorsa kilidi günceller ve False döner (paylaşıma izin verir).
+    Makas tablosu için ek olarak günde en fazla 1 kez yayınlanma kuralını denetler.
     """
     try:
         from scraper import _load_full_cache, _save_full_cache
         cache = _load_full_cache()
         now = datetime.now(timezone(timedelta(hours=3)))
+        today_str = now.strftime("%Y-%m-%d")
         current_slot = f"{now.strftime('%Y-%m-%d_%H')}_{slot_topic}"
         last_slot = cache.get("last_dispatched_slot")
+
+        if slot_topic == "makas":
+            last_makas_date = cache.get("last_makas_date")
+            if last_makas_date == today_str:
+                print(f"[GÜNLÜK MAKAS LİMİTİ] Makas tablosu bugün ({today_str}) zaten paylaşıldı. Günde 1 kez kuralı gereği kilitlendi!")
+                return True
 
         if last_slot == current_slot:
             print(f"[MÜKERRER ENGELLEME] '{current_slot}' bülteni zaten az önce paylaşıldı. İkinci gönderim iptal edildi!")
@@ -1189,6 +1197,8 @@ def check_and_set_dispatch_lock(slot_topic: str) -> bool:
 
         cache["last_dispatched_slot"] = current_slot
         cache["last_dispatched_at"] = now.strftime("%Y-%m-%d %H:%M:%S")
+        if slot_topic == "makas":
+            cache["last_makas_date"] = today_str
         _save_full_cache(cache)
         return False
     except Exception as e:
@@ -1281,6 +1291,20 @@ if __name__ == "__main__":
             sys.exit(0)
 
         # 2. Otomatik slot tespiti (Yalnızca 6 resmi yayın aralığı)
+        today_str = now_tr.strftime("%Y-%m-%d")
+        from scraper import _load_full_cache, _save_full_cache
+        cache = _load_full_cache()
+        last_makas_date = cache.get("last_makas_date")
+
+        # Makas Kuralı: Günde kesinlikle SADECE 1 KEZ ve yalnızca 16:00-17:59 (Piyasa Kapanışı) saatinde yayınlanır!
+        if target_topic == "makas" and not is_force:
+            if last_makas_date == today_str:
+                print(f"[MAKAS GÜNLÜK KORUMASI] {today_str} tarihinde Makas Tablosu zaten yayınlandı. Günde 1 defa kuralı gereği ikinci makas tablosu engellendi.")
+                target_topic = "auto"
+            elif tr_hour not in (16, 17):
+                print(f"[MAKAS ZAMAN KORUMASI] TR Saati {tr_hour:02d}:{tr_minute:02d}. Makas tablosu günde 1 kez sadece piyasa kapanışında (16:00 - 17:59) yayınlanır.")
+                target_topic = "auto"
+
         if not target_topic or target_topic == "auto":
             if tr_hour in (8, 9):
                 target_topic = "ihtiyac"
@@ -1291,7 +1315,11 @@ if __name__ == "__main__":
             elif tr_hour in (14, 15):
                 target_topic = "konut"
             elif tr_hour in (16, 17):
-                target_topic = "makas"
+                if last_makas_date == today_str and not is_force:
+                    print(f"[MAKAS KORUMASI] Makas tablosu bugün ({today_str}) zaten yayınlandı. 17:00 için yedek yayın: MEVDUAT")
+                    target_topic = "mevduat"
+                else:
+                    target_topic = "makas"
             elif tr_hour in (18, 19):
                 # Pazar günü 19:00'da özel Haftalık Piyasa Karnesi yayınlanır
                 target_topic = "haftalik" if now_tr.weekday() == 6 else "mevduat"
