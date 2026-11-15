@@ -841,8 +841,10 @@ def _post_animation_to_telegram(animation_path: str, caption: str, target_chat_i
 
 
 def dispatch_rate_change_alerts(alerts: List[RateDropAlert], target_chat_id: str = CHANNEL_ID) -> None:
-    """Banka faiz indirimi veya faiz yükseltme alarmlarını anında tüm kanallara (Telegram, X, WhatsApp) duyurur."""
-    if not alerts:
+    """Banka faiz indirimi alarmlarını anında tüm kanallara (Telegram, X, WhatsApp) duyurur (faiz artışları paylaşılmaz)."""
+    # Yalnızca faiz indirimlerini paylaş
+    drop_alerts = [a for a in alerts if a.is_drop]
+    if not drop_alerts:
         return
 
     try:
@@ -856,7 +858,7 @@ def dispatch_rate_change_alerts(alerts: List[RateDropAlert], target_chat_id: str
     today_str = now_tr.strftime("%Y-%m-%d")
 
     unseen_alerts: List[RateDropAlert] = []
-    for a in alerts:
+    for a in drop_alerts:
         sig = f"{today_str}_{a.bank_name}_{a.loan_type}_{a.old_rate:.2f}_{a.new_rate:.2f}"
         if sig not in dispatched:
             unseen_alerts.append(a)
@@ -880,15 +882,13 @@ def dispatch_rate_change_alerts(alerts: List[RateDropAlert], target_chat_id: str
 
     for a in unseen_alerts:
         lname = loan_names.get(a.loan_type, "Kredi")
-        action_word = "FAİZ İNDİRDİ! 📉" if a.is_drop else "FAİZ YÜKSELTTİ! 📈"
-        diff_word = "azaldı" if a.is_drop else "arttı"
 
         caption = (
             f"🚨 <b>FAİZ RADARI | FLAŞ HABER</b>\n\n"
-            f"📌 <b>{a.bank_name.upper()} {lname.upper()} {action_word}</b>\n\n"
+            f"📌 <b>{a.bank_name.upper()} {lname.upper()} FAİZ İNDİRDİ! 📉</b>\n\n"
             f"📊 <b>Eski Oran:</b> %{a.old_rate:.2f} ➔ <b>Yeni Oran:</b> <b>%{a.new_rate:.2f}</b>\n"
-            f"💰 <b>{format_tl(a.principal)} ({a.months} Ay)</b> kredide toplam geri ödeme maliyeti "
-            f"<b>{format_tl(a.total_savings)} {diff_word}</b>! (Yeni Taksit: {format_tl(a.new_offer.monthly_installment)})\n\n"
+            f"💰 <b>{format_tl(a.principal)} ({a.months} Ay)</b> kredide toplam geri ödeme "
+            f"<b>{format_tl(a.total_savings)} azaldı!</b> (Yeni Taksit: {format_tl(a.new_offer.monthly_installment)})\n\n"
             f"⚠️ <i>Bilgilendirme amaçlıdır, yatırım tavsiyesi değildir.</i>\n"
             f"🔔 <b>Anlık Piyasa Radarı:</b> @faizradari"
         )
@@ -897,7 +897,7 @@ def dispatch_rate_change_alerts(alerts: List[RateDropAlert], target_chat_id: str
         if target_chat_id == CHANNEL_ID:
             post_to_x(
                 alert_img,
-                f"🚨 FLAŞ | {a.bank_name} {lname} {action_word}\n%{a.old_rate:.2f} ➔ %{a.new_rate:.2f}\nToplam maliyet {format_tl(a.total_savings)} {diff_word}.\nCanlı hesaplama: @faizradari (Telegram) #kredi #faiz"
+                f"🚨 FLAŞ | {a.bank_name} {lname} Faiz İndirdi! 📉\n%{a.old_rate:.2f} ➔ %{a.new_rate:.2f}\nToplam geri ödeme {format_tl(a.total_savings)} azaldı.\nCanlı hesaplama: @faizradari (Telegram) #kredi #faiz"
             )
             post_to_whatsapp(alert_img, caption)
 

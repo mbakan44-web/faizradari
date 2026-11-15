@@ -309,9 +309,8 @@ def get_loan_offers(
         prev_rate = old_rates.get(norm_name)
         if prev_rate is not None:
             diff = round(new_rate - prev_rate, 2)
-            # En az 0.04 puanlık düşüş veya artış tespit edilirse alarm üret
-            if abs(diff) >= 0.04:
-                c_type = "drop" if diff < 0 else "hike"
+            # Yalnızca faiz indirimi (oran düşüşü) tespit edilirse alarm üret (faiz artışları paylaşılmaz)
+            if diff <= -0.04:
                 alerts.append(
                     RateDropAlert(
                         bank_name=norm_name,
@@ -320,7 +319,7 @@ def get_loan_offers(
                         new_rate=float(new_rate),
                         principal=principal,
                         months=months,
-                        change_type=c_type,
+                        change_type="drop",
                     )
                 )
         current_rates[norm_name] = new_rate

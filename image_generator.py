@@ -482,24 +482,14 @@ def render_rate_drop_alert_image(
     img = Image.new("RGB", (width, height), color=(15, 10, 28))
     draw = ImageDraw.Draw(img)
 
-    has_hike = any(a.is_hike for a in alerts)
-    has_drop = any(a.is_drop for a in alerts)
-
-    if has_hike and not has_drop:
-        header_title = "FLAŞ ALARM | BANKA FAİZ YÜKSELTME KARARI YAKALANDI!"
-        bar_fill = (153, 27, 27)
-    elif has_drop and not has_hike:
-        header_title = "FLAŞ ALARM | BANKA FAİZ İNDİRİMİ YAKALANDI!"
-        bar_fill = (6, 78, 59)
-    else:
-        header_title = "FLAŞ ALARM | BANKALARDA FAİZ ORANLARI GÜNCELLENDİ!"
-        bar_fill = (127, 29, 29)
+    header_title = "FLAŞ ALARM | BANKA FAİZ İNDİRİMİ YAKALANDI!"
+    bar_fill = (6, 78, 59)
 
     draw.rectangle([(0, 0), (width, 110)], fill=bar_fill)
     draw.rectangle([(0, 106), (width, 110)], fill=(250, 204, 21))
 
     draw.text((45, 22), header_title, font=_load_font(30, bold=True), fill=(255, 255, 255))
-    draw.text((45, 65), "FAİZ RADARI ANLIK ORAN DEĞİŞİM MONİTÖRÜ  •  t.me/faizradari", font=_load_font(19, bold=False), fill=(254, 202, 202))
+    draw.text((45, 65), "FAİZ RADARI ANLIK ORAN DEĞİŞİM MONİTÖRÜ  •  t.me/faizradari", font=_load_font(19, bold=False), fill=(209, 250, 229))
 
     loan_names = {"ihtiyac": "İhtiyaç Kredisi", "tasit": "Taşıt Kredisi", "konut": "Konut Kredisi"}
 
@@ -509,18 +499,11 @@ def render_rate_drop_alert_image(
         new_s = f"%{alert.new_rate:.2f}".replace(".", ",")
         lname = loan_names.get(alert.loan_type, "Kredi")
 
-        if alert.is_hike:
-            bg_color = (68, 14, 20)
-            border_color = (239, 68, 68)
-            action_tag = "📈 FAİZ YÜKSELTTİ"
-            tag_color = (248, 113, 113)
-            diff_desc = f"{format_tl(alert.principal)} ({alert.months} Ay) kredide toplam maliyet {format_tl(alert.total_savings)} ARTTI! (Yeni Taksit: {format_tl(alert.new_offer.monthly_installment)})"
-        else:
-            bg_color = (6, 58, 46)
-            border_color = (16, 185, 129)
-            action_tag = "📉 FAİZ İNDİRDİ"
-            tag_color = (52, 211, 153)
-            diff_desc = f"{format_tl(alert.principal)} ({alert.months} Ay) kredide toplam geri ödeme {format_tl(alert.total_savings)} AZALDI! (Yeni Taksit: {format_tl(alert.new_offer.monthly_installment)})"
+        bg_color = (6, 58, 46)
+        border_color = (16, 185, 129)
+        action_tag = "📉 FAİZ İNDİRDİ"
+        tag_color = (52, 211, 153)
+        diff_desc = f"{format_tl(alert.principal)} ({alert.months} Ay) kredide toplam geri ödeme {format_tl(alert.total_savings)} AZALDI! (Yeni Taksit: {format_tl(alert.new_offer.monthly_installment)})"
 
         draw.rounded_rectangle([(40, y), (width - 40, y + row_h - 12)], radius=10, fill=bg_color, outline=border_color, width=2)
         line1 = f"{alert.bank_name} ({lname})  |  Eski: {old_s}  ➔  YENİ ORAN: {new_s}  [{action_tag}]"
