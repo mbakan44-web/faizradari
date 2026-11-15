@@ -780,7 +780,7 @@ def render_weekly_recap_image(
             "lines": [
                 f"• 100.000 TL 12 Ay Taksit: {recap_data.get('loan_installment', '10.506 TL')}",
                 f"• Toplam Geri Ödeme: {recap_data.get('loan_total', '126.641 TL')}",
-                f"• Konut Kredisi Lideri: {recap_data.get('konut_best', 'QNB (%2.84) ile 58.843 TL taksit.')}"
+                f"• Konut Kredisi Lideri: {recap_data.get('konut_best', 'VakıfBank (%2.84) ile 58.843 TL taksit.')}"
             ]
         },
         {

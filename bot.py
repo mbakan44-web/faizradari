@@ -1086,7 +1086,7 @@ def send_weekly_recap_report(target_chat_id: str = CHANNEL_ID) -> dict:
         "best_loan_bank": f"{best_loan.bank_name} (%{best_loan.monthly_rate:.2f})" if best_loan else "DenizBank (%2.89)",
         "loan_installment": f"{format_tl(best_loan.monthly_installment)}" if best_loan else "10.506 TL",
         "loan_total": f"{format_tl(best_loan.total_repayment)}" if best_loan else "126.641 TL",
-        "konut_best": f"{best_konut.bank_name} (%{best_konut.monthly_rate:.2f}) ile {format_tl(best_konut.monthly_installment)} taksit." if best_konut else "QNB (%2.84)",
+        "konut_best": f"{best_konut.bank_name} (%{best_konut.monthly_rate:.2f}) ile {format_tl(best_konut.monthly_installment)} taksit." if best_konut else "VakıfBank (%2.84)",
         "usd_price": f"{tickers.get('USD', '50.19 ₺')}",
         "eur_price": f"{tickers.get('EUR', '56.29 ₺')}",
         "gold_price": f"{tickers.get('ALTIN', '6.658 ₺')}",

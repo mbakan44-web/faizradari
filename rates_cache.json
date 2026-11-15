@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-15 08:29",
+  "updated_at": "2026-11-15 15:32",
   "ihtiyac_kredisi": {
     "Odea": 3.29,
     "Ziraat Bankası": 3.69,
@@ -65,17 +65,17 @@
     "Yapı Kredi": 43.5
   },
   "konut_kredisi": {
+    "VakıfBank": 2.84,
     "Kuveyt Türk": 2.87,
     "Ziraat Bankası": 2.89,
-    "QNB": 2.84,
+    "QNB": 2.99,
+    "Halkbank": 2.99,
     "Türkiye İş Bankası": 3.05,
-    "CEPTETEB": 3.2,
-    "VakıfBank": 2.84,
-    "ING": 3.19,
     "Yapı Kredi": 3.09,
-    "Akbank": 3.15,
     "Garanti BBVA": 3.13,
-    "Halkbank": 2.99
+    "Akbank": 3.15,
+    "ING": 3.19,
+    "CEPTETEB": 3.2
   },
   "tasit_kredisi": {
     "Garanti BBVA": 3.25,

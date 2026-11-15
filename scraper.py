@@ -102,9 +102,9 @@ DEFAULT_RATES = {
     },
     "konut": {
         "VakıfBank": 2.84,
-        "QNB": 2.84,
         "Kuveyt Türk": 2.87,
         "Ziraat Bankası": 2.89,
+        "QNB": 2.99,
         "Halkbank": 2.99,
         "Türkiye İş Bankası": 3.05,
         "Yapı Kredi": 3.09,
