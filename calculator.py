@@ -106,6 +106,15 @@ class RateDropAlert:
     new_rate: float
     principal: float
     months: int
+    change_type: str = "drop"  # "drop" (indirim) veya "hike" (yükseltme/artış)
+
+    @property
+    def is_drop(self) -> bool:
+        return self.new_rate < self.old_rate
+
+    @property
+    def is_hike(self) -> bool:
+        return self.new_rate > self.old_rate
 
     @property
     def old_offer(self) -> LoanOffer:
@@ -117,11 +126,13 @@ class RateDropAlert:
 
     @property
     def total_savings(self) -> float:
-        return max(0.0, self.old_offer.total_repayment - self.new_offer.total_repayment)
+        """İndirimde toplam tasarruf, artışta ek geri ödeme maliyeti farkı (TL)."""
+        return abs(self.old_offer.total_repayment - self.new_offer.total_repayment)
 
     @property
     def monthly_savings(self) -> float:
-        return max(0.0, self.old_offer.monthly_installment - self.new_offer.monthly_installment)
+        """İndirimde aylık taksit düşüşü, artışta aylık taksit artışı (TL)."""
+        return abs(self.old_offer.monthly_installment - self.new_offer.monthly_installment)
 
 
 def format_tl(amount: float) -> str:

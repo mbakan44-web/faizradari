@@ -286,28 +286,20 @@ def get_loan_offers(
 ) -> Tuple[List[LoanOffer], List[RateDropAlert]]:
     """
     İhtiyaç, Konut veya Taşıt kredisi oranlarını çeker, tekilleştirir,
-    önceki önbellekle karşılaştırıp faiz indirimi yapan banka varsa `RateDropAlert`
+    önceki önbellekle karşılaştırıp faiz indirimi veya faiz artışı yapan banka varsa `RateDropAlert`
     listesiyle birlikte döndürür.
     """
     cache = _load_full_cache()
     cache_key = f"{loan_type}_kredisi"
 
-    # 1. Taban oranlar
+    # 1. Taban ve Önbellek oranları
     base_rates = clean_and_deduplicate_rates(DEFAULT_RATES.get(loan_type, {}), mode="min")
-
-    # 2. Önbellekteki güncel oranlar (Eski önbellek taban orandaki indirimleri engellemesin diye min alınır)
     cached_rates = clean_and_deduplicate_rates(cache.get(cache_key, {}), mode="min")
-    old_rates: Dict[str, float] = {}
-    all_banks = set(base_rates.keys()) | set(cached_rates.keys())
-    for b in all_banks:
-        if b in base_rates and b in cached_rates:
-            old_rates[b] = min(base_rates[b], cached_rates[b])
-        elif b in base_rates:
-            old_rates[b] = base_rates[b]
-        else:
-            old_rates[b] = cached_rates[b]
+    
+    # Karşılaştırma için temel: Önceki önbellekteki bilinen oranlar
+    old_rates: Dict[str, float] = dict(cached_rates) if cached_rates else dict(base_rates)
 
-    # 3. Canlı tarama
+    # 2. Canlı tarama
     scraped = _scrape_loan_rates_by_type(loan_type, principal, months)
     alerts: List[RateDropAlert] = []
     current_rates = dict(old_rates)
@@ -315,17 +307,22 @@ def get_loan_offers(
     for bank_name, new_rate in scraped:
         norm_name = normalize_bank_name(bank_name)
         prev_rate = old_rates.get(norm_name)
-        if prev_rate is not None and new_rate <= prev_rate - 0.05:
-            alerts.append(
-                RateDropAlert(
-                    bank_name=norm_name,
-                    loan_type=loan_type,
-                    old_rate=float(prev_rate),
-                    new_rate=float(new_rate),
-                    principal=principal,
-                    months=months,
+        if prev_rate is not None:
+            diff = round(new_rate - prev_rate, 2)
+            # En az 0.04 puanlık düşüş veya artış tespit edilirse alarm üret
+            if abs(diff) >= 0.04:
+                c_type = "drop" if diff < 0 else "hike"
+                alerts.append(
+                    RateDropAlert(
+                        bank_name=norm_name,
+                        loan_type=loan_type,
+                        old_rate=float(prev_rate),
+                        new_rate=float(new_rate),
+                        principal=principal,
+                        months=months,
+                        change_type=c_type,
+                    )
                 )
-            )
         current_rates[norm_name] = new_rate
 
     # Kesin tekilleştirme ve temizlik
@@ -342,6 +339,23 @@ def get_loan_offers(
     ]
     offers.sort(key=lambda x: x.monthly_rate)
     return offers[:8], alerts
+
+
+def check_all_loan_rates_for_changes() -> List[RateDropAlert]:
+    """Tüm kredi türlerini (İhtiyaç, Taşıt, Konut) tarayıp faiz indirimi veya artışı yapan bankaları tespit eder."""
+    all_alerts: List[RateDropAlert] = []
+    specs = [
+        ("ihtiyac", 100_000, 12),
+        ("tasit", 400_000, 36),
+        ("konut", 2_000_000, 120),
+    ]
+    for l_type, p, m in specs:
+        try:
+            _, alerts = get_loan_offers(loan_type=l_type, principal=p, months=m)
+            all_alerts.extend(alerts)
+        except Exception as e:
+            print(f"[UYARI] {l_type} faiz değişim tarama hatası: {e}")
+    return all_alerts
 
 
 def get_consumer_loan_offers(principal: float = 100_000, months: int = 12) -> List[LoanOffer]:

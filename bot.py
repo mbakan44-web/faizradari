@@ -11,12 +11,13 @@ import schedule
 import tweepy
 from dotenv import load_dotenv
 
-from calculator import format_tl
+from calculator import format_tl, RateDropAlert
 from scraper import (
     fetch_market_tickers,
     get_loan_offers,
     get_deposit_offers,
     get_bank_spread_offers,
+    check_all_loan_rates_for_changes,
 )
 from image_generator import (
     render_loan_table_image,
@@ -839,30 +840,75 @@ def _post_animation_to_telegram(animation_path: str, caption: str, target_chat_i
     return resp.json()
 
 
+def dispatch_rate_change_alerts(alerts: List[RateDropAlert], target_chat_id: str = CHANNEL_ID) -> None:
+    """Banka faiz indirimi veya faiz yükseltme alarmlarını anında tüm kanallara (Telegram, X, WhatsApp) duyurur."""
+    if not alerts:
+        return
+
+    try:
+        from scraper import _load_full_cache, _save_full_cache
+        cache = _load_full_cache()
+    except Exception:
+        cache = {}
+
+    dispatched = cache.get("dispatched_rate_alerts", [])
+    now_tr = datetime.now(timezone(timedelta(hours=3)))
+    today_str = now_tr.strftime("%Y-%m-%d")
+
+    unseen_alerts: List[RateDropAlert] = []
+    for a in alerts:
+        sig = f"{today_str}_{a.bank_name}_{a.loan_type}_{a.old_rate:.2f}_{a.new_rate:.2f}"
+        if sig not in dispatched:
+            unseen_alerts.append(a)
+            dispatched.append(sig)
+
+    if not unseen_alerts:
+        return
+
+    cache["dispatched_rate_alerts"] = dispatched[-50:]
+    try:
+        _save_full_cache(cache)
+    except Exception:
+        pass
+
+    alert_img = render_rate_drop_alert_image(
+        alerts=unseen_alerts,
+        output_path=str(Path(__file__).parent / "latest_alert.png"),
+    )
+
+    loan_names = {"ihtiyac": "İhtiyaç Kredisi", "tasit": "Taşıt Kredisi", "konut": "Konut Kredisi"}
+
+    for a in unseen_alerts:
+        lname = loan_names.get(a.loan_type, "Kredi")
+        action_word = "FAİZ İNDİRDİ! 📉" if a.is_drop else "FAİZ YÜKSELTTİ! 📈"
+        diff_word = "azaldı" if a.is_drop else "arttı"
+
+        caption = (
+            f"🚨 <b>FAİZ RADARI | FLAŞ HABER</b>\n\n"
+            f"📌 <b>{a.bank_name.upper()} {lname.upper()} {action_word}</b>\n\n"
+            f"📊 <b>Eski Oran:</b> %{a.old_rate:.2f} ➔ <b>Yeni Oran:</b> <b>%{a.new_rate:.2f}</b>\n"
+            f"💰 <b>{format_tl(a.principal)} ({a.months} Ay)</b> kredide toplam geri ödeme maliyeti "
+            f"<b>{format_tl(a.total_savings)} {diff_word}</b>! (Yeni Taksit: {format_tl(a.new_offer.monthly_installment)})\n\n"
+            f"⚠️ <i>Bilgilendirme amaçlıdır, yatırım tavsiyesi değildir.</i>\n"
+            f"🔔 <b>Anlık Piyasa Radarı:</b> @faizradari"
+        )
+
+        _post_photo_to_telegram(alert_img, caption, target_chat_id=target_chat_id)
+        if target_chat_id == CHANNEL_ID:
+            post_to_x(
+                alert_img,
+                f"🚨 FLAŞ | {a.bank_name} {lname} {action_word}\n%{a.old_rate:.2f} ➔ %{a.new_rate:.2f}\nToplam maliyet {format_tl(a.total_savings)} {diff_word}.\nCanlı hesaplama: @faizradari (Telegram) #kredi #faiz"
+            )
+            post_to_whatsapp(alert_img, caption)
+
+
 def send_loan_report(loan_type: str = "ihtiyac", principal: float = 100_000, months: int = 12, target_chat_id: str = CHANNEL_ID) -> dict:
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {loan_type.upper()} kredisi verileri çekiliyor ({format_tl(principal)} / {months} Ay)...")
     tickers = fetch_market_tickers()
     offers, alerts = get_loan_offers(loan_type=loan_type, principal=principal, months=months)
 
     if alerts and target_chat_id == CHANNEL_ID:
-        alert_img = render_rate_drop_alert_image(
-            alerts=alerts,
-            output_path=str(Path(__file__).parent / "latest_alert.png"),
-        )
-        a = alerts[0]
-        alert_caption = (
-            f"🚨 <b>FLAŞ ALARM | {a.bank_name.upper()} FAİZ İNDİRDİ!</b>\n\n"
-            f"📉 <b>Eski Oran:</b> %{a.old_rate:.2f} ➔ <b>Yeni Oran:</b> <b>%{a.new_rate:.2f}</b>\n"
-            f"💰 <b>{format_tl(a.principal)} ({a.months} Ay)</b> kredide toplam geri ödeme "
-            f"<b>{format_tl(a.total_savings)}</b> azaldı!\n\n"
-            f"⚠️ <i>Bilgilendirme amaçlıdır, yatırım tavsiyesi değildir.</i>\n"
-            f"🔔 @faizradari"
-        )
-        _post_photo_to_telegram(alert_img, alert_caption, target_chat_id=CHANNEL_ID)
-        post_to_x(
-            alert_img,
-            f"🚨 FLAŞ | {a.bank_name} Faiz İndirdi!\n%{a.old_rate:.2f} ➔ %{a.new_rate:.2f}\nDetaylar profilimizdeki linkte: @faizradari #kredi #faiz",
-        )
+        dispatch_rate_change_alerts(alerts, target_chat_id=target_chat_id)
 
     img_path = render_loan_table_image(
         offers=offers,
@@ -1290,6 +1336,15 @@ if __name__ == "__main__":
             print(f"[GECE SESSİZ SAAT KORUMASI] TR Saati {tr_hour:02d}:{tr_minute:02d}. Gece saatlerinde (20:00 - 08:30) bildirim/paylaşım engellendi.")
             sys.exit(0)
 
+        # 1.5. Canlı Oran Değişim Taraması (Banka Faiz İndirimi veya Faiz Yükseltmesi Varsa Anında Flaş Haber Paylaşır)
+        try:
+            live_rate_alerts = check_all_loan_rates_for_changes()
+            if live_rate_alerts:
+                print(f"[FLAŞ HABER] {len(live_rate_alerts)} adet banka faiz değişikliği tespit edildi, anında paylaşılıyor!")
+                dispatch_rate_change_alerts(live_rate_alerts, target_chat_id=CHANNEL_ID)
+        except Exception as e:
+            print(f"[UYARI] Otomatik faiz değişim tarama hatası: {e}")
+
         # 2. Otomatik slot tespiti (Yalnızca 6 resmi yayın aralığı)
         today_str = now_tr.strftime("%Y-%m-%d")
         from scraper import _load_full_cache, _save_full_cache
@@ -1346,6 +1401,14 @@ if __name__ == "__main__":
             send_weekly_recap_report()
         elif target_topic == "mevduat":
             send_deposit_report(principal=500_000, days=32)
+    elif "--check-rate-changes" in sys.argv:
+        alerts = check_all_loan_rates_for_changes()
+        if alerts:
+            print(f"[SONUÇ] {len(alerts)} banka faiz değişikliği tespit edildi.")
+            target = CHANNEL_ID if "--kanal" in sys.argv else ADMIN_CHAT_ID
+            dispatch_rate_change_alerts(alerts, target_chat_id=target)
+        else:
+            print("[SONUÇ] Faiz oranlarında yeni bir indirim veya yükseltme tespit edilmedi.")
     elif "--schedule" in sys.argv:
         run_scheduler()
     else:
