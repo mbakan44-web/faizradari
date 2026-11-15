@@ -1016,7 +1016,7 @@ def render_vertical_story_image(
     bw = bbb[2] - bbb[0]
     draw.text(((v_width - bw) // 2, card_y + 32), b_txt, font=f_btn, fill=(10, 24, 18))
 
-    draw.text((90, card_y + 94), "Sıfır faizli nakit avans & gizli masraf kontrolü profildeki linkte:", font=f_cta_p, fill=(241, 245, 249))
+    draw.text((90, card_y + 94), "Sıfır faizli nakit avans & net masraf kontrolü profildeki linkte:", font=f_cta_p, fill=(241, 245, 249))
     draw.text((90, card_y + 134), "► t.me/faizradari  •  @faizradari", font=f_brand, fill=(56, 189, 248))
 
     # Alt yasal uyarı (TikTok alt güvenli alanı)

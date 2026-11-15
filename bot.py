@@ -297,29 +297,29 @@ def post_to_buffer_instagram(media_url: str, caption: str, is_video: bool = True
 
 def build_social_hook_caption(topic: str) -> tuple[str, str]:
     """
-    TikTok ve Instagram için yüksek merak uyandıran, yoruma ve profile tıklamaya yönlendiren
-    (Curiosity Gap / FOMO / Pinned CTA) özel kanca açıklaması ve ilk yorum metni üretir.
+    TikTok ve Instagram için yüksek merak uyandıran, topluluk kurallarına tam uyumlu,
+    yoruma ve profile tıklamaya yönlendiren özel kanca açıklaması ve ilk yorum metni üretir.
     """
     hooks = {
         "ihtiyac": (
-            "🚨 Bankaların en güncel ihtiyaç kredisi faiz oranları ortaya çıktı!\n\n"
+            "📊 Bankaların en güncel ihtiyaç kredisi faiz oranları netleşti!\n\n"
             "💡 Tablodaki tutar 100.000 TL; siz farklı bir tutar mı çekeceksiniz?\n"
-            "👉 Profildeki linkten Telegram botumuza istediğiniz tutarı yazın, robotumuz saniyeler içinde en karlı bankayı hesaplasın!\n\n"
+            "👉 Profildeki linkten Telegram botumuza istediğiniz tutarı yazın, robotumuz saniyeler içinde en uygun bankayı hesaplasın!\n\n"
             "💬 Siz hangi bankadan kredi çekmeyi düşünüyorsunuz? Tutarı yoruma yazın, en karlı bankayı hesaplayalım! 👇\n\n"
             "#faiz #kredi #ihtiyackredisi #para #finans #ekonomi #faizsizkredi #tasarruf",
             "📌 İstediğiniz kredi tutarını ücretsiz hesaplamak için profildeki linkten Telegram botumuza yazabilirsiniz! Hangi bankayı hesaplayalım? Yorumlara yazın 👇"
         ),
         "tasit": (
-            "🚗 Taşıt kredisinde en ucuz ve en pahalı bankalar listelendi!\n\n"
+            "🚗 Taşıt kredisinde bankaların güncel faiz ve maliyet oranları listelendi!\n\n"
             "💡 Araç alırken binlerce lira fazla faiz ödemeyin.\n"
-            "👉 Kendi istediğiniz araç tutarı ve vadeyi profildeki linkten Telegram botumuza yazın, tüm bankaların gizli masraflar dahil net maliyetini saniyesinde görün!\n\n"
+            "👉 Kendi istediğiniz araç tutarı ve vadeyi profildeki linkten Telegram botumuza yazın, tüm bankaların masraflar dahil net maliyetini saniyesinde görün!\n\n"
             "💬 Hangi aracı almayı düşünüyorsunuz? Yoruma yazın, kredi maliyetini çıkaralım! 👇\n\n"
             "#araba #tasitkredisi #kredi #faiz #otomobil #para #finans #ekonomi",
             "📌 Kendi bütçenize göre araç kredisini ücretsiz hesaplamak için profildeki Telegram linkimize tıklayın! Hangi aracı düşünüyorsunuz? 👇"
         ),
         "konut": (
             "🏠 Konut kredisi faiz oranları güncellendi! En uygun oran hangi bankada?\n\n"
-            "💡 2 Milyon TL'lik konut kredisinde bankalar arasındaki aylık taksit farkı dudak uçuklatıyor!\n"
+            "💡 2 Milyon TL'lik konut kredisinde bankalar arasındaki aylık taksit farkı dikkat çekiyor!\n"
             "👉 İstediğiniz ev kredisi tutarını profildeki linkten Telegram botumuza yazın, en düşük taksiti tek tıkla bulun!\n\n"
             "💬 Ev almayı düşünüyor musunuz? Yoruma yazın 👇\n\n"
             "#konutkredisi #ev #emlak #kredi #faiz #para #ekonomi #yatirim",
@@ -331,11 +331,11 @@ def build_social_hook_caption(topic: str) -> tuple[str, str]:
             "👉 Kendi birikiminizin net faiz getirisini profildeki linkten Telegram botumuzla anında hesaplayın!\n\n"
             "💬 Hangi bankada mevduatınız var? Yoruma yazın 👇\n\n"
             "#mevduat #faiz #para #birikim #yatirim #finans #ekonomi #dolar #altin",
-            "📌 Kendi birikiminizin net getirisini ve sıfır faizli nakit avansları görmek için profildeki Telegram botumuza gelin! 👇"
+            "📌 Kendi birikiminizin net getirisini ve avantajlı fırsatları görmek için profildeki Telegram botumuza gelin! 👇"
         ),
         "makas": (
-            "⚡ Bankaların Dolar ve Altın makas aralıkları ifşa oldu!\n\n"
-            "💡 Döviz ve altın alırken bankalara gizli makas komisyonu kaptırmayın.\n"
+            "⚡ Bankaların Dolar ve Altın alış-satış makas farkları tek tabloda karşılaştırıldı!\n\n"
+            "💡 Döviz ve altın işlemlerinde bankalar arasındaki komisyon farklarına dikkat edin.\n"
             "👉 En düşük makaslı bankaları anlık takip etmek için profildeki linkten Telegram kanalımıza gelin!\n\n"
             "💬 Altın mı, döviz mi, mevduat mı? Tercihiniz hangisi? 👇\n\n"
             "#dolar #altin #doviz #makas #faiz #ekonomi #yatirim #para",
