@@ -397,8 +397,12 @@ def dispatch_to_buffer_omnichannel(square_img_path: str, title: str, topic: str 
 
         caption, first_comment = build_social_hook_caption(topic)
 
-        # TikTok: Müzikli video ile gönder (yedek olarak görsel)
-        post_to_buffer_tiktok(public_video_url, caption, is_video=True)
+        # TikTok: Hesap sağlığını ve ihtar riskini sıfırlamak için acil durum güvenlik kilidi
+        enable_tiktok = os.getenv("ENABLE_TIKTOK_POSTING", "false").lower() == "true"
+        if enable_tiktok:
+            post_to_buffer_tiktok(public_video_url, caption, is_video=True)
+        else:
+            print("[GÜVENLİK KİLİDİ] TikTok hesap ihtar koruması devrede: Otomatik video gönderimi hesap güvenliği için durduruldu.")
 
         # Instagram: Müzikli Reels videosu olarak gönder (yedek olarak görsel)
         post_to_buffer_instagram(public_video_url, caption, is_video=True)
