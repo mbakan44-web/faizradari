@@ -546,7 +546,7 @@ def dispatch_to_buffer_omnichannel(
                 subprocess.run(["git", "config", "user.email", "github-actions[bot]@users.noreply.github.com"], cwd=repo_dir, check=False)
             subprocess.run(["git", "add", "rates_cache.json", "latest_vertical_story.png", "latest_story_video.mp4"], cwd=repo_dir, check=False)
             subprocess.run(["git", "commit", "-m", "Auto-update live voiced animated Reel & cache for Buffer CDN"], cwd=repo_dir, check=False)
-            subprocess.run(["git", "pull", "--rebase"], cwd=repo_dir, check=False)
+            subprocess.run(["git", "pull", "--rebase", "-X", "theirs"], cwd=repo_dir, check=False)
             subprocess.run(["git", "push"], cwd=repo_dir, check=False)
             sha_p = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=repo_dir, capture_output=True, text=True, check=False)
             if sha_p.returncode == 0 and sha_p.stdout.strip():
