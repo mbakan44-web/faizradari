@@ -492,7 +492,7 @@ def dispatch_to_buffer_omnichannel(
         cache["daily_instagram_posts"] = ig_daily
         _save_full_cache(cache)
 
-        # 2. GitHub Actions ortamındaysa CDN'e pushla
+        ref = "main"
         if os.getenv("GITHUB_ACTIONS") == "true":
             try:
                 import subprocess
@@ -502,12 +502,15 @@ def dispatch_to_buffer_omnichannel(
                 subprocess.run(["git", "commit", "-m", "Auto-update live voiced animated Reel & cache for Buffer CDN"], check=False)
                 subprocess.run(["git", "pull", "--rebase"], check=False)
                 subprocess.run(["git", "push"], check=False)
+                sha_p = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=False)
+                if sha_p.returncode == 0 and sha_p.stdout.strip():
+                    ref = sha_p.stdout.strip()
                 time.sleep(3)
             except Exception as pe:
                 print(f"[UYARI] Buffer öncesi medya pushlanamadı: {pe}")
 
         timestamp = int(time.time())
-        public_video_url = f"https://raw.githubusercontent.com/mbakan44-web/faizradari/main/latest_story_video.mp4?v={timestamp}"
+        public_video_url = f"https://raw.githubusercontent.com/mbakan44-web/faizradari/{ref}/latest_story_video.mp4?v={timestamp}"
 
         custom_cap = reel_data.get("caption", "") if reel_data else ""
         caption, _ = build_social_hook_caption(topic, custom_summary=custom_cap)
