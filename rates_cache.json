@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-19 06:29",
+  "updated_at": "2026-11-19 11:10",
   "ihtiyac_kredisi": {
     "Odeabank": 3.09,
     "Ziraat Bankası": 3.69,
@@ -8,7 +8,7 @@
     "CEPTETEB": 3.39,
     "Türkiye İş Bankası": 3.88,
     "ON Dijital": 3.19,
-    "Enpara": 3.59,
+    "Enpara": 3.44,
     "Anadolubank": 3.09,
     "Garanti BBVA": 3.89,
     "Akbank": 3.44,
@@ -262,5 +262,16 @@
       "bulten"
     ]
   },
-  "daily_instagram_posts": {}
+  "daily_instagram_posts": {
+    "2026-11-19": [
+      "haber"
+    ]
+  },
+  "dispatched_news_history": [
+    {
+      "date": "2026-11-19",
+      "headline": "Fed tutanaklarında faiz artışı beklentisi",
+      "category": "MERKEZ BANKASI & FAİZ"
+    }
+  ]
 }
