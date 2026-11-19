@@ -1712,3 +1712,316 @@ def render_vertical_story_video(
     ]
     subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return str(output_path)
+
+
+def render_carousel_guide_slides(
+    guide_data: Dict,
+    output_dir: str = None,
+    prefix: str = "latest_carousel",
+) -> List[str]:
+    """
+    Instagram (4:5 Portre Carousel - 1080x1350) ve X (4'lü Albüm) için
+    kaydetme (Save) ve kaydırma (Swipe) odaklı 4 slaytlık profesyonel finans rehberi üretir.
+    Sıfır tofu emoji; tamamen vektörel rozetler ve kristal netliğinde tipografi kullanır.
+    """
+    W, H = 1080, 1350
+    out_folder = Path(output_dir) if output_dir else Path(__file__).parent
+    out_folder.mkdir(parents=True, exist_ok=True)
+
+    f_top = _load_font(17, bold=True)
+    f_badge = _load_font(16, bold=True)
+    f_h1 = _load_font(44, bold=True)
+    f_h2 = _load_font(34, bold=True)
+    f_sub = _load_font(21, bold=False)
+    f_hero_lbl = _load_font(17, bold=True)
+    f_hero_val = _load_font(46, bold=True)
+    f_card_title = _load_font(25, bold=True)
+    f_card_sub = _load_font(18, bold=False)
+    f_card_val = _load_font(27, bold=True)
+    f_tip_title = _load_font(21, bold=True)
+    f_tip_body = _load_font(19, bold=False)
+    f_cta = _load_font(18, bold=True)
+    f_foot = _load_font(14, bold=False)
+
+    today_str = datetime.now().strftime("%d.%m.%Y")
+    cat_badge = guide_data.get("category_badge", "FAİZ RADARI CEP REHBERİ")
+
+    def _new_slide(slide_no: int, total_slides: int = 4):
+        img = Image.new("RGB", (W, H), color=(8, 12, 24))
+        d = ImageDraw.Draw(img)
+        for y in range(H):
+            r = int(8 + (16 - 8) * (y / H))
+            g = int(12 + (24 - 12) * (y / H))
+            b = int(24 + (44 - 24) * (y / H))
+            d.line([(0, y), (W, y)], fill=(r, g, b))
+
+        # Üst altın/mavi vurgu çizgisi
+        d.rectangle([(0, 0), (W, 8)], fill=(245, 158, 11) if slide_no == 1 else (56, 189, 248))
+
+        # Üst kurumsal bar
+        d.rounded_rectangle([(44, 34), (W - 44, 92)], radius=12, fill=(15, 23, 42), outline=(51, 65, 85), width=1)
+        d.ellipse([(64, 55), (80, 71)], fill=(16, 185, 129))
+        d.text((94, 51), f"FAİZ RADARI  |  {cat_badge}", font=f_top, fill=(248, 250, 252))
+
+        # Sağ üst slayt sayacı (1/4, 2/4, 3/4, 4/4)
+        p_txt = f"{slide_no} / {total_slides}"
+        d.rounded_rectangle([(W - 148, 43), (W - 58, 83)], radius=10, fill=(30, 41, 59), outline=(245, 158, 11), width=2)
+        p_bb = d.textbbox((0, 0), p_txt, font=f_top)
+        d.text((W - 103 - (p_bb[2] - p_bb[0]) // 2, 51), p_txt, font=f_top, fill=(251, 191, 36))
+
+        # Alt ilerleme noktaları + kaydır/kaydet barı
+        d.line([(44, 1246), (W - 44, 1246)], fill=(30, 41, 59), width=1)
+        d.text((44, 1264), f"@faizradari  •  {today_str} Canlı Banka Verileri", font=f_top, fill=(148, 163, 184))
+        d.text((44, 1294), "Bilgilendirme amaçlıdır, yatırım tavsiyesi içermez.", font=f_foot, fill=(100, 116, 139))
+
+        # İlerleme noktaları (ortada)
+        dot_start_x = W // 2 - 45
+        for idx in range(1, total_slides + 1):
+            dx = dot_start_x + (idx - 1) * 28
+            if idx == slide_no:
+                d.rounded_rectangle([(dx - 6, 1274), (dx + 18, 1288)], radius=6, fill=(245, 158, 11))
+            else:
+                d.ellipse([(dx, 1274), (dx + 14, 1288)], fill=(51, 65, 85))
+
+        # Sağ alt Kaydır / Kaydet rozeti
+        if slide_no < total_slides:
+            cta_lbl = "SOLA KAYDIR  >>>"
+            d.rounded_rectangle([(W - 275, 1260), (W - 44, 1314)], radius=12, fill=(245, 158, 11))
+            c_bb = d.textbbox((0, 0), cta_lbl, font=f_cta)
+            d.text((W - 160 - (c_bb[2] - c_bb[0]) // 2, 1275), cta_lbl, font=f_cta, fill=(15, 23, 42))
+        else:
+            cta_lbl = "KAYDET & PAYLAŞ"
+            d.rounded_rectangle([(W - 275, 1260), (W - 44, 1314)], radius=12, fill=(16, 185, 129))
+            c_bb = d.textbbox((0, 0), cta_lbl, font=f_cta)
+            d.text((W - 160 - (c_bb[2] - c_bb[0]) // 2, 1275), cta_lbl, font=f_cta, fill=(10, 20, 15))
+
+        return img, d
+
+    def _wrap(d, text: str, font, max_w: int) -> List[str]:
+        words = text.split()
+        lines, cur = [], []
+        for w in words:
+            test = " ".join(cur + [w])
+            bb = d.textbbox((0, 0), test, font=font)
+            if (bb[2] - bb[0]) <= max_w:
+                cur.append(w)
+            else:
+                if cur:
+                    lines.append(" ".join(cur))
+                cur = [w]
+        if cur:
+            lines.append(" ".join(cur))
+        return lines
+
+    paths: List[str] = []
+
+    # =========================================================================
+    # SLAYT 1: KAPAK (VURUCU MANŞET + DEV RAKAM KUTUSU + REHBER İÇERİĞİ)
+    # =========================================================================
+    img1, d1 = _new_slide(1)
+    tag1 = guide_data.get("cover_tag", f"ADIM ADIM FİNANS REHBERİ • {today_str}")
+    t1_bb = d1.textbbox((0, 0), tag1, font=f_badge)
+    d1.rounded_rectangle([(44, 124), (84 + (t1_bb[2] - t1_bb[0]), 166)], radius=8, fill=(30, 41, 59), outline=(245, 158, 11), width=1)
+    d1.text((64, 134), tag1, font=f_badge, fill=(251, 191, 36))
+
+    c_lines = _wrap(d1, guide_data.get("cover_title", ""), f_h1, W - 96)[:3]
+    cy = 192
+    for cl in c_lines:
+        d1.text((48, cy), cl, font=f_h1, fill=(255, 255, 255))
+        cy += 58
+
+    sub_lines = _wrap(d1, guide_data.get("cover_subtitle", ""), f_sub, W - 96)[:2]
+    cy += 8
+    for sl in sub_lines:
+        d1.text((48, cy), sl, font=f_sub, fill=(148, 163, 184))
+        cy += 32
+
+    # Ortadaki Dev Vurgu Kutusu
+    hero_y = max(cy + 28, 465)
+    hero_h = 250
+    d1.rounded_rectangle([(44, hero_y), (W - 44, hero_y + hero_h)], radius=20, fill=(16, 28, 46), outline=(16, 185, 129), width=3)
+    d1.rounded_rectangle([(44, hero_y + 18), (54, hero_y + hero_h - 18)], radius=4, fill=(16, 185, 129))
+    d1.text((84, hero_y + 30), guide_data.get("hero_label", "GÜNÜN EN KRİTİK FARKI"), font=f_hero_lbl, fill=(52, 211, 153))
+    d1.text((84, hero_y + 74), guide_data.get("hero_value", ""), font=f_hero_val, fill=(255, 255, 255))
+    d1.text((84, hero_y + 152), guide_data.get("hero_sub", ""), font=_load_font(22, bold=True), fill=(251, 191, 36))
+    d1.text((84, hero_y + 194), "Tüm hesaplamalar güncel banka oranları ve yasal kesintiler dahil net tutarlardır.", font=f_card_sub, fill=(148, 163, 184))
+
+    # Alt "Bu Rehberde Neler Var?" Kutusu
+    b_y = hero_y + hero_h + 36
+    b_h = 370
+    d1.rounded_rectangle([(44, b_y), (W - 44, b_y + b_h)], radius=18, fill=(15, 23, 42), outline=(51, 65, 85), width=1)
+    d1.text((76, b_y + 26), "BU 4 SLAYTLIK REHBERDE NELER VAR?", font=_load_font(21, bold=True), fill=(56, 189, 248))
+    d1.line([(76, b_y + 64), (W - 76, b_y + 64)], fill=(30, 41, 59), width=1)
+
+    bullets = guide_data.get("cover_bullets", [
+        ("SLAYT 2", "En avantajlı 5 bankanın güncel oranları ve net TL tablosu"),
+        ("SLAYT 3", "En iyi banka ile son sıradaki banka arasındaki net TL farkı ve 3 altın kural"),
+        ("SLAYT 4", "Karar özeti, canlı piyasa kurları ve günün tartışma sorusu"),
+    ])
+    by_cur = b_y + 88
+    for b_tag, b_desc in bullets[:3]:
+        d1.rounded_rectangle([(76, by_cur), (196, by_cur + 42)], radius=8, fill=(30, 41, 59), outline=(245, 158, 11), width=1)
+        d1.text((94, by_cur + 10), b_tag, font=f_badge, fill=(251, 191, 36))
+        d1.text((216, by_cur + 8), b_desc, font=_load_font(20, bold=False), fill=(241, 245, 249))
+        by_cur += 88
+
+    p1 = str(out_folder / f"{prefix}_1.png")
+    img1.save(p1, format="PNG", optimize=True)
+    paths.append(p1)
+
+    # =========================================================================
+    # SLAYT 2: LİDER 5 BANKA KARŞILAŞTIRMA TABLOSU
+    # =========================================================================
+    img2, d2 = _new_slide(2)
+    d2.text((48, 124), guide_data.get("slide2_title", "EN AVANTAJLI 5 BANKA LİSTESİ"), font=f_h2, fill=(255, 255, 255))
+    d2.text((48, 172), guide_data.get("slide2_subtitle", "Güncel oranlara göre sıralanmış ilk 5 banka ve net tutarlar:"), font=f_sub, fill=(148, 163, 184))
+
+    rows = guide_data.get("rows", [])[:5]
+    ry = 230
+    card_h = 178
+    for idx, r in enumerate(rows):
+        is_top = idx == 0
+        bg_c = (20, 38, 34) if is_top else (15, 23, 42)
+        bd_c = (16, 185, 129) if is_top else (51, 65, 85)
+        d2.rounded_rectangle([(44, ry), (W - 44, ry + card_h)], radius=16, fill=bg_c, outline=bd_c, width=2 if is_top else 1)
+
+        # Sıra rozeti
+        rk_bg = (245, 158, 11) if is_top else (30, 41, 59)
+        rk_fg = (15, 23, 42) if is_top else (226, 232, 240)
+        d2.rounded_rectangle([(70, ry + 48), (146, ry + 124)], radius=14, fill=rk_bg)
+        rk_txt = f"#{idx + 1}"
+        rk_bb = d2.textbbox((0, 0), rk_txt, font=f_card_title)
+        d2.text((108 - (rk_bb[2] - rk_bb[0]) // 2, ry + 70), rk_txt, font=f_card_title, fill=rk_fg)
+
+        # Banka adı ve alt detay
+        d2.text((174, ry + 42), str(r.get("title", "")), font=f_card_title, fill=(255, 255, 255))
+        d2.text((174, ry + 86), str(r.get("sub", "")), font=f_card_sub, fill=(148, 163, 184))
+        if is_top:
+            d2.text((174, ry + 122), "GÜNÜN LİDER TEKLİFİ", font=_load_font(15, bold=True), fill=(52, 211, 153))
+
+        # Sağ değer kutusu
+        val_txt = str(r.get("value", ""))
+        v_bb = d2.textbbox((0, 0), val_txt, font=f_card_val)
+        vw = max(210, (v_bb[2] - v_bb[0]) + 48)
+        vx1 = W - 70 - vw
+        v_bg = (16, 185, 129) if is_top else (30, 41, 59)
+        v_fg = (10, 20, 15) if is_top else (56, 189, 248)
+        d2.rounded_rectangle([(vx1, ry + 48), (W - 70, ry + 126)], radius=12, fill=v_bg)
+        d2.text((vx1 + (vw - (v_bb[2] - v_bb[0])) // 2, ry + 70), val_txt, font=f_card_val, fill=v_fg)
+
+        ry += card_h + 18
+
+    p2 = str(out_folder / f"{prefix}_2.png")
+    img2.save(p2, format="PNG", optimize=True)
+    paths.append(p2)
+
+    # =========================================================================
+    # SLAYT 3: BANKALAR ARASI FARK + 3 ALTIN KURAL
+    # =========================================================================
+    img3, d3 = _new_slide(3)
+    d3.text((48, 124), guide_data.get("slide3_title", "BANKA FARKI & 3 KRİTİK KURAL"), font=f_h2, fill=(255, 255, 255))
+    d3.text((48, 172), guide_data.get("slide3_subtitle", "Yanlış banka tercihi bütçenize ne kadara mal oluyor?"), font=f_sub, fill=(148, 163, 184))
+
+    # İkili Karşılaştırma Kutusu (En İyi vs Son Sıra)
+    box_y = 228
+    box_w = (W - 88 - 24) // 2
+    box_h = 220
+    # Sol: En İyi Banka
+    d3.rounded_rectangle([(44, box_y), (44 + box_w, box_y + box_h)], radius=16, fill=(18, 38, 32), outline=(16, 185, 129), width=2)
+    d3.text((70, box_y + 24), "1. SIRADAKİ BANKA (EN AVANTAJLI)", font=_load_font(15, bold=True), fill=(52, 211, 153))
+    d3.text((70, box_y + 62), guide_data.get("comp_best_bank", ""), font=f_card_title, fill=(255, 255, 255))
+    d3.text((70, box_y + 112), guide_data.get("comp_best_val", ""), font=_load_font(34, bold=True), fill=(52, 211, 153))
+    d3.text((70, box_y + 168), guide_data.get("comp_best_sub", ""), font=f_card_sub, fill=(148, 163, 184))
+
+    # Sağ: Düşük/Pahalı Banka
+    rx = 44 + box_w + 24
+    d3.rounded_rectangle([(rx, box_y), (rx + box_w, box_y + box_h)], radius=16, fill=(38, 20, 26), outline=(239, 68, 68), width=2)
+    d3.text((rx + 26, box_y + 24), "LİSTE SONUNDAKİ BANKA", font=_load_font(15, bold=True), fill=(248, 113, 113))
+    d3.text((rx + 26, box_y + 62), guide_data.get("comp_worst_bank", ""), font=f_card_title, fill=(255, 255, 255))
+    d3.text((rx + 26, box_y + 112), guide_data.get("comp_worst_val", ""), font=_load_font(34, bold=True), fill=(248, 113, 113))
+    d3.text((rx + 26, box_y + 168), guide_data.get("comp_worst_sub", ""), font=f_card_sub, fill=(148, 163, 184))
+
+    # Fark Şeridi
+    diff_y = box_y + box_h + 20
+    d3.rounded_rectangle([(44, diff_y), (W - 44, diff_y + 96)], radius=14, fill=(45, 32, 12), outline=(245, 158, 11), width=2)
+    d3.text((74, diff_y + 18), "İKİ BANKA ARASINDAKİ NET CEBİNİZE YANSIYAN FARK:", font=_load_font(16, bold=True), fill=(251, 191, 36))
+    d3.text((74, diff_y + 46), guide_data.get("comp_diff_banner", ""), font=_load_font(26, bold=True), fill=(255, 255, 255))
+
+    # 3 Altın Kural Kartları
+    tips = guide_data.get("tips", [])[:3]
+    ty = diff_y + 124
+    for idx, (t_head, t_desc) in enumerate(tips):
+        th = 180
+        d3.rounded_rectangle([(44, ty), (W - 44, ty + th)], radius=14, fill=(15, 23, 42), outline=(51, 65, 85), width=1)
+        d3.rounded_rectangle([(44, ty + 14), (52, ty + th - 14)], radius=4, fill=(56, 189, 248))
+        d3.text((76, ty + 22), f"KURAL {idx + 1}:  {t_head}", font=f_tip_title, fill=(56, 189, 248))
+        t_lines = _wrap(d3, t_desc, f_tip_body, W - 150)[:3]
+        t_ly = ty + 64
+        for tl in t_lines:
+            d3.text((76, t_ly), tl, font=f_tip_body, fill=(226, 232, 240))
+            t_ly += 30
+        ty += th + 18
+
+    p3 = str(out_folder / f"{prefix}_3.png")
+    img3.save(p3, format="PNG", optimize=True)
+    paths.append(p3)
+
+    # =========================================================================
+    # SLAYT 4: KARAR ÖZETİ + CANLI KUR ŞERİDİ + ETKİLEŞİM & KAYDET ÇAĞRISI
+    # =========================================================================
+    img4, d4 = _new_slide(4)
+    d4.text((48, 124), "FAİZ RADARI KARAR ÖZETİ & PİYASA", font=f_h2, fill=(255, 255, 255))
+    d4.text((48, 172), "İşlem yapmadan önce son kontrol listesi ve canlı göstergeler:", font=f_sub, fill=(148, 163, 184))
+
+    # Karar Özeti Kutusu
+    v_y = 230
+    v_h = 310
+    d4.rounded_rectangle([(44, v_y), (W - 44, v_y + v_h)], radius=18, fill=(16, 28, 46), outline=(56, 189, 248), width=2)
+    d4.text((76, v_y + 28), guide_data.get("verdict_title", "SONUÇ: NE YAPMALI?"), font=_load_font(24, bold=True), fill=(56, 189, 248))
+    d4.line([(76, v_y + 70), (W - 76, v_y + 70)], fill=(30, 41, 59), width=1)
+    v_lines = _wrap(d4, guide_data.get("verdict_body", ""), _load_font(22, bold=False), W - 152)[:5]
+    vy_cur = v_y + 92
+    for vl in v_lines:
+        d4.text((76, vy_cur), vl, font=_load_font(22, bold=False), fill=(241, 245, 249))
+        vy_cur += 38
+
+    # Canlı Piyasa Kurları Şeridi
+    tickers = guide_data.get("tickers", {})
+    st_y = v_y + v_h + 28
+    st_h = 130
+    bw = (W - 88 - 24) // 3
+    t_items = [
+        ("DOLAR / TL", str(tickers.get("USD", "—")), (56, 189, 248)),
+        ("EURO / TL", str(tickers.get("EUR", "—")), (167, 139, 250)),
+        ("GRAM ALTIN", str(tickers.get("ALTIN", "—")), (251, 191, 36)),
+    ]
+    for idx, (tlbl, tval, tcol) in enumerate(t_items):
+        bx = 44 + idx * (bw + 12)
+        d4.rounded_rectangle([(bx, st_y), (bx + bw, st_y + st_h)], radius=14, fill=(15, 23, 42), outline=(51, 65, 85), width=1)
+        d4.text((bx + 24, st_y + 24), tlbl, font=_load_font(16, bold=True), fill=(148, 163, 184))
+        d4.text((bx + 24, st_y + 62), tval, font=_load_font(30, bold=True), fill=tcol)
+
+    # Tartışma Sorusu Kutusu
+    q_y = st_y + st_h + 28
+    q_h = 220
+    d4.rounded_rectangle([(44, q_y), (W - 44, q_y + q_h)], radius=18, fill=(30, 27, 75), outline=(129, 140, 248), width=2)
+    d4.text((76, q_y + 26), "YORUMLARDA BULUŞALIM  |  SİZİN TERCİHİNİZ NE?", font=_load_font(19, bold=True), fill=(165, 180, 252))
+    q_lines = _wrap(d4, guide_data.get("question", ""), _load_font(26, bold=True), W - 152)[:3]
+    qy_cur = q_y + 72
+    for ql in q_lines:
+        d4.text((76, qy_cur), ql, font=_load_font(26, bold=True), fill=(255, 255, 255))
+        qy_cur += 40
+
+    # Kaydet Çağrısı Kutusu
+    s_y = q_y + q_h + 28
+    s_h = 180
+    d4.rounded_rectangle([(44, s_y), (W - 44, s_y + s_h)], radius=18, fill=(20, 38, 34), outline=(16, 185, 129), width=2)
+    d4.text((76, s_y + 28), "BU REHBERİ KAYDETMEYİ UNUTMAYIN!", font=_load_font(24, bold=True), fill=(52, 211, 153))
+    d4.text((76, s_y + 74), "Bankaya gitmeden veya mobil şubeden işlem yapmadan önce", font=_load_font(20, bold=False), fill=(241, 245, 249))
+    d4.text((76, s_y + 108), "oranları karşılaştırmak için sağ alttan kaydedip arkadaşlarınıza gönderin.", font=_load_font(20, bold=False), fill=(241, 245, 249))
+
+    p4 = str(out_folder / f"{prefix}_4.png")
+    img4.save(p4, format="PNG", optimize=True)
+    paths.append(p4)
+
+    return paths

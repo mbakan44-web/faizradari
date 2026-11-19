@@ -4,7 +4,9 @@ __pycache__/
 *.png
 !latest_vertical_story.png
 !latest_briefing_table.png
+!latest_carousel_*.png
 .last_update_id
 google_webhook_kodu.gs
 latest_voiceover.mp3
+latest_breaking_news_video.mp4
 test_*.mp3

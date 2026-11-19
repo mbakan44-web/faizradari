@@ -34,6 +34,7 @@ from image_generator import (
     render_vertical_story_image,
     render_viral_insight_image,
     render_animated_reel_video,
+    render_carousel_guide_slides,
 )
 
 load_dotenv(Path(__file__).parent / ".env", override=True)
@@ -647,6 +648,151 @@ def post_to_x(img_path: str = None, tweet_text: str = "") -> None:
         print(f"[BAŞARILI] {mode} Tweet X (@faizradari) hesabında paylaşıldı! (Tweet ID: {res.data.get('id')})")
     except Exception as e:
         print(f"[UYARI] X paylaşımı yapılamadı: {e}")
+
+
+def post_multi_images_to_x(image_paths: List[str], tweet_text: str) -> bool:
+    """X (@faizradari) hesabına 4 görselli kaydırmalı albüm (multi-image gallery) paylaşır."""
+    if not (X_API_KEY and X_API_SECRET and X_ACCESS_TOKEN and X_ACCESS_TOKEN_SECRET):
+        return False
+    try:
+        cleaned_text = sanitize_x_text(tweet_text)
+        auth = tweepy.OAuth1UserHandler(X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET)
+        api_v1 = tweepy.API(auth)
+        media_ids = []
+        for p in image_paths[:4]:
+            if Path(p).exists():
+                m = api_v1.media_upload(filename=p)
+                media_ids.append(m.media_id)
+        if not media_ids:
+            return False
+        client_v2 = tweepy.Client(
+            consumer_key=X_API_KEY,
+            consumer_secret=X_API_SECRET,
+            access_token=X_ACCESS_TOKEN,
+            access_token_secret=X_ACCESS_TOKEN_SECRET,
+        )
+        res = client_v2.create_tweet(text=cleaned_text, media_ids=media_ids)
+        print(f"[BAŞARILI] {len(media_ids)} Görselli Rehber Albümü X (@faizradari) hesabında paylaşıldı! (Tweet ID: {res.data.get('id')})")
+        return True
+    except Exception as e:
+        print(f"[UYARI] X çoklu görsel paylaşımı yapılamadı: {e}")
+        return False
+
+
+def post_poll_to_x(tweet_text: str, options: List[str], duration_minutes: int = 1440) -> str:
+    """
+    SADECE X (@faizradari) hesabında 24 saatlik gerçek yerel Canlı Anket (Native X Poll) açar.
+    Telegram'a gönderilmez.
+    """
+    if not (X_API_KEY and X_API_SECRET and X_ACCESS_TOKEN and X_ACCESS_TOKEN_SECRET):
+        return ""
+    try:
+        cleaned_text = sanitize_x_text(tweet_text)
+        clean_opts = [o.strip()[:25] for o in options[:4] if o.strip()]
+        client_v2 = tweepy.Client(
+            consumer_key=X_API_KEY,
+            consumer_secret=X_API_SECRET,
+            access_token=X_ACCESS_TOKEN,
+            access_token_secret=X_ACCESS_TOKEN_SECRET,
+        )
+        res = client_v2.create_tweet(
+            text=cleaned_text,
+            poll_options=clean_opts,
+            poll_duration_minutes=duration_minutes,
+        )
+        tid = str(res.data.get("id", ""))
+        print(f"[BAŞARILI] Canlı X Anketi (@faizradari) yayına alındı! (Tweet ID: {tid})")
+        return tid
+    except Exception as e:
+        print(f"[UYARI] X canlı anket paylaşımı yapılamadı: {e}")
+        return ""
+
+
+def post_carousel_to_buffer_instagram(image_urls: List[str], caption: str) -> bool:
+    """Buffer GraphQL API üzerinden Instagram (@faizradari) hesabına 4 slaytlık Kaydırmalı (Carousel) Rehber paylaşır."""
+    if not (BUFFER_API_KEY and BUFFER_INSTAGRAM_CHANNEL_ID and image_urls):
+        return False
+    try:
+        mutation = """
+        mutation CreatePost($input: CreatePostInput!) {
+          createPost(input: $input) {
+            ... on PostActionSuccess {
+              post {
+                id
+                status
+              }
+            }
+            ... on MutationError {
+              message
+            }
+          }
+        }
+        """
+        variables = {
+            "input": {
+                "channelId": BUFFER_INSTAGRAM_CHANNEL_ID,
+                "text": caption,
+                "schedulingType": "automatic",
+                "mode": "shareNow",
+                "needsApproval": False,
+                "metadata": {
+                    "instagram": {
+                        "type": "post",
+                        "shouldShareToFeed": True,
+                    }
+                },
+                "assets": [{"image": {"url": u}} for u in image_urls[:10]],
+            }
+        }
+        headers = {
+            "Authorization": f"Bearer {BUFFER_API_KEY}",
+            "Content-Type": "application/json",
+        }
+        res = requests.post("https://api.buffer.com", json={"query": mutation, "variables": variables}, headers=headers, timeout=35).json()
+        post_data = res.get("data", {}).get("createPost", {})
+        if "post" in post_data:
+            print(f"[BAŞARILI] 4 Slaytlık Kaydırmalı Rehber (Carousel) Buffer üzerinden Instagram'a iletildi! (Post ID: {post_data['post']['id']})")
+            return True
+        else:
+            print(f"[UYARI] Buffer Instagram Carousel gönderim hatası: {post_data.get('message', res)}")
+            return False
+    except Exception as e:
+        print(f"[UYARI] Buffer Instagram Carousel API hatası: {e}")
+        return False
+
+
+def _post_media_group_to_telegram(image_paths: List[str], caption: str, target_chat_id: str) -> dict:
+    """4 slaytlık Carousel önizlemesini tek bir Telegram Albümü (sendMediaGroup) olarak gönderir."""
+    media_arr = []
+    files_dict = {}
+    opened_files = []
+    try:
+        for idx, p in enumerate(image_paths[:10]):
+            field_name = f"photo_{idx}"
+            f_obj = open(p, "rb")
+            opened_files.append(f_obj)
+            files_dict[field_name] = f_obj
+            item = {"type": "photo", "media": f"attach://{field_name}"}
+            if idx == 0 and caption:
+                item["caption"] = caption
+                item["parse_mode"] = "HTML"
+            media_arr.append(item)
+        r = requests.post(
+            f"{API_BASE}/sendMediaGroup",
+            data={"chat_id": target_chat_id, "media": json.dumps(media_arr)},
+            files=files_dict,
+            timeout=45,
+        )
+        return r.json()
+    except Exception as e:
+        print(f"[UYARI] Telegram albüm gönderim hatası: {e}")
+        return {"ok": False, "error": str(e)}
+    finally:
+        for f_obj in opened_files:
+            try:
+                f_obj.close()
+            except Exception:
+                pass
 
 
 def configure_bot_profile():
@@ -1956,6 +2102,353 @@ def send_auto_breaking_news_report(
     return result
 
 
+def send_carousel_guide_report(
+    target_chat_id: str = CHANNEL_ID,
+    preview_only: bool = False,
+    mode: str = "auto",
+) -> dict:
+    """
+    Instagram (4 Slaytlık 1080x1350 Kaydırmalı Carousel) ve X (4 Görselli Galeri) için
+    kaydetme (Save) ve kaydırma (Swipe) rekoru kıran adım adım Cep Rehberi üretir ve paylaşır.
+    preview_only=True iken sadece ADMIN_CHAT_ID'ye 4'lü Telegram Albümü olarak önizleme gönderir.
+    """
+    now_tr = datetime.now(timezone(timedelta(hours=3)))
+    tickers = fetch_market_tickers()
+    deps_500k, _ = get_deposit_offers(500_000, 32)
+    iht_offers, _ = get_loan_offers("ihtiyac", 100_000, 12)
+    usd_spreads, gold_spreads = get_bank_spread_offers()
+
+    if mode == "auto":
+        # Haftanın gününe göre dönüşümlü 3 farklı kaydırmalı rehber
+        day_mod = now_tr.weekday() % 3
+        mode = ["mevduat", "kredi", "makas"][day_mod]
+
+    if mode == "kredi" and len(iht_offers) >= 5:
+        best_l = iht_offers[0]
+        worst_l = iht_offers[-1]
+        diff_tot = worst_l.total_repayment - best_l.total_repayment
+        diff_mon = worst_l.monthly_installment - best_l.monthly_installment
+        guide_data = {
+            "category_badge": "KAYDIRMALI KREDİ REHBERİ",
+            "cover_tag": f"ADIM ADIM KREDİ REHBERİ • {_tr_short_date()}",
+            "cover_title": "100.000 TL KREDİ ÇEKERKEN FAZLADAN PARA ÖDEMEYİN!",
+            "cover_subtitle": "Bankaların 12 ay vadeli güncel ihtiyaç kredisi taksitlerini ve gizli maliyet farklarını 4 slaytta inceledik.",
+            "hero_label": "EN UYGUN İLE EN PAHALI BANKA ARASINDAKİ TOPLAM FARK",
+            "hero_value": f"Tam {format_tl(diff_tot)} Fazla Ödeme!",
+            "hero_sub": f"En Uygun: {best_l.bank_name} (%{best_l.monthly_rate:.2f}) • Aylık Taksit: {format_tl(best_l.monthly_installment)}",
+            "slide2_title": "EN UYGUN 5 İHTİYAÇ KREDİSİ (100.000 TL)",
+            "slide2_subtitle": "12 ay vadede aylık taksit ve vergiler dahil toplam geri ödeme:",
+            "rows": [
+                {
+                    "title": f"{o.bank_name}  (%{o.monthly_rate:.2f})",
+                    "sub": f"Toplam Geri Ödeme: {format_tl(o.total_repayment)}",
+                    "value": f"{format_tl(o.monthly_installment)}/ay",
+                }
+                for o in iht_offers[:5]
+            ],
+            "slide3_title": "BANKA SEÇİMİ CEBİNİZİ NASIL ETKİLİYOR?",
+            "slide3_subtitle": "Aynı 100.000 TL kredi için iki farklı bankanın çıkardığı fatura:",
+            "comp_best_bank": f"{best_l.bank_name} (%{best_l.monthly_rate:.2f})",
+            "comp_best_val": format_tl(best_l.total_repayment),
+            "comp_best_sub": f"Aylık Taksit: {format_tl(best_l.monthly_installment)}",
+            "comp_worst_bank": f"{worst_l.bank_name} (%{worst_l.monthly_rate:.2f})",
+            "comp_worst_val": format_tl(worst_l.total_repayment),
+            "comp_worst_sub": f"Aylık Taksit: {format_tl(worst_l.monthly_installment)}",
+            "comp_diff_banner": f"Ayda {format_tl(diff_mon)}  •  Toplamda {format_tl(diff_tot)} Net Fark!",
+            "tips": [
+                ("KKDF ve BSMV Vergilerine Dikkat", "Aylık faiz oranının üzerine %15 KKDF ve %15 BSMV (toplam %30 vergi yükü) eklenir. Tablomuzdaki taksitler vergiler dahil net tutarlardır."),
+                ("Dosya Masrafı & Hayat Sigortası", "Kredi başvurusu yaparken 'Tahsis Ücreti' (binde 5) ve hayat sigortası primini mutlaka toplam maliyete dahil edin."),
+                ("Yeni Müşteri %0 Faiz Paketleri", "Acil ihtiyacınız 50.000 TL altındaysa önce bankaların yeni müşterilere özel 3-6 ay vadeli %0 faizli nakit avanslarını kullanın."),
+            ],
+            "verdict_title": "FAİZ RADARI ÖZET TAVSİYESİ",
+            "verdict_body": f"100.000 TL 12 ay vadeli kredide bugün en düşük maliyet {format_tl(best_l.total_repayment)} toplam geri ödeme ile {best_l.bank_name} tarafında. Başvuru öncesi mobil şubeden size özel tanımlı oranı mutlaka kontrol edin.",
+            "tickers": tickers,
+            "question": "Bu faiz oranlarıyla acil nakit ihtiyacınız olsa kredi mi çekersiniz, yoksa taksitli nakit avans mı?",
+        }
+        ig_caption = (
+            f"100.000 TL İhtiyaç Kredisi Çekerken Fazladan {format_tl(diff_tot)} Ödemeyin! (4 Slaytlık Kaydırmalı Rehber) 👉\n\n"
+            f"1️⃣ Slayt 2: En düşük taksitli 5 banka\n"
+            f"2️⃣ Slayt 3: En uygun vs en pahalı banka farkı ve 3 kritik kural\n"
+            f"3️⃣ Slayt 4: Karar özeti ve canlı piyasa kurları\n\n"
+            f"Lazım olduğunda bakmak için bu rehberi KAYDETMEYİ unutmayın.\n\n"
+            f"{guide_data['question']} 👇\n\n"
+            "#kredi #ihtiyackredisi #faiz #finans #ekonomi"
+        )
+        x_caption = (
+            f"100.000 TL İhtiyaç Kredisi Rehberi (4 Slayt)\n\n"
+            f"En uygun banka ({best_l.bank_name} %{best_l.monthly_rate:.2f}) ile liste sonundaki banka arasında tam {format_tl(diff_tot)} geri ödeme farkı var.\n\n"
+            f"Banka banka net taksit tablosu ve 3 kritik kural görsellerde 👇\n\n"
+            f"{guide_data['question']}"
+        )
+    elif mode == "makas" and len(gold_spreads) >= 5:
+        g_best = gold_spreads[0]
+        g_worst = gold_spreads[-1]
+        diff_100g = (g_worst.spread_tl - g_best.spread_tl) * 100
+        guide_data = {
+            "category_badge": "ALTIN & DÖVİZ MAKAS REHBERİ",
+            "cover_tag": f"KAYDIRMALI MAKAS REHBERİ • {_tr_short_date()}",
+            "cover_title": "BANKADAN ALTIN & DOLAR ALIRKEN MAKASA DİKKAT!",
+            "cover_subtitle": "Bankaların mobil şubede uyguladığı güncel alış-satış makas farklarını 4 slaytta karşılaştırdık.",
+            "hero_label": "100 GRAM ALTIN ALIM-SATIMINDA BANKALAR ARASI FARK",
+            "hero_value": f"Tam {format_tl(diff_100g)} Makas Farkı!",
+            "hero_sub": f"En Dar Makas: {g_best.bank_name} ({g_best.spread_tl:.0f} TL) • Canlı Altın: {tickers.get('ALTIN', '—')}",
+            "slide2_title": "EN DAR ALTIN MAKASI SUNAN 5 BANKA",
+            "slide2_subtitle": "Gram altın alış-satış farkı (TL ve %) en düşük 5 banka:",
+            "rows": [
+                {
+                    "title": g.bank_name,
+                    "sub": f"Alış: {g.buy_rate:,.0f} TL  •  Satış: {g.sell_rate:,.0f} TL".replace(",", "."),
+                    "value": f"{g.spread_tl:.0f} TL (%{g.spread_pct:.1f})".replace(".", ","),
+                }
+                for g in gold_spreads[:5]
+            ],
+            "slide3_title": "MAKAS FARKI BİRİKİMİNİZİ NASIL ERİTİYOR?",
+            "slide3_subtitle": "100 gram altın işleminde en dar ve en geniş makaslı banka farkı:",
+            "comp_best_bank": g_best.bank_name,
+            "comp_best_val": f"{g_best.spread_tl:.0f} TL / gr",
+            "comp_best_sub": f"100 gr işlem maliyeti: {format_tl(g_best.spread_tl * 100)}",
+            "comp_worst_bank": g_worst.bank_name,
+            "comp_worst_val": f"{g_worst.spread_tl:.0f} TL / gr",
+            "comp_worst_sub": f"100 gr işlem maliyeti: {format_tl(g_worst.spread_tl * 100)}",
+            "comp_diff_banner": f"Gramda {g_worst.spread_tl - g_best.spread_tl:.0f} TL  •  100 Gramda {format_tl(diff_100g)} Fark!",
+            "tips": [
+                ("Mesai Saatleri İçinde İşlem Yapın", "Hafta sonu ve akşam 17:30 sonrasında tüm bankalar döviz ve altın makasını 3 ila 5 katına çıkarır. İşlemlerinizi 10:00-17:00 arasında yapın."),
+                ("Kambiyo Vergisi (BSMV) Detayı", "Bankalardan yapılan kaydi döviz ve altın alımlarında uygulanan kambiyo vergisini ve kur makasını fiziki piyasa ile mutlaka kıyaslayın."),
+                ("Kur Emir & Alarm Özelliği", "Birçok bankanın döviz/altın platformunda (FX) standart mobil ekrana göre çok daha dar makas oranları sunulmaktadır."),
+            ],
+            "verdict_title": "FAİZ RADARI ÖZET TAVSİYESİ",
+            "verdict_body": f"Gram altın işlemlerinde bugün en düşük makas {g_best.spread_tl:.0f} TL ile {g_best.bank_name} tarafında. Alım yapmadan önce mutlaka 2 farklı bankanın FX ekranını karşılaştırın.",
+            "tickers": tickers,
+            "question": "Altın ve döviz alırken mobil bankacılığı mı, yoksa kuyumcu/döviz bürosunu mu tercih ediyorsunuz?",
+        }
+        ig_caption = (
+            f"Bankadan Altın & Dolar Alırken Boşuna Fazla Makas Ödemeyin! (4 Slaytlık Rehber) 👉\n\n"
+            f"1️⃣ Slayt 2: En dar makaslı 5 banka\n"
+            f"2️⃣ Slayt 3: 100 gram altında {format_tl(diff_100g)} makas farkı ve 3 altın kural\n"
+            f"3️⃣ Slayt 4: Karar özeti ve canlı kurlar\n\n"
+            f"İşlem yapmadan önce bakmak için bu rehberi KAYDETMEYİ unutmayın.\n\n"
+            f"{guide_data['question']} 👇\n\n"
+            "#altin #dolar #makas #yatirim #finans"
+        )
+        x_caption = (
+            f"Banka Altın & Döviz Makas Rehberi (4 Slayt)\n\n"
+            f"100 gram altın alım-satımında en dar makaslı banka ({g_best.bank_name}) ile en geniş makaslı banka arasında {format_tl(diff_100g)} fark oluşuyor.\n\n"
+            f"En dar makaslı 5 banka ve işlem saatleri kuralı görsellerde 👇\n\n"
+            f"{guide_data['question']}"
+        )
+    else:
+        # Varsayılan: 500.000 TL Mevduat & Birikim Rehberi
+        best_d = deps_500k[0]
+        worst_d = deps_500k[-1]
+        diff_m = best_d.net_return - worst_d.net_return
+        diff_y = diff_m * 12
+        guide_data = {
+            "category_badge": "KAYDIRMALI MEVDUAT REHBERİ",
+            "cover_tag": f"ADIM ADIM MEVDUAT REHBERİ • {_tr_short_date()}",
+            "cover_title": "500.000 TL MEVDUATTA EN ÇOK KAZANDIRAN BANKALAR!",
+            "cover_subtitle": "%17,5 stopaj kesintisi düşüldükten sonra cebinize giren 32 günlük gerçek net kazançları 4 slaytta derledik.",
+            "hero_label": "EN YÜKSEK 32 GÜNLÜK NET MEVDUAT GETİRİSİ (%17,5 STOPAJ SONRASI)",
+            "hero_value": f"Aylık +{format_tl(best_d.net_return)} Net!",
+            "hero_sub": f"Lider: {best_d.bank_name} (%{best_d.annual_rate:.1f}) • Yıllık Fark: {format_tl(diff_y)}",
+            "slide2_title": "500.000 TL 32 GÜN NET GETİRİ LİSTESİ",
+            "slide2_subtitle": "%17,5 stopaj vergisi düşülmüş net ele geçen kazançlar:",
+            "rows": [
+                {
+                    "title": f"{d.bank_name}  (%{d.annual_rate:.1f})",
+                    "sub": f"32 Gün Sonu Toplam: {format_tl(500_000 + d.net_return)}",
+                    "value": f"+{format_tl(d.net_return)}",
+                }
+                for d in deps_500k[:5]
+            ],
+            "slide3_title": "DÜŞÜK FAİZLİ BANKADA KALMANIN MALİYETİ",
+            "slide3_subtitle": "500.000 TL için 1. sıradaki banka ile 8. sıradaki banka farkı:",
+            "comp_best_bank": f"{best_d.bank_name} (%{best_d.annual_rate:.1f})",
+            "comp_best_val": f"+{format_tl(best_d.net_return)}",
+            "comp_best_sub": "32 günlük net ele geçen getiri",
+            "comp_worst_bank": f"{worst_d.bank_name} (%{worst_d.annual_rate:.1f})",
+            "comp_worst_val": f"+{format_tl(worst_d.net_return)}",
+            "comp_worst_sub": "32 günlük net ele geçen getiri",
+            "comp_diff_banner": f"Ayda +{format_tl(diff_m)}  •  Yılda +{format_tl(diff_y)} Ekstra Kazanç!",
+            "tips": [
+                ("%17,5 Stopaj Kesintisini Unutmayın", "6 aya kadar vadeli TL mevduat hesaplarında brüt faiz kazancı üzerinden %17,5 stopaj vergisi kesilir. Tablomuzdaki tüm rakamlar net tutarlardır."),
+                ("Hoş Geldin Faizi Süresini Takip Edin", "Yüksek hoş geldin faizleri genellikle ilk 32-90 gün geçerlidir. Vade dönüşünde oran otomatik düşebileceği için bankanızı kontrol edin."),
+                ("Bileşik Faiz (Aylık Yenileme) Avantajı", "32 günlük vadeyi her ay ana para + net faiz olarak yenilediğinizde yıllık bileşik getiri brüt oranın çok üzerine çıkar."),
+            ],
+            "verdict_title": "FAİZ RADARI ÖZET TAVSİYESİ",
+            "verdict_body": f"500.000 TL birikimde bugün en yüksek net getiri +{format_tl(best_d.net_return)} ile {best_d.bank_name} (%{best_d.annual_rate:.1f}) ve {deps_500k[1].bank_name} (%{deps_500k[1].annual_rate:.1f}) tarafında. Vade dönüş gününüzde oranları mutlaka kıyaslayın.",
+            "tickers": tickers,
+            "question": "Bugün 500.000 TL birikiminiz olsa vadeli mevduata mı koyarsınız, yoksa altın ve dövize mi?",
+        }
+        ig_caption = (
+            f"500.000 TL Mevduatta Banka Banka Net Kazanç Rehberi (%17,5 Stopaj Sonrası) 👉\n\n"
+            f"1️⃣ Slayt 2: En yüksek net getiri veren 5 banka\n"
+            f"2️⃣ Slayt 3: Düşük faizli bankada kalmanın yıllık {format_tl(diff_y)} maliyeti ve 3 altın kural\n"
+            f"3️⃣ Slayt 4: Karar özeti ve canlı piyasa kurları\n\n"
+            f"Vade dönüşünüzde bakmak için bu rehberi KAYDETMEYİ unutmayın.\n\n"
+            f"{guide_data['question']} 👇\n\n"
+            "#mevduat #faiz #birikim #yatirim #finans"
+        )
+        x_caption = (
+            f"500.000 TL Vadeli Mevduat Cep Rehberi (4 Slayt)\n\n"
+            f"%17,5 stopaj sonrası 32 günde en yüksek net getiri +{format_tl(best_d.net_return)} ({best_d.bank_name} %{best_d.annual_rate:.1f}).\n"
+            f"En yüksek ile 8. sıradaki banka arasında yılda {format_tl(diff_y)} fark oluşuyor.\n\n"
+            f"Banka banka net tablo ve 3 kritik kural görsellerde 👇\n\n"
+            f"{guide_data['question']}"
+        )
+
+    slide_paths = render_carousel_guide_slides(
+        guide_data=guide_data,
+        output_dir=str(Path(__file__).parent),
+        prefix="latest_carousel",
+    )
+
+    if preview_only or target_chat_id != CHANNEL_ID:
+        tg_prev_cap = (
+            f"📸 <b>INSTAGRAM & X 4 SLAYTLIK KAYDIRMALI (CAROUSEL) REHBER ÖNİZLEMESİ</b>\n\n"
+            f"📌 <b>Konu:</b> {guide_data['cover_title']}\n"
+            f"📐 <b>Boyut:</b> 1080x1350 (4:5 Portre Carousel Standardı - 4 Slayt)\n\n"
+            f"<i>Onay verdiğinizde Instagram'a kaydırmalı Carousel, X'e ise 4'lü albüm olarak gönderilecektir.</i>"
+        )
+        res = _post_media_group_to_telegram(slide_paths, tg_prev_cap, target_chat_id=target_chat_id)
+        print(f"[CAROUSEL ÖNİZLEME] Admin DM ({target_chat_id}) -> {res.get('ok')}")
+        return {"ok": res.get("ok"), "slide_paths": slide_paths, "guide_data": guide_data}
+
+    # CANLI YAYIN: 4 slaytı GitHub CDN'e pushla ve Instagram Carousel + X 4'lü Galeri olarak paylaş!
+    ref = "main"
+    try:
+        import subprocess
+        repo_dir = str(Path(__file__).parent)
+        if os.getenv("GITHUB_ACTIONS") == "true":
+            subprocess.run(["git", "config", "user.name", "github-actions[bot]"], cwd=repo_dir, check=False)
+            subprocess.run(["git", "config", "user.email", "github-actions[bot]@users.noreply.github.com"], cwd=repo_dir, check=False)
+        subprocess.run(
+            ["git", "add", "-f", "latest_carousel_1.png", "latest_carousel_2.png", "latest_carousel_3.png", "latest_carousel_4.png"],
+            cwd=repo_dir,
+            check=False,
+        )
+        subprocess.run(["git", "commit", "-m", "Auto-update 4-slide Instagram Carousel guide images"], cwd=repo_dir, check=False)
+        subprocess.run(["git", "pull", "--rebase"], cwd=repo_dir, check=False)
+        subprocess.run(["git", "push"], cwd=repo_dir, check=False)
+        sha_p = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=repo_dir, capture_output=True, text=True, check=False)
+        if sha_p.returncode == 0 and sha_p.stdout.strip():
+            ref = sha_p.stdout.strip()
+        time.sleep(2)
+    except Exception as pe:
+        print(f"[UYARI] Carousel görselleri pushlanamadı: {pe}")
+
+    ts = int(time.time())
+    ig_urls = [
+        f"https://raw.githubusercontent.com/mbakan44-web/faizradari/{ref}/latest_carousel_{i}.png?v={ts}"
+        for i in range(1, 5)
+    ]
+
+    ok_ig = post_carousel_to_buffer_instagram(ig_urls, ig_caption)
+    ok_x = post_multi_images_to_x(slide_paths, x_caption)
+    return {"ok": ok_ig or ok_x, "ig": ok_ig, "x": ok_x, "slide_paths": slide_paths}
+
+
+def send_x_poll_report(preview_only: bool = False, poll_idx: int = None) -> dict:
+    """
+    SADECE X (@faizradari) İçin Otomatik Canlı Anket (Native X Poll) Motoru:
+    - Telegram'a kesinlikle gönderilmez (yalnızca preview_only=True iken Admin DM'ye önizleme atar).
+    - Canlı piyasa ve banka verileriyle zenginleştirilmiş 4 farklı anket senaryosu içerir.
+    """
+    now_tr = datetime.now(timezone(timedelta(hours=3)))
+    tickers = fetch_market_tickers()
+    deps_500k, _ = get_deposit_offers(500_000, 32)
+    konut_offers, _ = get_loan_offers("konut", 2_000_000, 120)
+
+    best_d = deps_500k[0] if deps_500k else None
+    best_k = konut_offers[0] if konut_offers else None
+    dep_rate_str = f"%{best_d.annual_rate:.1f}" if best_d else "%45,0"
+    dep_net_str = format_tl(best_d.net_return) if best_d else "16.274 TL"
+    konut_rate_str = f"%{best_k.monthly_rate:.2f}" if best_k else "%2,84"
+
+    polls = [
+        {
+            "title": "500.000 TL Birikim Tercihi Anketi",
+            "text": (
+                f"Güncel Piyasa Verileri ({_tr_short_date()}):\n"
+                f"• 500.000 TL Mevduat (32 gün net): +{dep_net_str} ({dep_rate_str})\n"
+                f"• Gram Altın: {tickers.get('ALTIN', '—')}\n"
+                f"• Dolar/TL: {tickers.get('USD', '—')}\n\n"
+                f"Bugün elinize 500.000 TL nakit geçse önümüzdeki 3 ay için hangisini tercih edersiniz?\n"
+                f"(Diğer seçeneğini işaretleyenler tercihini yorumlarda belirtebilir 👇)"
+            ),
+            "options": [
+                f"TL Mevduat ({dep_rate_str})",
+                "Gram Altın",
+                "Dolar / Euro",
+                "Diğer (Yorumda belirtin)",
+            ],
+        },
+        {
+            "title": "Merkez Bankası (TCMB) Faiz Kararı Beklentisi",
+            "text": (
+                f"Bankalarda vadeli mevduat faizleri {dep_rate_str}, en uygun konut kredisi ise aylık {konut_rate_str} seviyesinde seyrediyor.\n\n"
+                f"Sizce Merkez Bankası'nın (TCMB) önümüzdeki toplantıda politika faizi kararı ne olur?\n"
+                f"(Beklentinizi ve tahmininizi yorumlarda belirtebilirsiniz 👇)"
+            ),
+            "options": [
+                "Faiz sabit kalır",
+                "Faiz indirimi gelir",
+                "Faiz artışı olur",
+                "Diğer (Yorumda belirtin)",
+            ],
+        },
+        {
+            "title": "2 Milyon TL: Ev mi, Mevduat Faizi mi?",
+            "text": (
+                f"2.000.000 TL'nin 32 günlük net mevduat getirisi ayda yaklaşık +{format_tl(best_d.net_return * 4) if best_d else '65.096 TL'}.\n"
+                f"2.000.000 TL konut kredisinin (120 ay, {konut_rate_str}) aylık taksiti ise {format_tl(best_k.monthly_installment) if best_k else '58.843 TL'}.\n\n"
+                f"Bugün 2 Milyon TL nakdiniz olsa hangisini yaparsınız?"
+            ),
+            "options": [
+                "Hemen ev alırım",
+                "Mevduat faizine koyarım",
+                "Altın / Döviz alırım",
+                "Diğer (Yorumda belirtin)",
+            ],
+        },
+        {
+            "title": "Önümüzdeki 6 Ayın Getiri Şampiyonu",
+            "text": (
+                f"Anlık Göstergeler: Dolar {tickers.get('USD', '—')} | Gram Altın {tickers.get('ALTIN', '—')} | En Yüksek Mevduat {dep_rate_str}\n\n"
+                f"Önümüzdeki 6 ayda TL bazında en yüksek reel kazancı sizce hangi yatırım aracı sağlar?"
+            ),
+            "options": [
+                "Gram Altın & Gümüş",
+                f"TL Mevduat ({dep_rate_str})",
+                "Dolar / Euro / Borsa",
+                "Diğer (Yorumda belirtin)",
+            ],
+        },
+    ]
+
+    if poll_idx is None:
+        poll_idx = now_tr.timetuple().tm_yday % len(polls)
+    selected = polls[poll_idx % len(polls)]
+
+    if preview_only:
+        opts_html = "\n".join([f"🔘 <b>{i + 1}.</b> {o}" for i, o in enumerate(selected["options"])])
+        msg = (
+            f"📊 <b>X (@faizradari) CANLI ANKET ÖNİZLEMESİ</b>\n"
+            f"<i>(Not: Bu anket sadece X'te 24 saatlik gerçek yerel anket olarak açılacaktır, Telegram kanalına atılmayacaktır.)</i>\n\n"
+            f"📝 <b>Tweet Metni:</b>\n{selected['text']}\n\n"
+            f"🗳️ <b>Anket Seçenekleri (24 Saat):</b>\n{opts_html}"
+        )
+        r = requests.post(
+            f"{API_BASE}/sendMessage",
+            json={"chat_id": ADMIN_CHAT_ID, "text": msg, "parse_mode": "HTML"},
+            timeout=20,
+        ).json()
+        print(f"[X ANKET ÖNİZLEME] Admin DM ({ADMIN_CHAT_ID}) -> {r.get('ok')}")
+        return {"ok": r.get("ok"), "poll": selected}
+
+    tid = post_poll_to_x(selected["text"], selected["options"], duration_minutes=1440)
+    return {"ok": bool(tid), "tweet_id": tid, "poll": selected}
+
+
 def check_and_set_dispatch_lock(slot_topic: str) -> bool:
     """
     KESİN GÜNLÜK MÜKERRER ENGELLEYİCİ:
@@ -2048,6 +2541,15 @@ if __name__ == "__main__":
     elif "--oto-haber" in sys.argv:
         target = CHANNEL_ID if "--kanal" in sys.argv else ADMIN_CHAT_ID
         send_auto_breaking_news_report(target_chat_id=target, preview_only=(target != CHANNEL_ID))
+    elif "--carousel-onizleme" in sys.argv:
+        send_carousel_guide_report(target_chat_id=ADMIN_CHAT_ID, preview_only=True)
+    elif "--carousel" in sys.argv:
+        target = CHANNEL_ID if "--kanal" in sys.argv else ADMIN_CHAT_ID
+        send_carousel_guide_report(target_chat_id=target, preview_only=(target != CHANNEL_ID))
+    elif "--anket-onizleme" in sys.argv:
+        send_x_poll_report(preview_only=True)
+    elif "--anket" in sys.argv:
+        send_x_poll_report(preview_only=("--kanal" not in sys.argv))
     elif "--haber" in sys.argv:
         headline = "TCMB Politika Faizi Gelişmesi"
         details = "Merkez Bankası piyasa beklentileri doğrultusunda kararını açıkladı."
@@ -2094,6 +2596,22 @@ if __name__ == "__main__":
                 send_auto_breaking_news_report(target_chat_id=CHANNEL_ID, preview_only=False)
             except Exception as ne:
                 print(f"[UYARI] Otonom ekonomi haber tarama hatası: {ne}")
+
+        # 1.7. Haftalık Otomatik X Canlı Anketi (Salı ve Perşembe saat 14:00-15:59, günde 1 kez, SADECE X)
+        if now_tr.weekday() in (1, 3) and tr_hour in (14, 15):
+            if not check_and_set_dispatch_lock("x_anket"):
+                try:
+                    send_x_poll_report(preview_only=False)
+                except Exception as pe:
+                    print(f"[UYARI] Otomatik X anket gönderim hatası: {pe}")
+
+        # 1.8. Haftalık Otomatik 4 Slaytlık Kaydırmalı (Carousel) Rehber (Çarşamba ve Cumartesi saat 14:00-15:59, günde 1 kez)
+        if now_tr.weekday() in (2, 5) and tr_hour in (14, 15):
+            if not check_and_set_dispatch_lock("carousel_rehber"):
+                try:
+                    send_carousel_guide_report(target_chat_id=CHANNEL_ID, preview_only=False)
+                except Exception as ce:
+                    print(f"[UYARI] Otomatik Carousel rehber gönderim hatası: {ce}")
 
         # 2. Otomatik slot tespiti (Kalite Odaklı & Sıfır Spam Akışı)
         today_str = now_tr.strftime("%Y-%m-%d")
