@@ -115,6 +115,42 @@ def post_to_whatsapp(img_path: str, caption: str) -> None:
         print(f"[UYARI] WhatsApp paylaşım hatası: {e}")
 
 
+def post_video_to_whatsapp(video_path: str, caption: str, fallback_img_path: str = None) -> None:
+    """
+    Whapi.cloud üzerinden WhatsApp Kanalına (@newsletter) sesli MP4 video + açıklama paylaşır.
+    Video gönderimi reddedilirse veya hata alırsa otomatik olarak PNG görsel yedeğine düşer.
+    """
+    if not (WHAPI_TOKEN and WHATSAPP_CHANNEL_ID):
+        return
+    try:
+        import base64
+        wa_text = convert_to_whatsapp(caption)
+        with open(video_path, "rb") as vf:
+            vid_b64 = base64.b64encode(vf.read()).decode("utf-8")
+
+        payload = {
+            "to": WHATSAPP_CHANNEL_ID,
+            "media": f"data:video/mp4;base64,{vid_b64}",
+            "caption": wa_text,
+        }
+        url = "https://gate.whapi.cloud/messages/video"
+        headers = {
+            "Authorization": f"Bearer {WHAPI_TOKEN}",
+            "Content-Type": "application/json",
+            "User-Agent": "FaizRadari-Bot/1.0",
+        }
+        res = requests.post(url, json=payload, headers=headers, timeout=45)
+        if res.status_code in (200, 201):
+            print(f"[BAŞARILI] Sesli Video WhatsApp Kanalında ({WHATSAPP_CHANNEL_ID}) paylaşıldı!")
+            return
+        print(f"[UYARI] WhatsApp video paylaşımı reddedildi (HTTP {res.status_code}), görsel yedeğe geçiliyor...")
+    except Exception as e:
+        print(f"[UYARI] WhatsApp video gönderim hatası ({e}), görsel yedeğe geçiliyor...")
+
+    if fallback_img_path and Path(fallback_img_path).exists():
+        post_to_whatsapp(fallback_img_path, caption)
+
+
 def post_to_instagram(image_url: str, caption: str) -> None:
     """
     Meta Graph API (Instagram Content Publishing API) üzerinden
@@ -1497,37 +1533,66 @@ def send_viral_insight_report(target_chat_id: str = CHANNEL_ID) -> dict:
         "🔔 <b>Takip:</b> @faizradari"
     )
 
-    markup = _default_reply_markup() if target_chat_id == CHANNEL_ID else _interactive_menu_markup()
-    result = _post_photo_to_telegram(img_path, tg_caption, target_chat_id=target_chat_id, reply_markup=markup)
-    if result.get("ok"):
-        print(f"[BAŞARILI] Günün Cep Hesabı Analizi ({tag}) {target_chat_id} hedefine paylaşıldı!")
+    ig_cap = (
+        f"{headline}\n\n"
+        f"{big_val}\n\n"
+        f"Karar vermeden önce bu hesabı kaydetmeyi unutmayın.\n\n"
+        f"{question} 👇\n\n"
+        "#finans #ekonomi #faiz #mevduat #yatirim"
+    )
+    reel_data = {
+        "tag": f"{tag} • {_tr_short_date()}",
+        "hook_line1": hook1,
+        "hook_line2": hook2,
+        "subtitle": sub,
+        "rows": rows[:5],
+        "cta_text": "KAYDET — Lazım olduğunda elinin altında olsun!",
+        "question_text": question,
+        "caption": ig_cap,
+        "voice_script": v_script_ins,
+    }
 
+    video_path = str(Path(__file__).parent / "latest_story_video.mp4")
     if target_chat_id == CHANNEL_ID:
-        ig_cap = (
-            f"{headline}\n\n"
-            f"{big_val}\n\n"
-            f"Karar vermeden önce bu hesabı kaydetmeyi unutmayın.\n\n"
-            f"{question} 👇\n\n"
-            "#finans #ekonomi #faiz #mevduat #yatirim"
-        )
-        reel_data = {
-            "tag": f"{tag} • {_tr_short_date()}",
-            "hook_line1": hook1,
-            "hook_line2": hook2,
-            "subtitle": sub,
-            "rows": rows[:5],
-            "cta_text": "KAYDET — Lazım olduğunda elinin altında olsun!",
-            "question_text": question,
-            "caption": ig_cap,
-            "voice_script": v_script_ins,
-        }
+        # 1. Önce sesli animasyonlu MP4 videoyu üret ve Instagram Reels'e gönder
         dispatch_to_buffer_omnichannel(img_path, headline, topic="analiz", reel_data=reel_data)
 
-        # X'te yerel sesli video (native tweet_video) olarak paylaş — çok daha yüksek erişim!
-        video_path = str(Path(__file__).parent / "latest_story_video.mp4")
+    # 2. Pazartesi (0), Çarşamba (2) ve Cuma (4) günleri Telegram ve WhatsApp'a SESLİ VİDEO olarak gönder!
+    use_video_for_tg_wa = (day_idx in (0, 2, 4)) and Path(video_path).exists()
+    markup = _default_reply_markup() if target_chat_id == CHANNEL_ID else _interactive_menu_markup()
+
+    if use_video_for_tg_wa:
+        try:
+            with open(video_path, "rb") as vf:
+                result = requests.post(
+                    f"{API_BASE}/sendVideo",
+                    data={
+                        "chat_id": target_chat_id,
+                        "caption": tg_caption,
+                        "parse_mode": "HTML",
+                        "supports_streaming": True,
+                        "reply_markup": markup,
+                    },
+                    files={"video": vf},
+                    timeout=45,
+                ).json()
+        except Exception as ve:
+            print(f"[UYARI] Telegram video gönderimi hatası ({ve}), görsele geçiliyor...")
+            result = _post_photo_to_telegram(img_path, tg_caption, target_chat_id=target_chat_id, reply_markup=markup)
+    else:
+        result = _post_photo_to_telegram(img_path, tg_caption, target_chat_id=target_chat_id, reply_markup=markup)
+
+    if result.get("ok"):
+        mode_lbl = "Sesli Video" if use_video_for_tg_wa else "İnfografik"
+        print(f"[BAŞARILI] Günün Cep Hesabı Analizi ({tag} - {mode_lbl}) {target_chat_id} hedefine paylaşıldı!")
+
+    if target_chat_id == CHANNEL_ID:
         x_media = video_path if Path(video_path).exists() else img_path
         post_to_x(x_media, x_text)
-        post_to_whatsapp(img_path, tg_caption)
+        if use_video_for_tg_wa:
+            post_video_to_whatsapp(video_path, tg_caption, fallback_img_path=img_path)
+        else:
+            post_to_whatsapp(img_path, tg_caption)
 
     return result
 
