@@ -31,6 +31,7 @@ def normalize_bank_name(name: str) -> str:
         (r"^on(\s+dijital)?.*|^burgan.*", "ON Dijital"),
         (r"^cepteteb.*|^teb.*", "CEPTETEB"),
         (r"^(türkiye\s+)?iş(\s+bankası)?$|^işbank.*", "Türkiye İş Bankası"),
+        (r"^ziraat\s+dinamik.*", "Ziraat Dinamik"),
         (r"^ziraat(\s+bankası)?$", "Ziraat Bankası"),
         (r"^vakıf(\s*bank)?$", "VakıfBank"),
         (r"^halk(\s*bank)?$", "Halkbank"),
@@ -45,12 +46,15 @@ def normalize_bank_name(name: str) -> str:
         (r"^kuveyt\s+türk.*", "Kuveyt Türk"),
         (r"^n\s*kolay.*", "N Kolay"),
         (r"^getirfinans.*", "getirfinans"),
-        (r"^odeabank.*", "Odeabank"),
+        (r"^odea.*", "Odeabank"),
         (r"^anadolubank.*", "Anadolubank"),
         (r"^albaraka.*", "Albaraka Türk"),
         (r"^türkiye\s+finans.*", "Türkiye Finans"),
         (r"^şekerbank.*", "Şekerbank"),
         (r"^hsbc.*", "HSBC"),
+        (r"^tom\s*bank.*", "TOM Bank"),
+        (r"^hayat\s*finans.*", "Hayat Finans"),
+        (r"^türk\s+ticaret.*", "Türk Ticaret Bankası"),
     ]
     for pat, canonical in rules:
         if re.search(pat, n, re.IGNORECASE):
@@ -126,16 +130,19 @@ DEFAULT_RATES = {
         "Halkbank": 3.65,
     },
     "mevduat": {
-        "ON Dijital": 51.0,
-        "CEPTETEB": 50.0,
-        "ING": 50.0,
-        "Alternatif Bank": 49.0,
-        "Fibabanka": 48.5,
-        "Akbank": 48.0,
-        "Garanti BBVA": 47.0,
-        "Enpara": 46.5,
-        "Türkiye İş Bankası": 44.0,
-        "Yapı Kredi": 43.5,
+        "Ziraat Dinamik": 45.0,
+        "Alternatif Bank": 43.0,
+        "Anadolubank": 43.0,
+        "Odeabank": 43.0,
+        "Fibabanka": 42.0,
+        "ING": 42.0,
+        "ON Dijital": 41.5,
+        "DenizBank": 41.0,
+        "CEPTETEB": 40.5,
+        "QNB": 40.5,
+        "Yapı Kredi": 39.75,
+        "Akbank": 37.75,
+        "Enpara": 36.5,
     },
 }
 
@@ -362,14 +369,63 @@ def get_consumer_loan_offers(principal: float = 100_000, months: int = 12) -> Li
     return offers
 
 
+def _scrape_deposit_rates() -> Dict[str, float]:
+    """HangiKredi ve TeklifimGelsin üzerinden güncel TL vadeli mevduat faiz oranlarını canlı çeker."""
+    scraped: Dict[str, float] = {}
+
+    # Kaynak 1: HangiKredi mevduat tablosu
+    try:
+        r = requests.get("https://www.hangikredi.com/yatirim-araclari/mevduat-faiz-oranlari", headers=HEADERS, timeout=10)
+        if r.status_code == 200:
+            soup = BeautifulSoup(r.text, "html.parser")
+            for tr in soup.find_all("tr"):
+                parts = [p.strip() for p in tr.get_text("|", strip=True).split("|") if p.strip()]
+                if len(parts) >= 2 and "%" in parts[1]:
+                    raw_bank = parts[0]
+                    low_b = raw_bank.lower()
+                    if any(skip in low_b for skip in ("aya kadar", "yıl", "vade", "banka", "fenerpara", "gspara")):
+                        continue
+                    nums = re.findall(r"%\s*([0-9]{2}(?:[,\.][0-9]{1,2})?)", parts[1])
+                    vals = [float(n.replace(",", ".")) for n in nums]
+                    valid_vals = [v for v in vals if 25.0 <= v <= 58.0]
+                    if valid_vals:
+                        max_rate = max(valid_vals)
+                        norm_b = normalize_bank_name(raw_bank)
+                        if norm_b not in scraped or max_rate > scraped[norm_b]:
+                            scraped[norm_b] = max_rate
+    except Exception:
+        pass
+
+    # Kaynak 2: TeklifimGelsin mevduat doğrulama
+    try:
+        r2 = requests.get("https://teklifimgelsin.com/mevduat", headers=HEADERS, timeout=8)
+        if r2.status_code == 200:
+            matches = re.findall(r'"bank":\s*"([^"]+)"[\s\S]{1,180}?"interest_rate":\s*([0-9\.]+)', r2.text)
+            for raw_b, rate in matches:
+                r_val = float(rate)
+                if 25.0 <= r_val <= 58.0:
+                    norm_b = normalize_bank_name(raw_b)
+                    if norm_b not in scraped or r_val > scraped[norm_b]:
+                        scraped[norm_b] = r_val
+    except Exception:
+        pass
+
+    return clean_and_deduplicate_rates(scraped, mode="max")
+
+
 def get_deposit_offers(principal: float = 500_000, days: int = 32) -> Tuple[List[DepositOffer], List[Dict]]:
     """500.000 TL 32 Gün Vadeli Mevduat net getiri tekliflerini ve %0 faizli nakit fırsatlarını döndürür."""
     cache = _load_full_cache()
-    base_rates = clean_and_deduplicate_rates(DEFAULT_RATES["mevduat"], mode="max")
-    cached_rates = clean_and_deduplicate_rates(cache.get("mevduat_oranlari", {}), mode="max")
-    rates = dict(base_rates)
-    rates.update(cached_rates)
-    rates = clean_and_deduplicate_rates(rates, mode="max")
+    live_rates = _scrape_deposit_rates()
+
+    if len(live_rates) >= 5:
+        rates = live_rates
+    else:
+        base_rates = clean_and_deduplicate_rates(DEFAULT_RATES["mevduat"], mode="max")
+        cached_rates = clean_and_deduplicate_rates(cache.get("mevduat_oranlari", {}), mode="max")
+        rates = dict(cached_rates) if cached_rates else dict(base_rates)
+        rates.update(live_rates)
+        rates = clean_and_deduplicate_rates(rates, mode="max")
 
     cache["mevduat_oranlari"] = rates
     _save_full_cache(cache)
@@ -380,6 +436,56 @@ def get_deposit_offers(principal: float = 500_000, days: int = 32) -> Tuple[List
     ]
     offers.sort(key=lambda x: x.annual_rate, reverse=True)
     return offers[:8], ZERO_INTEREST_OFFERS
+
+
+def compute_rate_fingerprint(offers) -> List[List]:
+    """İlk 8 banka ve faiz oranlarından benzersiz parmak izi (fingerprint) üretir."""
+    fp = []
+    for o in offers[:8]:
+        rate = getattr(o, "monthly_rate", None)
+        if rate is None:
+            rate = getattr(o, "annual_rate", 0.0)
+        fp.append([o.bank_name, round(float(rate), 2)])
+    return fp
+
+
+def has_rates_changed_since_last_publish(topic: str, offers) -> Tuple[bool, List[str]]:
+    """
+    Bu kategori en son paylaşıldığından beri herhangi bir bankanın oranında değişiklik oldu mu?
+    - Değişiklik yoksa: (False, []) döner -> Mükerrer tablo paylaşımı engellenir!
+    - İlk kez paylaşılıyorsa veya en az 1 bankada oran değiştiyse: (True, [değişen bankalar]) döner.
+    """
+    cache = _load_full_cache()
+    pub_map = cache.get("last_published_fingerprints", {})
+    prev_entry = pub_map.get(topic)
+    new_fp = compute_rate_fingerprint(offers)
+
+    if not prev_entry or not prev_entry.get("fingerprint"):
+        return True, []
+
+    old_fp = prev_entry["fingerprint"]
+    if old_fp == new_fp:
+        return False, []
+
+    old_dict = {b: r for b, r in old_fp}
+    new_dict = {b: r for b, r in new_fp}
+    changed_banks = []
+    for b, r in new_dict.items():
+        if b not in old_dict or abs(old_dict[b] - r) >= 0.01:
+            changed_banks.append(b)
+    return True, changed_banks
+
+
+def mark_rates_published(topic: str, offers) -> None:
+    """Paylaşılan tablonun oran parmak izini önbelleğe kaydeder."""
+    cache = _load_full_cache()
+    pub_map = cache.get("last_published_fingerprints", {})
+    pub_map[topic] = {
+        "date": datetime.now().strftime("%Y-%m-%d"),
+        "fingerprint": compute_rate_fingerprint(offers),
+    }
+    cache["last_published_fingerprints"] = pub_map
+    _save_full_cache(cache)
 
 
 def get_bank_spread_offers() -> Tuple[List[SpreadOffer], List[SpreadOffer]]:

@@ -1,21 +1,20 @@
 {
-  "updated_at": "2026-11-15 15:32",
+  "updated_at": "2026-11-19 09:02",
   "ihtiyac_kredisi": {
-    "Odea": 3.29,
+    "Odeabank": 3.09,
     "Ziraat Bankası": 3.69,
-    "QNB": 2.84,
-    "ING": 5.0,
+    "QNB": 3.84,
+    "ING": 2.99,
     "CEPTETEB": 3.39,
-    "Türkiye İş Bankası": 3.68,
+    "Türkiye İş Bankası": 3.88,
     "ON Dijital": 3.19,
-    "Odeabank": 2.99,
-    "Enpara": 3.59,
+    "Enpara": 3.44,
     "Anadolubank": 3.09,
     "Garanti BBVA": 3.89,
-    "Akbank": 3.54,
-    "getirfinans": 2.89,
+    "Akbank": 3.44,
+    "getirfinans": 3.29,
     "N Kolay": 3.99,
-    "Kuveyt Türk": 3.77,
+    "Kuveyt Türk": 3.18,
     "Alternatif Bank": 2.99,
     "Yapı Kredi": 4.29,
     "DenizBank": 2.89
@@ -53,16 +52,26 @@
     }
   ],
   "mevduat_oranlari": {
-    "ON Dijital": 51.0,
-    "CEPTETEB": 50.0,
-    "ING": 50.0,
-    "Alternatif Bank": 49.0,
-    "Fibabanka": 48.5,
-    "Akbank": 48.0,
-    "Garanti BBVA": 47.0,
-    "Enpara": 46.5,
-    "Türkiye İş Bankası": 44.0,
-    "Yapı Kredi": 43.5
+    "Akbank": 37.75,
+    "Alternatif Bank": 43.0,
+    "Anadolubank": 43.0,
+    "CEPTETEB": 40.5,
+    "DenizBank": 41.0,
+    "Enpara": 36.5,
+    "getirfinans": 40.0,
+    "N Kolay": 37.0,
+    "Halkbank": 36.0,
+    "HSBC": 40.5,
+    "ING": 42.0,
+    "Hayat Finans": 40.63,
+    "Odeabank": 43.0,
+    "ON Dijital": 41.5,
+    "TOM Bank": 42.0,
+    "Şekerbank": 41.0,
+    "Yapı Kredi": 39.75,
+    "QNB": 40.5,
+    "Ziraat Dinamik": 45.0,
+    "Fibabanka": 42.0
   },
   "konut_kredisi": {
     "VakıfBank": 2.84,
@@ -78,18 +87,176 @@
     "CEPTETEB": 3.2
   },
   "tasit_kredisi": {
-    "Garanti BBVA": 3.25,
+    "Garanti BBVA": 3.29,
     "QNB": 3.59,
     "Yapı Kredi": 3.49,
     "Kuveyt Türk": 3.27,
     "CEPTETEB": 3.29,
-    "Akbank": 3.4,
-    "Türkiye İş Bankası": 3.29,
+    "Akbank": 3.18,
+    "Türkiye İş Bankası": 3.49,
     "VakıfBank": 3.39,
     "Halkbank": 3.65,
     "Ziraat Bankası": 3.29
   },
   "last_dispatched_slot": "2026-11-15_11_makas",
   "last_dispatched_at": "2026-11-15 11:29:25",
-  "last_makas_date": "2026-11-15"
+  "last_makas_date": "2026-11-15",
+  "last_published_fingerprints": {
+    "ihtiyac": {
+      "date": "2026-11-19",
+      "fingerprint": [
+        [
+          "DenizBank",
+          2.89
+        ],
+        [
+          "ING",
+          2.99
+        ],
+        [
+          "Alternatif Bank",
+          2.99
+        ],
+        [
+          "Odeabank",
+          3.09
+        ],
+        [
+          "Anadolubank",
+          3.09
+        ],
+        [
+          "Kuveyt Türk",
+          3.18
+        ],
+        [
+          "ON Dijital",
+          3.19
+        ],
+        [
+          "getirfinans",
+          3.29
+        ]
+      ]
+    },
+    "konut": {
+      "date": "2026-11-19",
+      "fingerprint": [
+        [
+          "VakıfBank",
+          2.84
+        ],
+        [
+          "Kuveyt Türk",
+          2.87
+        ],
+        [
+          "Ziraat Bankası",
+          2.89
+        ],
+        [
+          "QNB",
+          2.99
+        ],
+        [
+          "Halkbank",
+          2.99
+        ],
+        [
+          "Türkiye İş Bankası",
+          3.05
+        ],
+        [
+          "Yapı Kredi",
+          3.09
+        ],
+        [
+          "Garanti BBVA",
+          3.13
+        ]
+      ]
+    },
+    "tasit": {
+      "date": "2026-11-19",
+      "fingerprint": [
+        [
+          "Akbank",
+          3.18
+        ],
+        [
+          "Kuveyt Türk",
+          3.27
+        ],
+        [
+          "Garanti BBVA",
+          3.29
+        ],
+        [
+          "CEPTETEB",
+          3.29
+        ],
+        [
+          "Ziraat Bankası",
+          3.29
+        ],
+        [
+          "VakıfBank",
+          3.39
+        ],
+        [
+          "Yapı Kredi",
+          3.49
+        ],
+        [
+          "Türkiye İş Bankası",
+          3.49
+        ]
+      ]
+    },
+    "mevduat": {
+      "date": "2026-11-19",
+      "fingerprint": [
+        [
+          "Ziraat Dinamik",
+          45.0
+        ],
+        [
+          "Alternatif Bank",
+          43.0
+        ],
+        [
+          "Anadolubank",
+          43.0
+        ],
+        [
+          "Odeabank",
+          43.0
+        ],
+        [
+          "ING",
+          42.0
+        ],
+        [
+          "TOM Bank",
+          42.0
+        ],
+        [
+          "Fibabanka",
+          42.0
+        ],
+        [
+          "ON Dijital",
+          41.5
+        ]
+      ]
+    }
+  },
+  "last_alerted_rates": {
+    "Odeabank_ihtiyac": {
+      "rate": 3.09,
+      "date": "2026-11-18"
+    }
+  },
+  "daily_dispatched": {},
+  "daily_instagram_posts": {}
 }

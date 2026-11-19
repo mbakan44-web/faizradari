@@ -62,7 +62,7 @@ class DepositOffer:
     annual_rate: float   # Yıllık mevduat faiz oranı (ör. 52.0)
     principal: float     # Anapara (TL)
     days: int = 32       # Vade gün sayısı
-    withholding_tax: float = 0.10  # %10 Stopaj oranı (6 aya kadar vadeli TL mevduat)
+    withholding_tax: float = 0.175  # %17,5 Stopaj oranı (6 aya kadar vadeli TL mevduat - güncel)
 
     @property
     def gross_return(self) -> float:

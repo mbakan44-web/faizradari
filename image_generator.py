@@ -1,6 +1,6 @@
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 from PIL import Image, ImageDraw, ImageFont
 from calculator import LoanOffer, DepositOffer, SpreadOffer, RateDropAlert, format_tl
 
@@ -263,7 +263,7 @@ def render_deposit_table_image(
     )
     draw.text(
         (40, 238),
-        "Yıllık brüt mevduat faiz oranları üzerinden %10 stopaj vergisi düşülerek net ele geçecek kazanç hesaplanmıştır.",
+        "Yıllık brüt mevduat faiz oranları üzerinden %17,5 stopaj vergisi düşülerek net ele geçecek kazanç hesaplanmıştır.",
         font=_load_font(17, bold=False),
         fill=(148, 163, 184),
     )
@@ -953,28 +953,431 @@ def render_breaking_news_image(
     return output_path
 
 
+def render_viral_insight_image(
+    tag: str,
+    headline: str,
+    big_metric_label: str,
+    big_metric_value: str,
+    rows: List[Dict],
+    question: str,
+    output_path: str = "D:/faiz-radari/latest_insight.png",
+) -> str:
+    """
+    Telegram, X ve WhatsApp için yüksek etkileşimli, sade, dev tipografili
+    1080x1080 'Günün Cep Hesabı / Finans Analizi' infografiği üretir.
+    """
+    w, h = 1080, 1080
+    img = Image.new("RGB", (w, h), color=(8, 13, 26))
+    draw = ImageDraw.Draw(img)
+
+    # 1. Derin kurumsal lacivert degrade
+    for y in range(h):
+        r = int(8 + (15 - 8) * (y / h))
+        g = int(13 + (24 - 13) * (y / h))
+        b = int(26 + (46 - 26) * (y / h))
+        draw.line([(0, y), (w, y)], fill=(r, g, b))
+
+    # Üst neon şerit
+    for x in range(w):
+        ratio = x / w
+        cr = int(16 * (1 - ratio) + 56 * ratio)
+        cg = int(185 * (1 - ratio) + 189 * ratio)
+        cb = int(129 * (1 - ratio) + 248 * ratio)
+        draw.line([(x, 0), (x, 6)], fill=(cr, cg, cb))
+
+    f_tag = _load_font(18, bold=True)
+    f_date = _load_font(17, bold=True)
+    f_head = _load_font(44, bold=True)
+    f_metric_lbl = _load_font(20, bold=True)
+    f_metric_val = _load_font(56, bold=True)
+    f_row_t = _load_font(26, bold=True)
+    f_row_s = _load_font(19, bold=False)
+    f_row_v = _load_font(28, bold=True)
+    f_q = _load_font(22, bold=True)
+    f_foot = _load_font(16, bold=True)
+
+    # Üst rozet ve tarih
+    draw.rounded_rectangle([(48, 34), (440, 76)], radius=10, fill=(14, 30, 56), outline=(56, 189, 248), width=2)
+    draw.text((66, 44), f"● {tag.upper()}", font=f_tag, fill=(56, 189, 248))
+
+    today_s = datetime.now().strftime("%d.%m.%Y")
+    draw.rounded_rectangle([(w - 265, 34), (w - 48, 76)], radius=10, fill=(20, 32, 54), outline=(51, 65, 85), width=1)
+    date_txt = f"CANLI  •  {today_s}"
+    dbb = draw.textbbox((0, 0), date_txt, font=f_date)
+    draw.text(((w - 265 + w - 48) // 2 - (dbb[2] - dbb[0]) // 2, 44), date_txt, font=f_date, fill=(203, 213, 225))
+
+    # Ana Başlık (2 satıra kadar otomatik)
+    words = headline.split()
+    h_lines, cur = [], []
+    for word in words:
+        test = " ".join(cur + [word])
+        bb = draw.textbbox((0, 0), test, font=f_head)
+        if (bb[2] - bb[0]) <= w - 96:
+            cur.append(word)
+        else:
+            if cur:
+                h_lines.append(" ".join(cur))
+                cur = [word]
+            else:
+                h_lines.append(word)
+    if cur:
+        h_lines.append(" ".join(cur))
+
+    hy = 100
+    for hl in h_lines[:2]:
+        draw.text((48, hy), hl, font=f_head, fill=(255, 255, 255))
+        hy += 56
+
+    # Dev Vurgu Kutusu (Büyük TL Farkı / Kazancı — otomatik genişlik uyumlu)
+    box_y = max(hy + 14, 226)
+    draw.rounded_rectangle([(48, box_y), (w - 48, box_y + 138)], radius=18, fill=(7, 46, 39), outline=(16, 185, 129), width=2)
+    draw.text((76, box_y + 18), big_metric_label.upper(), font=f_metric_lbl, fill=(167, 243, 208))
+    mv_font = f_metric_val
+    for sz in (54, 48, 42, 36):
+        cand = _load_font(sz, bold=True)
+        bb_m = draw.textbbox((0, 0), big_metric_value, font=cand)
+        if (bb_m[2] - bb_m[0]) <= w - 152:
+            mv_font = cand
+            break
+    draw.text((76, box_y + 56), big_metric_value, font=mv_font, fill=(250, 204, 21))
+
+    # Karşılaştırma Satırları (4 satır geniş okunaklı kartlar)
+    ry = box_y + 162
+    row_h = 118
+    for idx, r_item in enumerate(rows[:4]):
+        is_top = r_item.get("highlight", idx == 0)
+        bg = (16, 34, 58) if is_top else (15, 23, 42)
+        border = (56, 189, 248) if is_top else (30, 44, 70)
+        draw.rounded_rectangle([(48, ry), (w - 48, ry + row_h - 14)], radius=14, fill=bg, outline=border, width=2 if is_top else 1)
+
+        # Sol numara rozeti
+        badge_bg = (16, 185, 129) if is_top else (30, 41, 59)
+        badge_fg = (8, 22, 18) if is_top else (203, 213, 225)
+        draw.rounded_rectangle([(68, ry + 26), (118, ry + 76)], radius=12, fill=badge_bg)
+        rk = str(r_item.get("rank", idx + 1))
+        rbb = draw.textbbox((0, 0), rk, font=f_row_t)
+        draw.text((93 - (rbb[2] - rbb[0]) // 2, ry + 34), rk, font=f_row_t, fill=badge_fg)
+
+        # Başlık & Alt Metin
+        draw.text((138, ry + 20), str(r_item.get("title", "")), font=f_row_t, fill=(255, 255, 255))
+        draw.text((138, ry + 58), str(r_item.get("sub", "")), font=f_row_s, fill=(148, 163, 184))
+
+        # Sağ Büyük Değer
+        val_s = str(r_item.get("value", ""))
+        vbb = draw.textbbox((0, 0), val_s, font=f_row_v)
+        vw = vbb[2] - vbb[0]
+        val_col = (52, 211, 153) if is_top else (250, 204, 21)
+        draw.text((w - 76 - vw, ry + 34), val_s, font=f_row_v, fill=val_col)
+        ry += row_h
+
+    # Alt Etkileşim Sorusu Kutusu
+    qy = 924
+    draw.rounded_rectangle([(48, qy), (w - 48, qy + 74)], radius=14, fill=(28, 25, 62), outline=(129, 140, 248), width=2)
+    q_font = f_q
+    for sz in (22, 20, 18):
+        cand = _load_font(sz, bold=True)
+        bb_q = draw.textbbox((0, 0), question, font=cand)
+        if (bb_q[2] - bb_q[0]) <= w - 130:
+            q_font = cand
+            break
+    qbb = draw.textbbox((0, 0), question, font=q_font)
+    qw = qbb[2] - qbb[0]
+    draw.text(((w - qw) // 2, qy + 23), question, font=q_font, fill=(248, 250, 252))
+
+    # Footer
+    draw.text((48, 1022), "Kamuya açık banka verilerinden derlenmiştir. Yatırım tavsiyesi değildir.", font=_load_font(14, bold=False), fill=(100, 116, 139))
+    draw.text((w - 190, 1020), "@faizradari", font=f_foot, fill=(56, 189, 248))
+
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    img.save(output_path, format="PNG", optimize=True)
+    return output_path
+
+
+def render_animated_reel_video(
+    tag: str,
+    hook_line1: str,
+    hook_line2: str,
+    subtitle: str,
+    rows: List[Dict],
+    cta_text: str = "KAYDET — Lazım olduğunda elinin altında olsun!",
+    question_text: str = "Sence hangi banka daha mantıklı? Yorumlara yaz!",
+    audio_path: str = None,
+    output_video_path: str = None,
+    output_cover_path: str = None,
+    duration_sec: float = 8.0,
+    fps: int = 15,
+) -> Tuple[str, str]:
+    """
+    Instagram Reels ve mobil dikey ekranlar için %100 NATIVE 1080x1920 ANİMASYONLU video üretir!
+    - Sıkıştırılmış masaüstü tablo YOK: Büyük, telefonda tek bakışta okunan 5 mobil kart.
+    - Gerçek hareketli akış: Dev kanca başlık + satır satır kayarak açılan 5 banka kartı +
+      parlayan 1. sıra vurgusu + alt kaydetme/yorum çağrısı.
+    - Instagram Reels güvenli alanlarına (safe-zone) tam uyumlu.
+    - Ham RGB karelerini doğrudan FFmpeg pipe'ına akıtarak ~3 saniyede Full HD MP4 üretir.
+    """
+    import math
+    import subprocess
+    try:
+        import imageio_ffmpeg
+        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        ffmpeg_exe = "ffmpeg"
+
+    base_dir = Path(__file__).parent
+    if not audio_path or not Path(audio_path).exists():
+        audio_path = str(base_dir / "bg_music_loop.mp3")
+    if not output_video_path:
+        output_video_path = str(base_dir / "latest_story_video.mp4")
+    if not output_cover_path:
+        output_cover_path = str(base_dir / "latest_vertical_story.png")
+
+    W, H = 1080, 1920
+    total_frames = int(duration_sec * fps)
+
+    # Önceden hazır arka plan (her karede yeniden çizmek yerine tek seferde üretip kopyalarız - 10x hızlı!)
+    bg_base = Image.new("RGB", (W, H), color=(7, 11, 22))
+    bg_draw = ImageDraw.Draw(bg_base)
+    for y in range(H):
+        r = int(7 + (15 - 7) * (y / H))
+        g = int(11 + (23 - 11) * (y / H))
+        b = int(22 + (44 - 22) * (y / H))
+        bg_draw.line([(0, y), (W, y)], fill=(r, g, b))
+
+    # Hafif dekoratif arka plan radar halkaları
+    for r_rad in [240, 440, 640]:
+        bg_draw.ellipse([(W // 2 - r_rad, 340 - r_rad), (W // 2 + r_rad, 340 + r_rad)], outline=(18, 30, 56), width=2)
+
+    # Fontlar (Mobilde jilet gibi okunacak DEV boyutlar!)
+    f_tag = _load_font(22, bold=True)
+    f_hook1 = _load_font(60, bold=True)
+    f_hook2 = _load_font(68, bold=True)
+    f_sub = _load_font(26, bold=False)
+    f_rank = _load_font(30, bold=True)
+    f_bank = _load_font(34, bold=True)
+    f_bank_sub = _load_font(22, bold=False)
+    f_val = _load_font(40, bold=True)
+    f_win_badge = _load_font(16, bold=True)
+    f_cta = _load_font(26, bold=True)
+    f_q = _load_font(23, bold=False)
+    f_brand = _load_font(20, bold=True)
+    f_legal = _load_font(15, bold=False)
+
+    # Otomatik taşma önleyici kanca font boyutları
+    _tmp_d = ImageDraw.Draw(bg_base)
+    for sz in (60, 52, 46, 40):
+        cand = _load_font(sz, bold=True)
+        bb = _tmp_d.textbbox((0, 0), hook_line1.upper(), font=cand)
+        if (bb[2] - bb[0]) <= W - 140:
+            f_hook1 = cand
+            break
+    for sz in (68, 58, 50, 44):
+        cand = _load_font(sz, bold=True)
+        bb = _tmp_d.textbbox((0, 0), hook_line2.upper(), font=cand)
+        if (bb[2] - bb[0]) <= W - 140:
+            f_hook2 = cand
+            break
+    for sz in (26, 23, 20):
+        cand = _load_font(sz, bold=True)
+        bb = _tmp_d.textbbox((0, 0), cta_text, font=cand)
+        if (bb[2] - bb[0]) <= (W - 245):
+            f_cta = cand
+            break
+    for sz in (23, 20, 18):
+        cand = _load_font(sz, bold=False)
+        bb = _tmp_d.textbbox((0, 0), question_text, font=cand)
+        if (bb[2] - bb[0]) <= (W - 220):
+            f_q = cand
+            break
+
+    def ease_out_cubic(p: float) -> float:
+        p = max(0.0, min(1.0, p))
+        return 1.0 - (1.0 - p) ** 3
+
+    # FFmpeg sürecini başlat (ham RGB akışı + fon müziği -> H.264 AAC MP4)
+    cmd = [
+        ffmpeg_exe, "-y",
+        "-f", "rawvideo",
+        "-vcodec", "rawvideo",
+        "-pix_fmt", "rgb24",
+        "-s", f"{W}x{H}",
+        "-r", str(fps),
+        "-i", "pipe:0",
+        "-stream_loop", "-1",
+        "-i", str(audio_path),
+        "-c:v", "libx264",
+        "-preset", "fast",
+        "-crf", "23",
+        "-c:a", "aac",
+        "-b:a", "128k",
+        "-pix_fmt", "yuv420p",
+        "-shortest",
+        "-t", f"{duration_sec:.2f}",
+        str(output_video_path),
+    ]
+
+    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    cover_frame_idx = min(total_frames - 5, int(fps * 6.8))
+    rows_to_draw = rows[:5]
+
+    try:
+        for fi in range(total_frames):
+            t = fi / float(fps)  # saniye
+            frame = bg_base.copy()
+            draw = ImageDraw.Draw(frame)
+
+            # 1. Üst İlerleme Çubuğu (İzleyiciye dinamik video hissi verir)
+            prog_w = int(W * (fi / max(1, total_frames - 1)))
+            draw.rectangle([(0, 0), (W, 8)], fill=(20, 32, 58))
+            if prog_w > 0:
+                draw.rectangle([(0, 0), (prog_w, 8)], fill=(16, 185, 129))
+
+            # 2. Üst Canlı Rozet + Yanıp Sönen Canlı Nokta (y=165 — Instagram üst safe-zone altı)
+            pulse = 0.5 + 0.5 * math.sin(t * 5.0)
+            dot_col = (int(16 + 40 * pulse), int(185 + 55 * pulse), int(129 + 40 * pulse))
+            draw.rounded_rectangle([(60, 165), (620, 222)], radius=28, fill=(14, 28, 52), outline=(56, 189, 248), width=2)
+            draw.ellipse([(82, 184), (102, 204)], fill=dot_col)
+            draw.text((116, 179), tag.upper(), font=f_tag, fill=(226, 232, 240))
+
+            # 3. Dev Kanca Başlık (0.0s - 0.8s arası aşağıdan yumuşak kayarak açılır)
+            h_prog = ease_out_cubic(t / 0.75)
+            h_offset = int((1.0 - h_prog) * 70)
+            draw.text((60, 255 + h_offset), hook_line1.upper(), font=f_hook1, fill=(255, 255, 255))
+            draw.text((60, 330 + h_offset), hook_line2.upper(), font=f_hook2, fill=(250, 204, 21))
+
+            # Alt başlık + neon ayraç çizgisi
+            if t >= 0.35:
+                s_prog = ease_out_cubic((t - 0.35) / 0.5)
+                line_end = 60 + int((W - 180) * s_prog)
+                draw.text((60, 422), subtitle, font=f_sub, fill=(148, 163, 184))
+                draw.rectangle([(60, 470), (line_end, 475)], fill=(16, 185, 129))
+
+            # 4. 5 Büyük Mobil Kart — Sırayla Sağdan Kayarak Girer (t=0.9s, 1.5s, 2.1s, 2.7s, 3.3s)
+            # Sağ kenardan 130px boşluk bırakır (Instagram beğeni/yorum ikonlarının altında kalmaz!)
+            card_left = 60
+            card_right = W - 125
+            base_y = 510
+            card_h = 148
+            card_gap = 20
+
+            for idx, item in enumerate(rows_to_draw):
+                appear_t = 0.85 + idx * 0.55
+                if t < appear_t:
+                    continue
+                c_prog = ease_out_cubic((t - appear_t) / 0.45)
+                slide_x = int((1.0 - c_prog) * 900)
+
+                x1 = card_left + slide_x
+                x2 = card_right + slide_x
+                y1 = base_y + idx * (card_h + card_gap)
+                y2 = y1 + card_h
+
+                is_winner = item.get("highlight", idx == 0)
+                if is_winner:
+                    # 1. sıradaki lider kartta nefes alan zümrüt çerçeve parıltısı
+                    g_val = int(185 + 50 * pulse)
+                    bg_c = (8, 48, 39)
+                    border_c = (32, g_val, 145)
+                    border_w = 3
+                else:
+                    bg_c = (15, 24, 46)
+                    border_c = (38, 56, 88)
+                    border_w = 2
+
+                draw.rounded_rectangle([(x1, y1), (x2, y2)], radius=22, fill=bg_c, outline=border_c, width=border_w)
+
+                # Sıra Rozeti
+                rk_bg = (250, 204, 21) if is_winner else (30, 44, 72)
+                rk_fg = (10, 18, 28) if is_winner else (203, 213, 225)
+                draw.rounded_rectangle([(x1 + 22, y1 + 36), (x1 + 88, y1 + 112)], radius=16, fill=rk_bg)
+                rk_txt = str(item.get("rank", idx + 1))
+                rbb = draw.textbbox((0, 0), rk_txt, font=f_rank)
+                draw.text((x1 + 55 - (rbb[2] - rbb[0]) // 2, y1 + 54), rk_txt, font=f_rank, fill=rk_fg)
+
+                # Banka / Kalem Başlığı
+                title_y = y1 + (28 if is_winner else 34)
+                draw.text((x1 + 112, title_y), str(item.get("title", "")), font=f_bank, fill=(255, 255, 255))
+
+                if is_winner:
+                    # Lider rozeti
+                    draw.rounded_rectangle([(x1 + 112, y1 + 74), (x1 + 275, y1 + 100)], radius=8, fill=(16, 185, 129))
+                    draw.text((x1 + 124, y1 + 78), "EN AVANTAJLI", font=f_win_badge, fill=(8, 22, 16))
+                    draw.text((x1 + 288, y1 + 74), str(item.get("sub", "")), font=f_bank_sub, fill=(167, 243, 208))
+                else:
+                    draw.text((x1 + 112, y1 + 82), str(item.get("sub", "")), font=f_bank_sub, fill=(148, 163, 184))
+
+                # Sağ Büyük Oran / Değer
+                val_s = str(item.get("value", ""))
+                vbb = draw.textbbox((0, 0), val_s, font=f_val)
+                vw = vbb[2] - vbb[0]
+                v_col = (250, 204, 21) if is_winner else (56, 189, 248)
+                draw.text((x2 - 28 - vw, y1 + 48), val_s, font=f_val, fill=v_col)
+
+            # 5. Alt Kaydet & Yorum CTA Kartı (t >= 3.8s'de alttan yumuşak yükselir — Instagram alt safe-zone üstünde!)
+            cta_start = 3.8
+            if t >= cta_start:
+                cta_prog = ease_out_cubic((t - cta_start) / 0.6)
+                cta_off = int((1.0 - cta_prog) * 180)
+                cy = 1385 + cta_off
+
+                draw.rounded_rectangle([(60, cy), (W - 125, cy + 178)], radius=24, fill=(16, 26, 50), outline=(250, 204, 21), width=2)
+                # Parlak yeşil kaydetme şeridi
+                draw.rounded_rectangle([(84, cy + 20), (W - 149, cy + 84)], radius=32, fill=(16, 185, 129))
+                cbb = draw.textbbox((0, 0), cta_text, font=f_cta)
+                cw = cbb[2] - cbb[0]
+                box_center = (84 + (W - 149)) // 2
+                draw.text((box_center - cw // 2, cy + 36), cta_text, font=f_cta, fill=(8, 22, 16))
+
+                # Etkileşim sorusu
+                qbb = draw.textbbox((0, 0), question_text, font=f_q)
+                qw = qbb[2] - qbb[0]
+                draw.text((box_center - qw // 2, cy + 102), question_text, font=f_q, fill=(241, 245, 249))
+
+                # Sade marka imzası (ortalanmış, spam URL yok!)
+                b_sig = "@faizradari  •  Güncel Banka & Piyasa Radarı"
+                bsbb = draw.textbbox((0, 0), b_sig, font=f_brand)
+                draw.text((box_center - (bsbb[2] - bsbb[0]) // 2, cy + 140), b_sig, font=f_brand, fill=(56, 189, 248))
+
+            # Alt yasal bilgilendirme
+            draw.text((60, 1590), "Kamuya açık banka verileridir. Yatırım tavsiyesi değildir.", font=f_legal, fill=(100, 116, 139))
+
+            if fi == cover_frame_idx:
+                Path(output_cover_path).parent.mkdir(parents=True, exist_ok=True)
+                frame.save(output_cover_path, format="PNG", optimize=True)
+
+            proc.stdin.write(frame.tobytes())
+
+        proc.stdin.close()
+        proc.wait()
+        if proc.returncode != 0:
+            raise RuntimeError(f"FFmpeg animated reel encoding failed with exit code {proc.returncode}")
+    except Exception:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+        raise
+
+    return str(output_video_path), str(output_cover_path)
+
+
 def render_vertical_story_image(
     square_image_path: str,
     title: str = "GÜNÜN FİNANS RAPORU",
     output_path: str = "D:/faiz-radari/latest_vertical_story.png",
 ) -> str:
     """
-    1080x1080 boyutundaki kare infografik tablolarımızı TikTok, Instagram Story/Reels
-    ve YouTube Shorts için tam uyumlu 1080x1920 (9:16 dikey ekran) formatına dönüştürür.
-    TikTok'un sağ buton ve alt metin güvenli alanlarını (safe-zone) korur.
+    Yedek dikey hikaye görseli (en-boy oranını bozmadan temiz 9:16 çerçeve, spam içermeyen sade CTA).
     """
     v_width, v_height = 1080, 1920
     canvas = Image.new("RGB", (v_width, v_height), color=(8, 13, 24))
     draw = ImageDraw.Draw(canvas)
 
-    # 1. Koyu dikey degrade arka plan
     for y in range(v_height):
         r = int(7 + (14 - 7) * (y / v_height))
         g = int(11 + (22 - 11) * (y / v_height))
         b = int(22 + (40 - 22) * (y / v_height))
         draw.line([(0, y), (v_width, y)], fill=(r, g, b))
 
-    # Üst neon çizgi
     for x in range(v_width):
         ratio = x / v_width
         cr = int(16 * (1 - ratio) + 14 * ratio)
@@ -982,57 +1385,48 @@ def render_vertical_story_image(
         cb = int(129 * (1 - ratio) + 233 * ratio)
         draw.line([(x, 0), (x, 6)], fill=(cr, cg, cb))
 
-    f_top = _load_font(16, bold=True)
-    f_main = _load_font(38, bold=True)
-    f_sub = _load_font(21, bold=True)
-    f_btn = _load_font(22, bold=True)
-    f_cta_p = _load_font(18, bold=False)
-    f_brand = _load_font(18, bold=True)
+    f_top = _load_font(18, bold=True)
+    f_main = _load_font(42, bold=True)
+    f_sub = _load_font(22, bold=True)
+    f_cta = _load_font(24, bold=True)
+    f_brand = _load_font(20, bold=True)
 
-    # 2. Üst Güvenli Alan & Başlık (TikTok üst çubuğunun altında kalır)
-    draw.rounded_rectangle([(60, 135), (480, 182)], radius=10, fill=(18, 28, 52), outline=(250, 204, 21), width=2)
-    draw.text((78, 147), "GÜNCEL BANKA ORANLARI AÇIKLANDI", font=f_top, fill=(250, 204, 21))
+    draw.rounded_rectangle([(60, 145), (520, 196)], radius=12, fill=(18, 28, 52), outline=(250, 204, 21), width=2)
+    draw.text((80, 159), "GÜNCEL PİYASA VERİLERİ", font=f_top, fill=(250, 204, 21))
 
-    draw.text((60, 205), title.upper(), font=f_main, fill=(255, 255, 255))
-    draw.text((60, 268), "İstediğiniz tutarı profildeki canlı bot saniyede hesaplar!", font=f_sub, fill=(52, 211, 153))
+    draw.text((60, 220), title.upper(), font=f_main, fill=(255, 255, 255))
+    draw.text((60, 286), "Bankaların en güncel karşılaştırmalı tablosu", font=f_sub, fill=(52, 211, 153))
+    draw.line([(60, 336), (v_width - 60, 336)], fill=(30, 41, 59), width=2)
 
-    draw.line([(60, 320), (v_width - 60, 320)], fill=(30, 41, 59), width=2)
-
-    # 3. Ortalanmış Kare İnfografik Tablosu
-    # 1080x1080 görseli 980x980 boyutuna ölçekleyip tam ortaya güvenli yerleştiririz
+    # En-boy oranını KORUYARAK ölçekle (asla sıkıştırma/ezme yapma!)
     p = Path(square_image_path)
+    bottom_of_img = 1320
     if p.exists():
         sq_img = Image.open(p).convert("RGBA")
-        target_size = 980
-        sq_resized = sq_img.resize((target_size, target_size), Image.Resampling.LANCZOS)
+        max_w, max_h = 980, 960
+        scale = min(max_w / sq_img.width, max_h / sq_img.height)
+        new_w = int(sq_img.width * scale)
+        new_h = int(sq_img.height * scale)
+        sq_resized = sq_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
 
-        pos_x = (v_width - target_size) // 2
-        pos_y = 350
+        pos_x = (v_width - new_w) // 2
+        pos_y = 365 + (max_h - new_h) // 2
+        bottom_of_img = pos_y + new_h
 
-        # Tablo arkasına şık neon çerçeve kartı
-        draw.rounded_rectangle([(pos_x - 6, pos_y - 6), (pos_x + target_size + 6, pos_y + target_size + 6)], radius=18, fill=(15, 23, 42), outline=(30, 58, 95), width=2)
-        canvas.paste(sq_resized, (pos_x, pos_y), sq_resized if sq_resized.mode == "RGBA" else None)
+        draw.rounded_rectangle([(pos_x - 6, pos_y - 6), (pos_x + new_w + 6, pos_y + new_h + 6)], radius=18, fill=(15, 23, 42), outline=(30, 58, 95), width=2)
+        canvas.paste(sq_resized, (pos_x, pos_y), sq_resized)
 
-    # 4. Alt Güvenli Alan (TikTok alt başlık ve ses barı öncesi CTA kartı)
-    card_y = 1365
-    card_h = 195
-    draw.rounded_rectangle([(60, card_y), (v_width - 60, card_y + card_h)], radius=18, fill=(13, 21, 37), outline=(250, 204, 21), width=2)
+    # Temiz, spam içermeyen kaydetme/yorum CTA kartı
+    card_y = max(bottom_of_img + 35, 1365)
+    card_h = 165
+    draw.rounded_rectangle([(60, card_y), (v_width - 60, card_y + card_h)], radius=18, fill=(13, 21, 37), outline=(16, 185, 129), width=2)
+    draw.text((90, card_y + 28), "KAYDET — Karar vermeden önce lazım olur!", font=f_cta, fill=(52, 211, 153))
+    draw.text((90, card_y + 76), "Sizce hangi banka daha avantajlı? Yorumlara yazın!", font=_load_font(20, bold=False), fill=(241, 245, 249))
+    draw.text((90, card_y + 116), "@faizradari  •  Günlük Finans & Oran Takibi", font=f_brand, fill=(56, 189, 248))
 
-    # Neon Yeşil Eylem Butonu (Tıklama Çağrısı)
-    btn_box = [(85, card_y + 18), (v_width - 85, card_y + 76)]
-    draw.rounded_rectangle(btn_box, radius=29, fill=(16, 185, 129), outline=(52, 211, 153), width=2)
-    b_txt = "► KREDİ TUTARINI YAZ, ROBOT HESAPLASIN ◄"
-    bbb = draw.textbbox((0, 0), b_txt, font=f_btn)
-    bw = bbb[2] - bbb[0]
-    draw.text(((v_width - bw) // 2, card_y + 32), b_txt, font=f_btn, fill=(10, 24, 18))
-
-    draw.text((90, card_y + 94), "Sıfır faizli nakit avans & net masraf kontrolü profildeki linkte:", font=f_cta_p, fill=(241, 245, 249))
-    draw.text((90, card_y + 134), "► t.me/faizradari  •  @faizradari", font=f_brand, fill=(56, 189, 248))
-
-    # Alt yasal uyarı (TikTok alt güvenli alanı)
     draw.text(
-        (60, 1585),
-        "• Kamuya açık banka verileridir. Yatırım tavsiyesi niteliği taşımaz.",
+        (60, card_y + card_h + 24),
+        "Kamuya açık banka verileridir. Yatırım tavsiyesi niteliği taşımaz.",
         font=_load_font(14, bold=False),
         fill=(100, 116, 139)
     )
