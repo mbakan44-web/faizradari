@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-19 14:01",
+  "updated_at": "2026-11-19 14:29",
   "ihtiyac_kredisi": {
     "Odeabank": 3.09,
     "Ziraat Bankası": 3.69,
@@ -92,15 +92,15 @@
     "Yapı Kredi": 3.49,
     "Kuveyt Türk": 3.27,
     "CEPTETEB": 3.29,
-    "Akbank": 3.18,
+    "Akbank": 3.4,
     "Türkiye İş Bankası": 3.49,
     "VakıfBank": 3.39,
     "Halkbank": 3.65,
     "Ziraat Bankası": 3.29
   },
-  "last_dispatched_slot": "2026-11-19_13_analiz",
-  "last_dispatched_at": "2026-11-19 13:32:15",
-  "last_makas_date": "2026-11-15",
+  "last_dispatched_slot": "2026-11-19_17_makas",
+  "last_dispatched_at": "2026-11-19 17:29:26",
+  "last_makas_date": "2026-11-19",
   "last_published_fingerprints": {
     "ihtiyac": {
       "date": "2026-11-19",
@@ -260,7 +260,8 @@
   "daily_dispatched": {
     "2026-11-19": [
       "bulten",
-      "analiz"
+      "analiz",
+      "makas"
     ]
   },
   "daily_instagram_posts": {
