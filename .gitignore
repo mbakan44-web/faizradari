@@ -8,5 +8,8 @@ __pycache__/
 .last_update_id
 google_webhook_kodu.gs
 latest_voiceover.mp3
+latest_vs_voiceover.mp3
 latest_breaking_news_video.mp4
+latest_bank_vs_video.mp4
+latest_investment_race_video.mp4
 test_*.mp3

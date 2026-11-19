@@ -849,3 +849,214 @@ def mark_news_dispatched(news_item: Dict) -> None:
     })
     cache["dispatched_news_history"] = history[-40:]
     _save_full_cache(cache)
+
+
+def fetch_30d_investment_race(principal: float = 100_000) -> Dict:
+    """
+    Son 30 günde 100.000 TL'sini Vadeli Mevduat, Gram Altın, Dolar, Euro ve Borsa'ya (BIST 100)
+    yatıran birinin bugün elindeki gerçek net TL tutarını ve sıralamasını hesaplar (0 TL maliyet, Yahoo Finance + Canlı Mevduat).
+    """
+    deps, _ = get_deposit_offers(principal, 32)
+    best_dep = deps[0] if deps else DepositOffer("Ziraat Dinamik", 45.0, principal, 32)
+    dep_net = best_dep.net_return
+    dep_pct = (dep_net / principal) * 100.0
+
+    # Yahoo Finance 1 aylık değişim oranları
+    changes = {
+        "USD": 1.90,
+        "EUR": 0.15,
+        "ONS": -8.50,
+        "BIST100": 0.25,
+    }
+    prices = {
+        "USD": (49.50, 50.46),
+        "EUR": (55.55, 55.63),
+        "ONS": (4100.0, 3750.0),
+        "BIST100": (11420.0, 11442.0),
+    }
+    sym_map = {"USD": "TRY=X", "EUR": "EURTRY=X", "ONS": "GC=F", "BIST100": "XU100.IS"}
+    for key, sym in sym_map.items():
+        try:
+            r = requests.get(
+                f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}?range=1mo&interval=1d",
+                headers=HEADERS,
+                timeout=8,
+            ).json()
+            res = r["chart"]["result"][0]
+            closes = [float(c) for c in res["indicators"]["quote"][0]["close"] if c is not None]
+            if len(closes) >= 5:
+                p0, p1 = closes[0], closes[-1]
+                prices[key] = (p0, p1)
+                changes[key] = ((p1 - p0) / p0) * 100.0
+        except Exception:
+            pass
+
+    # Gram Altın (TL) 30 günlük değişimi: (ONS_1 * USD_1) / (ONS_0 * USD_0)
+    g0 = (prices["ONS"][0] * prices["USD"][0]) / 31.1035
+    g1 = (prices["ONS"][1] * prices["USD"][1]) / 31.1035
+    gold_pct = ((g1 - g0) / g0) * 100.0
+
+    tickers = fetch_market_tickers()
+
+    vehicles = [
+        {
+            "name": f"TL Vadeli Mevduat (%{best_dep.annual_rate:.1f})",
+            "short_name": "TL Vadeli Mevduat",
+            "detail": f"{best_dep.bank_name} • %17,5 stopaj sonrası 32 gün net",
+            "pct": dep_pct,
+            "net_diff": dep_net,
+            "final_tl": principal + dep_net,
+        },
+        {
+            "name": "Amerikan Doları (USD/TRY)",
+            "short_name": "Dolar (USD/TRY)",
+            "detail": f"30 gün önce: {prices['USD'][0]:.2f} TL  ->  Bugün: {prices['USD'][1]:.2f} TL",
+            "pct": changes["USD"],
+            "net_diff": principal * (changes["USD"] / 100.0),
+            "final_tl": principal * (1.0 + changes["USD"] / 100.0),
+        },
+        {
+            "name": "Gram Altın (24 Ayar)",
+            "short_name": "Gram Altın",
+            "detail": f"30 gün önce: {g0:,.0f} TL  ->  Bugün: {g1:,.0f} TL".replace(",", "."),
+            "pct": gold_pct,
+            "net_diff": principal * (gold_pct / 100.0),
+            "final_tl": principal * (1.0 + gold_pct / 100.0),
+        },
+        {
+            "name": "Euro (EUR/TRY)",
+            "short_name": "Euro (EUR/TRY)",
+            "detail": f"30 gün önce: {prices['EUR'][0]:.2f} TL  ->  Bugün: {prices['EUR'][1]:.2f} TL",
+            "pct": changes["EUR"],
+            "net_diff": principal * (changes["EUR"] / 100.0),
+            "final_tl": principal * (1.0 + changes["EUR"] / 100.0),
+        },
+        {
+            "name": "Borsa İstanbul (BIST 100)",
+            "short_name": "Borsa (BIST 100)",
+            "detail": f"30 gün önce: {prices['BIST100'][0]:,.0f}  ->  Bugün: {prices['BIST100'][1]:,.0f} puan".replace(",", "."),
+            "pct": changes["BIST100"],
+            "net_diff": principal * (changes["BIST100"] / 100.0),
+            "final_tl": principal * (1.0 + changes["BIST100"] / 100.0),
+        },
+    ]
+
+    vehicles.sort(key=lambda x: x["final_tl"], reverse=True)
+    winner = vehicles[0]
+    loser = vehicles[-1]
+    spread_gap = winner["final_tl"] - loser["final_tl"]
+
+    return {
+        "principal": principal,
+        "vehicles": vehicles,
+        "winner": winner,
+        "loser": loser,
+        "spread_gap": spread_gap,
+        "tickers": tickers,
+    }
+
+
+def get_weekly_bank_vs_duel(pair_idx: int = None) -> Dict:
+    """
+    Haftalık '2 Dev Banka Kafa Kafaya (VS) Düellosu' verilerini canlı oranlardan üretir.
+    4 Raunt:
+      1. 500.000 TL 32 Gün Vadeli Mevduat Net Getirisi
+      2. 100.000 TL 12 Ay İhtiyaç Kredisi Aylık Taksiti
+      3. 2.000.000 TL 120 Ay Konut Kredisi Aylık Taksiti
+      4. 400.000 TL 36 Ay Taşıt Kredisi Aylık Taksiti
+    """
+    get_loan_offers("ihtiyac", 100_000, 12)
+    get_loan_offers("konut", 2_000_000, 120)
+    get_loan_offers("tasit", 400_000, 36)
+    get_deposit_offers(500_000, 32)
+
+    cache = _load_full_cache()
+    dep_map = cache.get("mevduat_oranlari", DEFAULT_RATES["mevduat"])
+    iht_map = cache.get("ihtiyac_kredisi", DEFAULT_RATES["ihtiyac"])
+    kon_map = cache.get("konut_kredisi", DEFAULT_RATES["konut"])
+    tas_map = cache.get("tasit_kredisi", DEFAULT_RATES["tasit"])
+
+    pairs = [
+        ("Akbank", "Garanti BBVA", "ÖZEL BANKACILIK DEVLERİ DÜELLOSU"),
+        ("Ziraat Bankası", "VakıfBank", "KAMU BANKALARI DEV DÜELLOSU"),
+        ("Yapı Kredi", "Türkiye İş Bankası", "KÖKLÜ BANKALAR KREDİ & MEVDUAT DÜELLOSU"),
+        ("DenizBank", "QNB", "YÜKSEK FAİZ & UYGUN KREDİ DÜELLOSU"),
+        ("ING", "CEPTETEB", "DİJİTAL & AVANTAJLI BANKACILIK DÜELLOSU"),
+    ]
+    if pair_idx is None:
+        week_no = datetime.now().isocalendar()[1]
+        pair_idx = week_no % len(pairs)
+    b1, b2, subtitle = pairs[pair_idx % len(pairs)]
+
+    # 1. Mevduat (Yüksek olan kazanır)
+    r_dep1 = float(dep_map.get(b1, DEFAULT_RATES["mevduat"].get(b1, 38.0)))
+    r_dep2 = float(dep_map.get(b2, DEFAULT_RATES["mevduat"].get(b2, 38.0)))
+    d1 = DepositOffer(b1, r_dep1, 500_000, 32)
+    d2 = DepositOffer(b2, r_dep2, 500_000, 32)
+
+    # 2. İhtiyaç Kredisi (Düşük olan kazanır)
+    r_iht1 = float(iht_map.get(b1, DEFAULT_RATES["ihtiyac"].get(b1, 3.59)))
+    r_iht2 = float(iht_map.get(b2, DEFAULT_RATES["ihtiyac"].get(b2, 3.59)))
+    l_iht1 = LoanOffer(b1, r_iht1, 100_000, 12, "ihtiyac")
+    l_iht2 = LoanOffer(b2, r_iht2, 100_000, 12, "ihtiyac")
+
+    # 3. Konut Kredisi (Düşük olan kazanır)
+    r_kon1 = float(kon_map.get(b1, DEFAULT_RATES["konut"].get(b1, 3.09)))
+    r_kon2 = float(kon_map.get(b2, DEFAULT_RATES["konut"].get(b2, 3.09)))
+    l_kon1 = LoanOffer(b1, r_kon1, 2_000_000, 120, "konut")
+    l_kon2 = LoanOffer(b2, r_kon2, 2_000_000, 120, "konut")
+
+    # 4. Taşıt Kredisi (Düşük olan kazanır)
+    r_tas1 = float(tas_map.get(b1, DEFAULT_RATES["tasit"].get(b1, 3.39)))
+    r_tas2 = float(tas_map.get(b2, DEFAULT_RATES["tasit"].get(b2, 3.39)))
+    l_tas1 = LoanOffer(b1, r_tas1, 400_000, 36, "tasit")
+    l_tas2 = LoanOffer(b2, r_tas2, 400_000, 36, "tasit")
+
+    rounds = [
+        {
+            "title": "500.000 TL Mevduat (32 Gün Net)",
+            "b1_val": f"+{format_tl(d1.net_return)}",
+            "b1_sub": f"Yıllık %{d1.annual_rate:.1f}",
+            "b2_val": f"+{format_tl(d2.net_return)}",
+            "b2_sub": f"Yıllık %{d2.annual_rate:.1f}",
+            "winner": 1 if d1.net_return > d2.net_return else (2 if d2.net_return > d1.net_return else 0),
+        },
+        {
+            "title": "100.000 TL İhtiyaç Kredisi (12 Ay)",
+            "b1_val": f"{format_tl(l_iht1.monthly_installment)}/ay",
+            "b1_sub": f"Aylık %{l_iht1.monthly_rate:.2f}",
+            "b2_val": f"{format_tl(l_iht2.monthly_installment)}/ay",
+            "b2_sub": f"Aylık %{l_iht2.monthly_rate:.2f}",
+            "winner": 1 if l_iht1.monthly_rate < l_iht2.monthly_rate else (2 if l_iht2.monthly_rate < l_iht1.monthly_rate else 0),
+        },
+        {
+            "title": "2.000.000 TL Konut Kredisi (120 Ay)",
+            "b1_val": f"{format_tl(l_kon1.monthly_installment)}/ay",
+            "b1_sub": f"Aylık %{l_kon1.monthly_rate:.2f}",
+            "b2_val": f"{format_tl(l_kon2.monthly_installment)}/ay",
+            "b2_sub": f"Aylık %{l_kon2.monthly_rate:.2f}",
+            "winner": 1 if l_kon1.monthly_rate < l_kon2.monthly_rate else (2 if l_kon2.monthly_rate < l_kon1.monthly_rate else 0),
+        },
+        {
+            "title": "400.000 TL Taşıt Kredisi (36 Ay)",
+            "b1_val": f"{format_tl(l_tas1.monthly_installment)}/ay",
+            "b1_sub": f"Aylık %{l_tas1.monthly_rate:.2f}",
+            "b2_val": f"{format_tl(l_tas2.monthly_installment)}/ay",
+            "b2_sub": f"Aylık %{l_tas2.monthly_rate:.2f}",
+            "winner": 1 if l_tas1.monthly_rate < l_tas2.monthly_rate else (2 if l_tas2.monthly_rate < l_tas1.monthly_rate else 0),
+        },
+    ]
+
+    score1 = sum(1 for r in rounds if r["winner"] in (1, 0))
+    score2 = sum(1 for r in rounds if r["winner"] in (2, 0))
+    overall_winner = b1 if score1 > score2 else (b2 if score2 > score1 else "BERABERE")
+
+    return {
+        "bank1": b1,
+        "bank2": b2,
+        "subtitle": subtitle,
+        "rounds": rounds,
+        "score1": score1,
+        "score2": score2,
+        "overall_winner": overall_winner,
+    }

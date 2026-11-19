@@ -22,6 +22,8 @@ from scraper import (
     mark_rates_published,
     fetch_breaking_economy_news,
     mark_news_dispatched,
+    fetch_30d_investment_race,
+    get_weekly_bank_vs_duel,
 )
 from image_generator import (
     render_loan_table_image,
@@ -35,6 +37,9 @@ from image_generator import (
     render_viral_insight_image,
     render_animated_reel_video,
     render_carousel_guide_slides,
+    render_bank_vs_image,
+    render_animated_bank_vs_video,
+    render_investment_race_image,
 )
 
 load_dotenv(Path(__file__).parent / ".env", override=True)
@@ -2603,6 +2608,267 @@ def send_x_thread_report(preview_only: bool = False) -> dict:
     return {"ok": len(t_ids) > 0, "tweet_ids": t_ids, "tweets": tweets}
 
 
+def send_bank_vs_report(
+    target_chat_id: str = CHANNEL_ID,
+    preview_only: bool = False,
+    pair_idx: int = None,
+) -> dict:
+    """
+    Haftalık '2 Dev Banka Kafa Kafaya (VS) Düellosu' (Sesli Video + 1080x1080 Düello Kartı):
+    - 4 Rauntta (Mevduat, İhtiyaç Kredisi, Konut Kredisi, Taşıt Kredisi) iki dev bankayı karşılaştırır.
+    - Hem 1080x1080 Düello Tablosu hem de 1080x1920 30 FPS AhmetNeural Erkek Sesli Reels Videosu üretir.
+    - preview_only=True iken sadece ADMIN_CHAT_ID'ye önizleme gönderir.
+    """
+    duel = get_weekly_bank_vs_duel(pair_idx=pair_idx)
+    b1 = duel["bank1"]
+    b2 = duel["bank2"]
+    s1 = duel["score1"]
+    s2 = duel["score2"]
+    winner = duel["overall_winner"]
+    rounds = duel["rounds"]
+
+    img_path = render_bank_vs_image(
+        duel_data=duel,
+        output_path=str(Path(__file__).parent / "latest_bank_vs.png"),
+    )
+
+    def _w_label(r):
+        return b1 if r["winner"] == 1 else (b2 if r["winner"] == 2 else "iki banka da eşit")
+
+    win_sentence = (
+        f"Maç sonunda genel skorda {s1}'e {s2} ile {winner} kazandı!"
+        if winner != "BERABERE"
+        else f"Maç {s1} {s2} berabere bitti! Peki beraberliği siz bozun:"
+    )
+    voice_script = (
+        f"Haftanın dev banka düellosu: {b1} mı, {b2} mı? "
+        f"Birinci kategori 500 bin lira mevduatta {_w_label(rounds[0])} öne geçti! "
+        f"İkinci kategori ihtiyaç kredisinde {_w_label(rounds[1])} kazandı! "
+        f"Üçüncü kategori konut kredisinde {_w_label(rounds[2])}, dördüncü kategori taşıt kredisinde ise {_w_label(rounds[3])} kazandı! "
+        f"{win_sentence} Siz {b1} mı, yoksa {b2} müşterisi misiniz? Yorumlara yazın!"
+    )
+    question = f"Siz {b1} mı, yoksa {b2} müşterisi misiniz? Hangisinden daha memnunsunuz?"
+
+    video_path = str(Path(__file__).parent / "latest_bank_vs_video.mp4")
+    render_animated_bank_vs_video(
+        duel_data=duel,
+        voice_script=voice_script,
+        output_video_path=video_path,
+    )
+
+    rounds_txt = "\n".join(
+        [
+            f"• <b>{r['title']}:</b> {b1} ({r['b1_val']}) vs {b2} ({r['b2_val']}) 👉 <b>{b1 if r['winner']==1 else (b2 if r['winner']==2 else 'Eşit')}</b>"
+            for r in rounds
+        ]
+    )
+    caption = (
+        f"🆚 <b>FAİZ RADARI | 2 DEV BANKA DÜELLOSU: {b1.upper()} vs {b2.upper()}</b>\n\n"
+        f"{rounds_txt}\n\n"
+        f"🏆 <b>Genel Skor:</b> {s1} - {s2} ({winner})\n\n"
+        f"💬 <b>{question}</b>\n\n"
+        "⚠️ <i>Canlı banka verilerinden derlenmiştir, yatırım tavsiyesi değildir.</i>\n"
+        "🔔 <b>Takip:</b> @faizradari"
+    )
+
+    markup = _default_reply_markup() if target_chat_id == CHANNEL_ID else _interactive_menu_markup()
+
+    if preview_only or target_chat_id != CHANNEL_ID:
+        r_photo = _post_photo_to_telegram(img_path, caption, target_chat_id=target_chat_id, reply_markup=markup)
+        r_video = {"ok": False}
+        if Path(video_path).exists():
+            with open(video_path, "rb") as vf:
+                r_video = requests.post(
+                    f"{API_BASE}/sendVideo",
+                    data={
+                        "chat_id": target_chat_id,
+                        "caption": f"🎙️ <b>2 DEV BANKA DÜELLOSU ({b1} vs {b2}) SESLİ VİDEO ÖNİZLEMESİ</b>",
+                        "parse_mode": "HTML",
+                        "supports_streaming": True,
+                    },
+                    files={"video": vf},
+                    timeout=60,
+                ).json()
+        print(f"[BANKA DÜELLO ÖNİZLEME] Admin DM ({target_chat_id}) -> Kart: {r_photo.get('ok')}, Sesli Video: {r_video.get('ok')}")
+        return {"ok": r_photo.get("ok") or r_video.get("ok"), "img_path": img_path, "video_path": video_path, "duel": duel}
+
+    # CANLI YAYIN:
+    # 1. Telegram (Sesli Video)
+    with open(video_path, "rb") as vf:
+        res_tg = requests.post(
+            f"{API_BASE}/sendVideo",
+            data={
+                "chat_id": CHANNEL_ID,
+                "caption": caption,
+                "parse_mode": "HTML",
+                "supports_streaming": True,
+                "reply_markup": markup,
+            },
+            files={"video": vf},
+            timeout=60,
+        ).json()
+
+    # 2. X (Sesli Video + Karşılaştırma Metni)
+    x_text = (
+        f"Haftanın Banka Düellosu: {b1} vs {b2}\n\n"
+        f"• 500k TL Mevduat: {b1} {rounds[0]['b1_val']} | {b2} {rounds[0]['b2_val']}\n"
+        f"• 100k TL İhtiyaç: {b1} {rounds[1]['b1_sub']} | {b2} {rounds[1]['b2_sub']}\n"
+        f"• 2M TL Konut: {b1} {rounds[2]['b1_sub']} | {b2} {rounds[2]['b2_sub']}\n\n"
+        f"{question}"
+    )
+    post_to_x(video_path if Path(video_path).exists() else img_path, x_text)
+
+    # 3. WhatsApp (Sesli Video)
+    post_video_to_whatsapp(video_path, caption, fallback_img_path=img_path)
+
+    # 4. Instagram Reels (Canlı Skor Tabelalı Düello Videosunu doğrudan GitHub CDN'e pushlayıp Instagram'a gönder)
+    try:
+        import shutil
+        import subprocess
+        repo_dir = str(Path(__file__).parent)
+        story_vid = str(Path(__file__).parent / "latest_story_video.mp4")
+        shutil.copyfile(video_path, story_vid)
+        ref = "main"
+        if os.getenv("GITHUB_ACTIONS") == "true":
+            subprocess.run(["git", "config", "user.name", "github-actions[bot]"], cwd=repo_dir, check=False)
+            subprocess.run(["git", "config", "user.email", "github-actions[bot]@users.noreply.github.com"], cwd=repo_dir, check=False)
+        subprocess.run(["git", "add", "-f", "latest_story_video.mp4"], cwd=repo_dir, check=False)
+        subprocess.run(["git", "commit", "-m", "Auto-update live Bank VS Duel scoreboard video for Buffer CDN"], cwd=repo_dir, check=False)
+        subprocess.run(["git", "pull", "--rebase"], cwd=repo_dir, check=False)
+        subprocess.run(["git", "push"], cwd=repo_dir, check=False)
+        sha_p = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=repo_dir, capture_output=True, text=True, check=False)
+        if sha_p.returncode == 0 and sha_p.stdout.strip():
+            ref = sha_p.stdout.strip()
+        time.sleep(2)
+        pub_url = f"https://raw.githubusercontent.com/mbakan44-web/faizradari/{ref}/latest_story_video.mp4?v={int(time.time())}"
+        ig_cap = f"{b1} vs {b2}: 4 Kategoride Kafa Kafaya Düello! 🆚\n\nMaç Skoru: {s1} - {s2}\n\n{question} 👇\n\n#banka #faiz #kredi #mevduat #finans"
+        if os.getenv("ENABLE_TIKTOK_POSTING", "false").lower() == "true":
+            post_to_buffer_tiktok(pub_url, ig_cap, is_video=True)
+        post_to_buffer_instagram(pub_url, ig_cap, is_video=True)
+    except Exception as ie:
+        print(f"[UYARI] Düello videosu Instagram gönderim hatası: {ie}")
+    return res_tg
+
+
+def send_investment_race_report(
+    target_chat_id: str = CHANNEL_ID,
+    preview_only: bool = False,
+) -> dict:
+    """
+    '1 Ay Önce 100.000 TL Yatıran Bugün Ne Kazandı? (Mevduat vs Altın vs Dolar vs Euro vs Borsa)'
+    Son 30 günün gerçek kazananını net TL hesabıyla gösteren 1080x1080 yarış tablosu + Sesli Reels Videosu.
+    """
+    race = fetch_30d_investment_race(100_000)
+    vehicles = race["vehicles"]
+    winner = race["winner"]
+    gap = race["spread_gap"]
+
+    img_path = render_investment_race_image(
+        race_data=race,
+        output_path=str(Path(__file__).parent / "latest_investment_race.png"),
+    )
+
+    reel_rows = []
+    for idx, v in enumerate(vehicles[:5]):
+        sign = "+" if v["net_diff"] >= 0 else "-"
+        reel_rows.append({
+            "rank": str(idx + 1),
+            "title": v["short_name"],
+            "sub": f"Net Fark: {sign}{format_tl(abs(v['net_diff']))} ({v['pct']:+.2f}%)".replace(".", ","),
+            "value": format_tl(v["final_tl"]),
+            "highlight": idx == 0,
+        })
+
+    w_sign = "kazandırdı" if winner["net_diff"] >= 0 else "değişti"
+    voice_script = (
+        f"1 ay önce 100 bin lirasını mevduata koyan mı kazandı, altın alan mı, yoksa dolar alan mı? "
+        f"Son 30 günün gerçek verilerine göre 100 bin lira, {winner['short_name']} tarafında {format_tl(winner['final_tl'])} seviyesine ulaşarak birinci oldu! "
+        f"Birinci ile sonuncu yatırım aracı arasında sadece 1 ayda tam {format_tl(gap)} fark oluştu! "
+        f"Peki sizce önümüzdeki 30 günün şampiyonu hangisi olur? Yorumlara yazın!"
+    )
+    question = "Önümüzdeki 30 günde 100.000 TL en çok hangisinde kazandırır? (Mevduat / Altın / Dolar / Borsa)"
+
+    video_path = str(Path(__file__).parent / "latest_investment_race_video.mp4")
+    render_animated_reel_video(
+        tag=f"30 GÜNLÜK YATIRIM YARIŞI • {_tr_short_date()}",
+        hook_line1="100.000 TL 30 GÜNDE",
+        hook_line2="EN ÇOK NEREDE KAZANDI?",
+        subtitle="Mevduat vs Altın vs Dolar vs Euro vs Borsa Gerçek Net Karnesi",
+        rows=reel_rows,
+        cta_text="KAYDET — Yatırım kararı vermeden önce tabloyu incele!",
+        question_text=question,
+        output_video_path=video_path,
+        voice_script=voice_script,
+    )
+
+    list_txt = "\n".join(
+        [
+            f"{idx + 1}️⃣ <b>{v['short_name']}:</b> {format_tl(v['final_tl'])} (<i>{'+' if v['net_diff']>=0 else '-'}{format_tl(abs(v['net_diff']))} / %{v['pct']:+.2f}</i>)"
+            for idx, v in enumerate(vehicles[:5])
+        ]
+    )
+    caption = (
+        f"🏆 <b>FAİZ RADARI | 1 AY ÖNCE 100.000 TL YATIRAN BUGÜN NE KAZANDI?</b>\n\n"
+        f"{list_txt}\n\n"
+        f"🔥 <b>1. ile 5. Arasındaki 30 Günlük Fark:</b> {format_tl(gap)}\n\n"
+        f"💬 <b>{question}</b>\n\n"
+        "⚠️ <i>Son 30 günlük gerçek piyasa verileri ve %17,5 stopaj sonrası net mevduat hesabıdır. Yatırım tavsiyesi değildir.</i>\n"
+        "🔔 <b>Takip:</b> @faizradari"
+    )
+
+    markup = _default_reply_markup() if target_chat_id == CHANNEL_ID else _interactive_menu_markup()
+
+    if preview_only or target_chat_id != CHANNEL_ID:
+        r_photo = _post_photo_to_telegram(img_path, caption, target_chat_id=target_chat_id, reply_markup=markup)
+        r_video = {"ok": False}
+        if Path(video_path).exists():
+            with open(video_path, "rb") as vf:
+                r_video = requests.post(
+                    f"{API_BASE}/sendVideo",
+                    data={
+                        "chat_id": target_chat_id,
+                        "caption": "🎙️ <b>100.000 TL 30 GÜNLÜK YATIRIM YARIŞI SESLİ VİDEO ÖNİZLEMESİ</b>",
+                        "parse_mode": "HTML",
+                        "supports_streaming": True,
+                    },
+                    files={"video": vf},
+                    timeout=60,
+                ).json()
+        print(f"[YATIRIM YARIŞI ÖNİZLEME] Admin DM ({target_chat_id}) -> Kart: {r_photo.get('ok')}, Sesli Video: {r_video.get('ok')}")
+        return {"ok": r_photo.get("ok") or r_video.get("ok"), "img_path": img_path, "video_path": video_path, "race": race}
+
+    # CANLI YAYIN:
+    res_tg = _post_photo_to_telegram(img_path, caption, target_chat_id=CHANNEL_ID, reply_markup=markup)
+
+    x_lines = "\n".join(
+        [
+            f"{idx + 1}) {v['short_name']}: {format_tl(v['final_tl'])} ({'+' if v['net_diff']>=0 else '-'}{format_tl(abs(v['net_diff']))})"
+            for idx, v in enumerate(vehicles[:5])
+        ]
+    )
+    x_text = (
+        f"1 Ay Önce 100.000 TL Yatıran Bugün Ne Kazandı? (Son 30 Gün Karnesi)\n\n"
+        f"{x_lines}\n\n"
+        f"{question}"
+    )
+    post_to_x(video_path if Path(video_path).exists() else img_path, x_text)
+    post_to_whatsapp(img_path, caption)
+
+    reel_data = {
+        "tag": f"30 GÜNLÜK YATIRIM YARIŞI • {_tr_short_date()}",
+        "hook_line1": "100.000 TL 30 GÜNDE",
+        "hook_line2": "EN ÇOK NEREDE KAZANDI?",
+        "subtitle": "Mevduat vs Altın vs Dolar vs Euro vs Borsa Gerçek Net Karnesi",
+        "rows": reel_rows,
+        "cta_text": "KAYDET — Yatırım kararı vermeden önce tabloyu incele!",
+        "question_text": question,
+        "caption": f"1 Ay Önce 100.000 TL Yatıran Bugün Ne Kazandı? 🏆\n\n1. ile 5. arasında sadece 30 günde {format_tl(gap)} fark oluştu!\n\n{question} 👇\n\n#mevduat #altin #dolar #borsa #yatirim",
+        "voice_script": voice_script,
+    }
+    dispatch_to_buffer_omnichannel(img_path, "100.000 TL 30 GÜNLÜK YATIRIM YARIŞI", topic="yaris", reel_data=reel_data)
+    return res_tg
+
+
 def check_and_set_dispatch_lock(slot_topic: str) -> bool:
     """
     KESİN GÜNLÜK MÜKERRER ENGELLEYİCİ:
@@ -2708,6 +2974,16 @@ if __name__ == "__main__":
         send_x_thread_report(preview_only=True)
     elif "--thread" in sys.argv:
         send_x_thread_report(preview_only=("--kanal" not in sys.argv))
+    elif "--duello-onizleme" in sys.argv:
+        send_bank_vs_report(target_chat_id=ADMIN_CHAT_ID, preview_only=True)
+    elif "--duello" in sys.argv:
+        target = CHANNEL_ID if "--kanal" in sys.argv else ADMIN_CHAT_ID
+        send_bank_vs_report(target_chat_id=target, preview_only=(target != CHANNEL_ID))
+    elif "--yaris-onizleme" in sys.argv:
+        send_investment_race_report(target_chat_id=ADMIN_CHAT_ID, preview_only=True)
+    elif "--yaris" in sys.argv:
+        target = CHANNEL_ID if "--kanal" in sys.argv else ADMIN_CHAT_ID
+        send_investment_race_report(target_chat_id=target, preview_only=(target != CHANNEL_ID))
     elif "--haber" in sys.argv:
         headline = "TCMB Politika Faizi Gelişmesi"
         details = "Merkez Bankası piyasa beklentileri doğrultusunda kararını açıkladı."
@@ -2778,6 +3054,22 @@ if __name__ == "__main__":
                     send_x_thread_report(preview_only=False)
                 except Exception as te:
                     print(f"[UYARI] Otomatik X Rehber Zinciri gönderim hatası: {te}")
+
+        # 1.10. Haftalık Otomatik '2 Dev Banka Kafa Kafaya (VS) Düellosu' (Perşembe saat 12:00-13:59, günde 1 kez)
+        if now_tr.weekday() == 3 and tr_hour in (12, 13):
+            if not check_and_set_dispatch_lock("banka_duello"):
+                try:
+                    send_bank_vs_report(target_chat_id=CHANNEL_ID, preview_only=False)
+                except Exception as de:
+                    print(f"[UYARI] Otomatik Banka Düellosu gönderim hatası: {de}")
+
+        # 1.11. Haftalık Otomatik '100.000 TL 30 Günlük Yatırım Yarışı (Mevduat vs Altın vs Dolar)' (Pazar saat 14:00-15:59, günde 1 kez)
+        if now_tr.weekday() == 6 and tr_hour in (14, 15):
+            if not check_and_set_dispatch_lock("yatirim_yarisi"):
+                try:
+                    send_investment_race_report(target_chat_id=CHANNEL_ID, preview_only=False)
+                except Exception as ye:
+                    print(f"[UYARI] Otomatik Yatırım Yarışı gönderim hatası: {ye}")
 
         # 2. Otomatik slot tespiti (Kalite Odaklı & Sıfır Spam Akışı)
         today_str = now_tr.strftime("%Y-%m-%d")

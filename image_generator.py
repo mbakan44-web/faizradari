@@ -1287,7 +1287,7 @@ def render_animated_reel_video(
             rate="+16%",
         )
         if voice_mp3 and vo_dur > 1.0:
-            duration_sec = max(9.0, min(24.0, vo_dur + 1.0))
+            duration_sec = max(9.0, min(32.0, vo_dur + 1.0))
 
     # Konuşma cümlelerini alt yazı dilimlerine böl (ses kapalı izleyenler için)
     sub_chunks: List[str] = []
@@ -2025,3 +2025,583 @@ def render_carousel_guide_slides(
     paths.append(p4)
 
     return paths
+
+
+def render_bank_vs_image(
+    duel_data: Dict,
+    output_path: str = "D:/faiz-radari/latest_bank_vs.png",
+) -> str:
+    """
+    Haftalık '2 Dev Banka Kafa Kafaya (VS) Düellosu' 1080x1080 İnfografik Kartı.
+    4 Kategoride (Mevduat, İhtiyaç Kredisi, Konut Kredisi, Taşıt Kredisi) iki bankayı çarpıştırır.
+    """
+    W, H = 1080, 1080
+    img = Image.new("RGB", (W, H), color=(9, 13, 26))
+    draw = ImageDraw.Draw(img)
+
+    for y in range(H):
+        r = int(9 + (18 - 9) * (y / H))
+        g = int(13 + (24 - 13) * (y / H))
+        b = int(26 + (46 - 26) * (y / H))
+        draw.line([(0, y), (W, y)], fill=(r, g, b))
+
+    draw.rectangle([(0, 0), (W, 8)], fill=(245, 158, 11))
+
+    f_top = _load_font(17, bold=True)
+    f_bank = _load_font(32, bold=True)
+    f_round_title = _load_font(18, bold=True)
+    f_val = _load_font(26, bold=True)
+    f_sub = _load_font(16, bold=False)
+    f_win = _load_font(13, bold=True)
+    f_q = _load_font(18, bold=True)
+    f_foot = _load_font(13, bold=False)
+
+    today_str = datetime.now().strftime("%d.%m.%Y")
+    b1 = duel_data["bank1"]
+    b2 = duel_data["bank2"]
+    s1 = duel_data["score1"]
+    s2 = duel_data["score2"]
+    winner = duel_data["overall_winner"]
+
+    # Üst Bar
+    draw.rounded_rectangle([(40, 26), (W - 40, 78)], radius=10, fill=(15, 23, 42), outline=(51, 65, 85), width=1)
+    draw.ellipse([(58, 44), (74, 60)], fill=(245, 158, 11))
+    draw.text((86, 40), f"FAİZ RADARI  |  {duel_data.get('subtitle', '2 DEV BANKA DÜELLOSU')}", font=f_top, fill=(255, 255, 255))
+    t_bb = draw.textbbox((0, 0), today_str, font=f_top)
+    draw.text((W - 60 - (t_bb[2] - t_bb[0]), 40), today_str, font=f_top, fill=(251, 191, 36))
+
+    # Üst Düello Arenası (Sol Banka - CANLI SKOR TABELASI - Sağ Banka)
+    arena_y = 96
+    arena_h = 136
+    box_w = 395
+
+    # Sol Banka Kutusu
+    b1_win = s1 >= s2
+    draw.rounded_rectangle(
+        [(40, arena_y), (40 + box_w, arena_y + arena_h)],
+        radius=16,
+        fill=(18, 38, 34) if b1_win else (15, 23, 42),
+        outline=(16, 185, 129) if b1_win else (56, 189, 248),
+        width=2,
+    )
+    b1_bb = draw.textbbox((0, 0), b1.upper(), font=f_bank)
+    draw.text((40 + (box_w - (b1_bb[2] - b1_bb[0])) // 2, arena_y + 24), b1.upper(), font=f_bank, fill=(255, 255, 255))
+    sc1_txt = f"4 KATEGORİDE {s1} BİRİNCİLİK"
+    sc1_bb = draw.textbbox((0, 0), sc1_txt, font=_load_font(17, bold=True))
+    draw.text((40 + (box_w - (sc1_bb[2] - sc1_bb[0])) // 2, arena_y + 86), sc1_txt, font=_load_font(17, bold=True), fill=(52, 211, 153) if b1_win else (56, 189, 248))
+
+    # Orta Dijital Skor Tabelası (2 - 2)
+    sb_w = 176
+    sb_x = W // 2 - sb_w // 2
+    draw.rounded_rectangle([(sb_x, arena_y + 12), (sb_x + sb_w, arena_y + 124)], radius=16, fill=(24, 34, 56), outline=(245, 158, 11), width=3)
+    lbl_sb = "MAÇ SKORU"
+    lsb_bb = draw.textbbox((0, 0), lbl_sb, font=_load_font(13, bold=True))
+    draw.text((W // 2 - (lsb_bb[2] - lsb_bb[0]) // 2, arena_y + 24), lbl_sb, font=_load_font(13, bold=True), fill=(251, 191, 36))
+    score_big = f"{s1}  -  {s2}"
+    sbig_bb = draw.textbbox((0, 0), score_big, font=_load_font(38, bold=True))
+    draw.text((W // 2 - (sbig_bb[2] - sbig_bb[0]) // 2, arena_y + 54), score_big, font=_load_font(38, bold=True), fill=(255, 255, 255))
+
+    # Sağ Banka Kutusu
+    b2_win = s2 >= s1
+    rx1 = W - 40 - box_w
+    draw.rounded_rectangle(
+        [(rx1, arena_y), (W - 40, arena_y + arena_h)],
+        radius=16,
+        fill=(18, 38, 34) if b2_win else (15, 23, 42),
+        outline=(16, 185, 129) if b2_win else (56, 189, 248),
+        width=2,
+    )
+    b2_bb = draw.textbbox((0, 0), b2.upper(), font=f_bank)
+    draw.text((rx1 + (box_w - (b2_bb[2] - b2_bb[0])) // 2, arena_y + 24), b2.upper(), font=f_bank, fill=(255, 255, 255))
+    sc2_txt = f"4 KATEGORİDE {s2} BİRİNCİLİK"
+    sc2_bb = draw.textbbox((0, 0), sc2_txt, font=_load_font(17, bold=True))
+    draw.text((rx1 + (box_w - (sc2_bb[2] - sc2_bb[0])) // 2, arena_y + 86), sc2_txt, font=_load_font(17, bold=True), fill=(52, 211, 153) if b2_win else (56, 189, 248))
+
+    # 4 Kategori Satırları
+    ry = 250
+    rh = 142
+    for idx, rnd in enumerate(duel_data["rounds"][:4]):
+        draw.rounded_rectangle([(40, ry), (W - 40, ry + rh)], radius=14, fill=(15, 23, 42), outline=(51, 65, 85), width=1)
+
+        # Üst Orta Kategori Başlığı
+        r_title = f"{idx + 1}. KATEGORİ:  {rnd['title'].upper()}"
+        rt_bb = draw.textbbox((0, 0), r_title, font=f_round_title)
+        draw.rounded_rectangle(
+            [(W // 2 - (rt_bb[2] - rt_bb[0]) // 2 - 22, ry + 10), (W // 2 + (rt_bb[2] - rt_bb[0]) // 2 + 22, ry + 42)],
+            radius=8,
+            fill=(30, 41, 59),
+        )
+        draw.text((W // 2 - (rt_bb[2] - rt_bb[0]) // 2, ry + 15), r_title, font=f_round_title, fill=(251, 191, 36))
+
+        w_side = rnd["winner"]
+
+        # Sol Banka Değer Kutusu
+        l_win = w_side in (1, 0)
+        draw.rounded_rectangle(
+            [(58, ry + 52), (W // 2 - 18, ry + rh - 14)],
+            radius=10,
+            fill=(18, 42, 34) if l_win else (22, 30, 48),
+            outline=(16, 185, 129) if l_win else (51, 65, 85),
+            width=2 if l_win else 1,
+        )
+        draw.text((78, ry + 62), rnd["b1_val"], font=f_val, fill=(52, 211, 153) if l_win else (226, 232, 240))
+        draw.text((78, ry + 98), rnd["b1_sub"], font=f_sub, fill=(148, 163, 184))
+        if l_win:
+            draw.rounded_rectangle([(W // 2 - 135, ry + 68), (W // 2 - 34, ry + 98)], radius=6, fill=(16, 185, 129))
+            draw.text((W // 2 - 122, ry + 75), "AVANTAJLI", font=f_win, fill=(10, 20, 15))
+
+        # Sağ Banka Değer Kutusu
+        r_win = w_side in (2, 0)
+        draw.rounded_rectangle(
+            [(W // 2 + 18, ry + 52), (W - 58, ry + rh - 14)],
+            radius=10,
+            fill=(18, 42, 34) if r_win else (22, 30, 48),
+            outline=(16, 185, 129) if r_win else (51, 65, 85),
+            width=2 if r_win else 1,
+        )
+        draw.text((W // 2 + 38, ry + 62), rnd["b2_val"], font=f_val, fill=(52, 211, 153) if r_win else (226, 232, 240))
+        draw.text((W // 2 + 38, ry + 98), rnd["b2_sub"], font=f_sub, fill=(148, 163, 184))
+        if r_win:
+            draw.rounded_rectangle([(W - 175, ry + 68), (W - 74, ry + 98)], radius=6, fill=(16, 185, 129))
+            draw.text((W - 162, ry + 75), "AVANTAJLI", font=f_win, fill=(10, 20, 15))
+
+        ry += rh + 14
+
+    # Sonuç & Tartışma Şeridi
+    win_banner = (
+        f"GENEL SKOR: {s1} - {s2}  |  4 KATEGORİDE KAZANAN: {winner.upper()}"
+        if winner != "BERABERE"
+        else f"GENEL SKOR: {s1} - {s2}  |  İKİ DEV BANKA BERABERE KALDI!"
+    )
+    draw.rounded_rectangle([(40, 882), (W - 40, 956)], radius=12, fill=(30, 27, 75), outline=(129, 140, 248), width=2)
+    draw.text((64, 894), win_banner, font=_load_font(18, bold=True), fill=(251, 191, 36))
+    draw.text((64, 922), f"YORUMLARA YAZIN: Siz {b1} mı, yoksa {b2} müşterisi misiniz? Memnun musunuz?", font=f_q, fill=(255, 255, 255))
+
+    # Alt Bilgi
+    draw.line([(40, 976), (W - 40, 976)], fill=(30, 41, 59), width=1)
+    draw.text((40, 992), "Kamuya açık güncel banka verilerinden hesaplanmıştır. Yatırım tavsiyesi değildir.", font=f_foot, fill=(100, 116, 139))
+    draw.text((40, 1016), "Takip & Canlı Oranlar: @faizradari (X • Instagram • Telegram • WhatsApp)", font=_load_font(14, bold=True), fill=(148, 163, 184))
+
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    img.save(output_path, format="PNG", optimize=True)
+    return output_path
+
+
+def render_animated_bank_vs_video(
+    duel_data: Dict,
+    voice_script: str,
+    output_video_path: str = "D:/faiz-radari/latest_bank_vs_video.mp4",
+    voice: str = "tr-TR-AhmetNeural",
+    fps: int = 15,
+) -> str:
+    """
+    '2 Dev Banka Kafa Kafaya Düello Tablosu'nun 1080x1920 (9:16 Dikey, 30 FPS H.264)
+    CANLI SKOR TABELALI & ADIM ADIM ANİMASYONLU VİDEOSU!
+    - Üstteki dijital skor tabelası 0 - 0 başlar.
+    - 1., 2., 3. ve 4. kategoriler sırayla ekrana gelir; her kategoride kazanan taraf yeşil yanarken
+      üstteki canlı skor tabelası anında (0-0 -> 0-1 -> 1-1 -> 1-2 -> 2-2) güncellenir!
+    - AhmetNeural erkek spiker sesi ve senkronize alt yazı şeridi eşlik eder.
+    """
+    import math
+    import re
+    import subprocess
+    try:
+        import imageio_ffmpeg
+        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        ffmpeg_exe = "ffmpeg"
+
+    base_dir = Path(__file__).parent
+    audio_path = str(base_dir / "bg_music_loop.mp3")
+
+    voice_mp3, vo_dur = generate_turkish_voiceover(
+        script_text=voice_script,
+        output_mp3=str(base_dir / "latest_vs_voiceover.mp3"),
+        voice=voice,
+        rate="+15%",
+    )
+    duration_sec = max(14.0, min(32.0, (vo_dur + 1.0) if vo_dur > 1.0 else 16.0))
+
+    sub_chunks: List[str] = []
+    if voice_script:
+        raw_sents = [s.strip() for s in re.split(r"(?<=[.!?])\s+", voice_script.strip()) if s.strip()]
+        sub_chunks = raw_sents[:6]
+
+    W, H = 1080, 1920
+    total_frames = int(duration_sec * fps)
+
+    b1 = duel_data["bank1"]
+    b2 = duel_data["bank2"]
+    rounds = duel_data["rounds"][:4]
+    overall_winner = duel_data["overall_winner"]
+    today_str = datetime.now().strftime("%d.%m.%Y")
+
+    bg_base = Image.new("RGB", (W, H), color=(7, 11, 22))
+    bg_draw = ImageDraw.Draw(bg_base)
+    for y in range(H):
+        r = int(7 + (16 - 7) * (y / H))
+        g = int(11 + (24 - 11) * (y / H))
+        b = int(22 + (46 - 22) * (y / H))
+        bg_draw.line([(0, y), (W, y)], fill=(r, g, b))
+    bg_draw.rectangle([(0, 0), (W, 12)], fill=(245, 158, 11))
+
+    f_brand = _load_font(21, bold=True)
+    f_title = _load_font(40, bold=True)
+    f_bank = _load_font(33, bold=True)
+    f_bank_sub = _load_font(17, bold=True)
+    f_sb_lbl = _load_font(14, bold=True)
+    f_sb_num = _load_font(48, bold=True)
+    f_cat = _load_font(21, bold=True)
+    f_val = _load_font(30, bold=True)
+    f_sub = _load_font(18, bold=False)
+    f_win = _load_font(15, bold=True)
+    f_sub_box = _load_font(23, bold=True)
+    f_cta = _load_font(22, bold=True)
+
+    step_span = (duration_sec - 4.5) / 4.0
+    appear_times = [1.2 + i * step_span for i in range(4)]
+    score_times = [t + 0.95 for t in appear_times]
+    final_time = appear_times[-1] + 1.8
+
+    has_voice = bool(voice_mp3 and Path(voice_mp3).exists())
+    has_bg = Path(audio_path).exists()
+
+    cmd = [
+        ffmpeg_exe, "-y",
+        "-f", "rawvideo",
+        "-vcodec", "rawvideo",
+        "-s", f"{W}x{H}",
+        "-pix_fmt", "rgb24",
+        "-r", str(fps),
+        "-i", "-",
+    ]
+    if has_voice and has_bg:
+        cmd.extend([
+            "-i", str(voice_mp3),
+            "-stream_loop", "-1",
+            "-i", str(audio_path),
+            "-filter_complex", "[1:a]volume=1.22[vo];[2:a]volume=0.13[bg];[vo][bg]amix=inputs=2:duration=longest[aout]",
+            "-map", "0:v:0",
+            "-map", "[aout]",
+        ])
+    elif has_voice:
+        cmd.extend(["-i", str(voice_mp3), "-map", "0:v:0", "-map", "1:a:0"])
+
+    cmd.extend([
+        "-c:v", "libx264",
+        "-preset", "ultrafast",
+        "-r", "30",
+        "-crf", "22",
+        "-pix_fmt", "yuv420p",
+    ])
+    if has_voice or has_bg:
+        cmd.extend(["-c:a", "aac", "-b:a", "128k"])
+    cmd.extend(["-t", f"{duration_sec:.2f}", str(output_video_path)])
+
+    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    for f_idx in range(total_frames):
+        t = f_idx / float(fps)
+        frame = bg_base.copy()
+        draw = ImageDraw.Draw(frame)
+
+        # 1. Üst Marka & Sesli Analiz Barı
+        draw.rounded_rectangle([(48, 54), (470, 114)], radius=14, fill=(15, 23, 42), outline=(56, 189, 248), width=2)
+        pulse_r = 8 + int(2 * math.sin(t * 7.0))
+        draw.ellipse([(76 - pulse_r, 84 - pulse_r), (76 + pulse_r, 84 + pulse_r)], fill=(16, 185, 129))
+        draw.text((98, 71), f"FAİZ RADARI • {today_str}", font=f_brand, fill=(248, 250, 252))
+
+        draw.rounded_rectangle([(W - 295, 54), (W - 48, 114)], radius=14, fill=(24, 34, 56), outline=(16, 185, 129), width=2)
+        for b_i in range(5):
+            bh = int(8 + 14 * abs(math.sin(t * 10.0 + b_i * 1.1)))
+            bx = W - 270 + b_i * 11
+            draw.rounded_rectangle([(bx, 84 - bh), (bx + 6, 84 + bh)], radius=2, fill=(52, 211, 153))
+        draw.text((W - 202, 72), "CANLI DÜELLO", font=_load_font(18, bold=True), fill=(52, 211, 153))
+
+        # Başlık
+        h_txt = "2 DEV BANKA KAFA KAFAYA!"
+        h_bb = draw.textbbox((0, 0), h_txt, font=f_title)
+        draw.text((W // 2 - (h_bb[2] - h_bb[0]) // 2, 138), h_txt, font=f_title, fill=(255, 255, 255))
+
+        # O anki canlı skor hesabı
+        cur_s1 = 0
+        cur_s2 = 0
+        just_scored = False
+        for i, rnd in enumerate(rounds):
+            if t >= score_times[i]:
+                if rnd["winner"] in (1, 0):
+                    cur_s1 += 1
+                if rnd["winner"] in (2, 0):
+                    cur_s2 += 1
+                if 0.0 <= (t - score_times[i]) <= 0.45:
+                    just_scored = True
+
+        # 2. Üst Canlı Skor Tabelası Arenası (Sol Banka - SKOR - Sağ Banka)
+        arena_y = 210
+        arena_h = 154
+        box_w = 374
+
+        b1_lead = cur_s1 > cur_s2
+        draw.rounded_rectangle(
+            [(44, arena_y), (44 + box_w, arena_y + arena_h)],
+            radius=18,
+            fill=(18, 42, 34) if b1_lead else (15, 23, 42),
+            outline=(16, 185, 129) if b1_lead else (56, 189, 248),
+            width=3 if b1_lead else 2,
+        )
+        b1_bb = draw.textbbox((0, 0), b1.upper(), font=f_bank)
+        draw.text((44 + (box_w - (b1_bb[2] - b1_bb[0])) // 2, arena_y + 30), b1.upper(), font=f_bank, fill=(255, 255, 255))
+        s1_lbl = f"KAZANILAN: {cur_s1} / 4"
+        s1_bb = draw.textbbox((0, 0), s1_lbl, font=f_bank_sub)
+        draw.text((44 + (box_w - (s1_bb[2] - s1_bb[0])) // 2, arena_y + 98), s1_lbl, font=f_bank_sub, fill=(52, 211, 153) if cur_s1 > 0 else (148, 163, 184))
+
+        # Orta Dijital Skor Tabelası (0 - 0 -> 0 - 1 -> 1 - 1 -> 1 - 2 -> 2 - 2)
+        sb_w = 216
+        sb_x = W // 2 - sb_w // 2
+        sb_outline = (52, 211, 153) if just_scored else (245, 158, 11)
+        sb_fill = (22, 48, 38) if just_scored else (24, 34, 56)
+        draw.rounded_rectangle([(sb_x, arena_y + 8), (sb_x + sb_w, arena_y + arena_h - 8)], radius=18, fill=sb_fill, outline=sb_outline, width=4 if just_scored else 3)
+        sb_t = "CANLI SKOR"
+        sbt_bb = draw.textbbox((0, 0), sb_t, font=f_sb_lbl)
+        draw.text((W // 2 - (sbt_bb[2] - sbt_bb[0]) // 2, arena_y + 22), sb_t, font=f_sb_lbl, fill=(251, 191, 36))
+        sc_str = f"{cur_s1} - {cur_s2}"
+        sc_bb = draw.textbbox((0, 0), sc_str, font=f_sb_num)
+        draw.text((W // 2 - (sc_bb[2] - sc_bb[0]) // 2, arena_y + 58), sc_str, font=f_sb_num, fill=(255, 255, 255))
+
+        b2_lead = cur_s2 > cur_s1
+        rx1 = W - 44 - box_w
+        draw.rounded_rectangle(
+            [(rx1, arena_y), (W - 44, arena_y + arena_h)],
+            radius=18,
+            fill=(18, 42, 34) if b2_lead else (15, 23, 42),
+            outline=(16, 185, 129) if b2_lead else (56, 189, 248),
+            width=3 if b2_lead else 2,
+        )
+        b2_bb = draw.textbbox((0, 0), b2.upper(), font=f_bank)
+        draw.text((rx1 + (box_w - (b2_bb[2] - b2_bb[0])) // 2, arena_y + 30), b2.upper(), font=f_bank, fill=(255, 255, 255))
+        s2_lbl = f"KAZANILAN: {cur_s2} / 4"
+        s2_bb = draw.textbbox((0, 0), s2_lbl, font=f_bank_sub)
+        draw.text((rx1 + (box_w - (s2_bb[2] - s2_bb[0])) // 2, arena_y + 98), s2_lbl, font=f_bank_sub, fill=(52, 211, 153) if cur_s2 > 0 else (148, 163, 184))
+
+        # 3. 4 Kategori Rauntlarının Tek Tek Açılması ve Kazananın Yeşil Yanması
+        ry_base = 394
+        rh = 232
+        for idx, rnd in enumerate(rounds):
+            t_app = appear_times[idx]
+            if t < t_app:
+                ry = ry_base + idx * (rh + 20)
+                draw.rounded_rectangle([(44, ry), (W - 44, ry + rh)], radius=18, fill=(12, 18, 34), outline=(30, 41, 59), width=1)
+                wait_txt = f"{idx + 1}. KATEGORİ:  {rnd['title'].upper()}  (BİRAZDAN...)"
+                w_bb = draw.textbbox((0, 0), wait_txt, font=f_cat)
+                draw.text((W // 2 - (w_bb[2] - w_bb[0]) // 2, ry + rh // 2 - 14), wait_txt, font=f_cat, fill=(71, 85, 105))
+                continue
+
+            prog = min(1.0, (t - t_app) / 0.35)
+            ease = 1.0 - pow(1.0 - prog, 3)
+            x_off = int((1.0 - ease) * 140)
+            ry = ry_base + idx * (rh + 20)
+
+            scored_now = t >= score_times[idx]
+            w_side = rnd["winner"]
+
+            draw.rounded_rectangle([(44 + x_off, ry), (W - 44 + x_off, ry + rh)], radius=18, fill=(15, 23, 42), outline=(71, 85, 105), width=2)
+
+            c_title = f"{idx + 1}. KATEGORİ:  {rnd['title'].upper()}"
+            ct_bb = draw.textbbox((0, 0), c_title, font=f_cat)
+            draw.rounded_rectangle(
+                [(W // 2 - (ct_bb[2] - ct_bb[0]) // 2 - 24 + x_off, ry + 14), (W // 2 + (ct_bb[2] - ct_bb[0]) // 2 + 24 + x_off, ry + 54)],
+                radius=10,
+                fill=(30, 41, 59),
+            )
+            draw.text((W // 2 - (ct_bb[2] - ct_bb[0]) // 2 + x_off, ry + 21), c_title, font=f_cat, fill=(251, 191, 36))
+
+            l_win = scored_now and (w_side in (1, 0))
+            draw.rounded_rectangle(
+                [(66 + x_off, ry + 68), (W // 2 - 16 + x_off, ry + rh - 18)],
+                radius=14,
+                fill=(18, 48, 36) if l_win else (22, 32, 52),
+                outline=(16, 185, 129) if l_win else (51, 65, 85),
+                width=3 if l_win else 1,
+            )
+            draw.text((88 + x_off, ry + 82), rnd["b1_val"], font=f_val, fill=(52, 211, 153) if l_win else (241, 245, 249))
+            draw.text((88 + x_off, ry + 126), f"{b1} • {rnd['b1_sub']}", font=f_sub, fill=(148, 163, 184))
+            if l_win:
+                draw.rounded_rectangle([(88 + x_off, ry + 162), (256 + x_off, ry + 196)], radius=8, fill=(16, 185, 129))
+                draw.text((104 + x_off, ry + 170), "KAZANDI (+1)", font=f_win, fill=(10, 20, 15))
+
+            r_win = scored_now and (w_side in (2, 0))
+            draw.rounded_rectangle(
+                [(W // 2 + 16 + x_off, ry + 68), (W - 66 + x_off, ry + rh - 18)],
+                radius=14,
+                fill=(18, 48, 36) if r_win else (22, 32, 52),
+                outline=(16, 185, 129) if r_win else (51, 65, 85),
+                width=3 if r_win else 1,
+            )
+            draw.text((W // 2 + 38 + x_off, ry + 82), rnd["b2_val"], font=f_val, fill=(52, 211, 153) if r_win else (241, 245, 249))
+            draw.text((W // 2 + 38 + x_off, ry + 126), f"{b2} • {rnd['b2_sub']}", font=f_sub, fill=(148, 163, 184))
+            if r_win:
+                draw.rounded_rectangle([(W // 2 + 38 + x_off, ry + 162), (W // 2 + 206 + x_off, ry + 196)], radius=8, fill=(16, 185, 129))
+                draw.text((W // 2 + 54 + x_off, ry + 170), "KAZANDI (+1)", font=f_win, fill=(10, 20, 15))
+
+        # 4. Senkronize Alt Yazı Kutusu
+        if sub_chunks:
+            c_idx = min(len(sub_chunks) - 1, int((t / max(0.1, duration_sec - 0.5)) * len(sub_chunks)))
+            active_sub = sub_chunks[c_idx]
+            draw.rounded_rectangle([(44, 1416), (W - 44, 1564)], radius=16, fill=(12, 18, 34), outline=(245, 158, 11), width=2)
+            draw.text((72, 1430), "SESLİ ANLATIM:", font=_load_font(15, bold=True), fill=(251, 191, 36))
+            words = active_sub.split()
+            lines_s, cur_s = [], []
+            for w in words:
+                test_s = " ".join(cur_s + [w])
+                bb = draw.textbbox((0, 0), test_s, font=f_sub_box)
+                if (bb[2] - bb[0]) <= (W - 144):
+                    cur_s.append(w)
+                else:
+                    if cur_s:
+                        lines_s.append(" ".join(cur_s))
+                    cur_s = [w]
+            if cur_s:
+                lines_s.append(" ".join(cur_s))
+            sy = 1460
+            for ls in lines_s[:2]:
+                draw.text((72, sy), ls, font=f_sub_box, fill=(255, 255, 255))
+                sy += 34
+
+        # 5. Final Sonuç & Yorum Kutusu
+        if t >= final_time:
+            res_lbl = (
+                f"MAÇ SONUCU: {cur_s1} - {cur_s2}  |  KAZANAN: {overall_winner.upper()}!"
+                if overall_winner != "BERABERE"
+                else f"MAÇ SONUCU: {cur_s1} - {cur_s2} BERABERE! ŞAMPİYONU SİZ SEÇİN!"
+            )
+            draw.rounded_rectangle([(44, 1590), (W - 44, 1776)], radius=18, fill=(24, 38, 34), outline=(16, 185, 129), width=3)
+            draw.text((74, 1614), res_lbl, font=f_cta, fill=(52, 211, 153))
+            draw.text((74, 1662), f"Siz {b1} mı, yoksa {b2} müşterisi misiniz?", font=_load_font(23, bold=True), fill=(255, 255, 255))
+            draw.text((74, 1706), "Hangisinden daha memnunsunuz? Yorumlara yazın!", font=_load_font(22, bold=False), fill=(251, 191, 36))
+        else:
+            draw.rounded_rectangle([(44, 1590), (W - 44, 1776)], radius=18, fill=(15, 23, 42), outline=(51, 65, 85), width=2)
+            draw.text((74, 1624), f"DÜELLO DEVAM EDİYOR: {b1.upper()} vs {b2.upper()}", font=f_cta, fill=(56, 189, 248))
+            draw.text((74, 1674), "4 kategorinin sonunda kazanan banka belli oluyor...", font=_load_font(22, bold=False), fill=(226, 232, 240))
+
+        try:
+            proc.stdin.write(frame.tobytes())
+        except (BrokenPipeError, OSError):
+            break
+
+    try:
+        proc.stdin.close()
+    except Exception:
+        pass
+    proc.wait()
+    return str(output_video_path)
+
+
+def render_investment_race_image(
+    race_data: Dict,
+    output_path: str = "D:/faiz-radari/latest_investment_race.png",
+) -> str:
+    """
+    'Ay Başında 100.000 TL Yatıran Bugün Ne Kazandı? (Mevduat vs Altın vs Dolar vs Euro vs Borsa)'
+    Son 30 günün gerçek kazananını net TL hesabıyla gösteren 1080x1080 yarış tablosu.
+    """
+    from calculator import format_tl
+
+    W, H = 1080, 1080
+    img = Image.new("RGB", (W, H), color=(8, 12, 24))
+    draw = ImageDraw.Draw(img)
+
+    for y in range(H):
+        r = int(8 + (16 - 8) * (y / H))
+        g = int(12 + (24 - 12) * (y / H))
+        b = int(24 + (44 - 24) * (y / H))
+        draw.line([(0, y), (W, y)], fill=(r, g, b))
+
+    draw.rectangle([(0, 0), (W, 8)], fill=(16, 185, 129))
+
+    f_top = _load_font(17, bold=True)
+    f_h1 = _load_font(33, bold=True)
+    f_hero_lbl = _load_font(16, bold=True)
+    f_hero_val = _load_font(30, bold=True)
+    f_row_title = _load_font(23, bold=True)
+    f_row_sub = _load_font(16, bold=False)
+    f_row_val = _load_font(25, bold=True)
+    f_row_pct = _load_font(17, bold=True)
+    f_q = _load_font(18, bold=True)
+    f_foot = _load_font(13, bold=False)
+
+    today_str = datetime.now().strftime("%d.%m.%Y")
+    winner = race_data["winner"]
+    gap = race_data["spread_gap"]
+
+    # Üst Bar
+    draw.rounded_rectangle([(40, 24), (W - 40, 74)], radius=10, fill=(15, 23, 42), outline=(51, 65, 85), width=1)
+    draw.ellipse([(58, 41), (74, 57)], fill=(16, 185, 129))
+    draw.text((86, 37), "FAİZ RADARI  |  SON 30 GÜNÜN YATIRIM GETİRİ YARIŞI", font=f_top, fill=(255, 255, 255))
+    t_bb = draw.textbbox((0, 0), today_str, font=f_top)
+    draw.text((W - 60 - (t_bb[2] - t_bb[0]), 37), today_str, font=f_top, fill=(52, 211, 153))
+
+    # Manşet
+    draw.text((42, 92), "1 AY ÖNCE 100.000 TL YATIRAN BUGÜN NE KAZANDI?", font=f_h1, fill=(255, 255, 255))
+
+    # Şampiyon Özet Kutusu
+    draw.rounded_rectangle([(40, 146), (W - 40, 246)], radius=14, fill=(18, 40, 34), outline=(16, 185, 129), width=2)
+    draw.text((66, 160), "SON 30 GÜNÜN GETİRİ ŞAMPİYONU & 1. İLE 5. ARASINDAKİ FARK", font=f_hero_lbl, fill=(52, 211, 153))
+    w_diff_str = f"+{format_tl(winner['net_diff'])}" if winner["net_diff"] >= 0 else f"-{format_tl(abs(winner['net_diff']))}"
+    draw.text(
+        (66, 192),
+        f"{winner['short_name']}: {format_tl(winner['final_tl'])} ({w_diff_str})  •  Makas Farkı: {format_tl(gap)}",
+        font=f_hero_val,
+        fill=(255, 255, 255),
+    )
+
+    # 5 Yatırım Aracı Sıralaması
+    ry = 264
+    rh = 112
+    for idx, v in enumerate(race_data["vehicles"][:5]):
+        is_top = idx == 0
+        is_pos = v["net_diff"] >= 0
+        bg_c = (18, 36, 32) if is_top else (15, 23, 42)
+        bd_c = (16, 185, 129) if is_top else ((51, 65, 85) if is_pos else (127, 29, 29))
+        draw.rounded_rectangle([(40, ry), (W - 40, ry + rh)], radius=14, fill=bg_c, outline=bd_c, width=2 if is_top else 1)
+
+        rk_bg = (245, 158, 11) if is_top else (30, 41, 59)
+        rk_fg = (15, 23, 42) if is_top else (226, 232, 240)
+        draw.rounded_rectangle([(62, ry + 24), (126, ry + 88)], radius=12, fill=rk_bg)
+        rk_txt = f"#{idx + 1}"
+        rk_bb = draw.textbbox((0, 0), rk_txt, font=f_row_title)
+        draw.text((94 - (rk_bb[2] - rk_bb[0]) // 2, ry + 41), rk_txt, font=f_row_title, fill=rk_fg)
+
+        draw.text((150, ry + 22), v["name"], font=f_row_title, fill=(255, 255, 255))
+        draw.text((150, ry + 62), v["detail"], font=f_row_sub, fill=(148, 163, 184))
+
+        fin_txt = format_tl(v["final_tl"])
+        diff_val = v["net_diff"]
+        pct_val = v["pct"]
+        sign = "+" if diff_val >= 0 else "-"
+        diff_txt = f"{sign}{format_tl(abs(diff_val))}  ({pct_val:+.2f}%)".replace(".", ",")
+
+        val_col = (52, 211, 153) if diff_val >= 0 else (248, 113, 113)
+        f_bb = draw.textbbox((0, 0), fin_txt, font=f_row_val)
+        d_bb = draw.textbbox((0, 0), diff_txt, font=f_row_pct)
+        draw.text((W - 68 - (f_bb[2] - f_bb[0]), ry + 20), fin_txt, font=f_row_val, fill=(255, 255, 255))
+        draw.text((W - 68 - (d_bb[2] - d_bb[0]), ry + 62), diff_txt, font=f_row_pct, fill=val_col)
+
+        ry += rh + 12
+
+    # Etkileşim Sorusu
+    draw.rounded_rectangle([(40, 892), (W - 40, 956)], radius=12, fill=(30, 27, 75), outline=(129, 140, 248), width=2)
+    draw.text(
+        (64, 912),
+        "SİZCE: Önümüzdeki 30 günde 100.000 TL en çok hangisinde kazandırır? Yorumlara yazın!",
+        font=f_q,
+        fill=(255, 255, 255),
+    )
+
+    # Alt Bilgi
+    draw.line([(40, 976), (W - 40, 976)], fill=(30, 41, 59), width=1)
+    draw.text((40, 992), "Son 30 günlük piyasa verileri ve %17,5 stopaj sonrası net mevduat üzerinden hesaplanmıştır.", font=f_foot, fill=(100, 116, 139))
+    draw.text((40, 1016), "Takip & Canlı Hesaplama: @faizradari (X • Instagram • Telegram • WhatsApp)", font=_load_font(14, bold=True), fill=(148, 163, 184))
+
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    img.save(output_path, format="PNG", optimize=True)
+    return output_path
