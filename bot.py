@@ -80,10 +80,10 @@ def convert_to_whatsapp(text: str) -> str:
     t = re.sub(r'<[^>]+>', '', t)
     t = re.sub(
         r'🔔\s*\*?Takip:\*?\s*@faizradari',
-        '🔔 *Faiz Radarı WhatsApp Kanalı*\n'
+        '🔔 *Faiz Radarı Resmi Kanalları*\n'
         '• Anlık bültenler için sağ üstteki çan simgesine tıklayarak bildirimleri açmayı unutmayın!\n'
-        '🤖 Kişiye özel net ödeme planı ve anlık hesaplama için Telegram Botumuz:\n'
-        '👉 https://t.me/faizradari_bot',
+        '📢 Tüm detaylı tablolar ve anlık faiz bildirimleri için Ana Telegram Kanalımız:\n'
+        '👉 https://t.me/faizradari',
         t
     )
     return t.strip()
@@ -589,8 +589,8 @@ def sanitize_x_text(text: str) -> str:
     Bu fonksiyon tweet metnindeki tüm URL'leri ve link tetikleyen uzantıları temizler.
     """
     import re
-    # 1. Telegram linklerini kanal etiketine dönüştür
-    text = re.sub(r'https?://t\.me/faizradari_bot\S*', '@faizradari_bot', text)
+    # 1. Telegram linklerini ana kanal etiketine (@faizradari) dönüştür
+    text = re.sub(r'https?://t\.me/faizradari_bot\S*', '@faizradari', text)
     text = re.sub(r'https?://t\.me/faizradari\S*', '@faizradari', text)
     text = re.sub(r't\.me/faizradari\S*', '@faizradari', text)
     # 2. Banka .com kalıntılarını düzelt (örn. enpara.com -> Enpara)
@@ -884,8 +884,8 @@ def _default_reply_markup() -> str:
         "inline_keyboard": [
             [
                 {
-                    "text": "🧮 Kendi Kredini Hesapla",
-                    "url": "https://t.me/faizradari_bot?start=hesapla",
+                    "text": "📢 Telegram Kanalımız (@faizradari)",
+                    "url": "https://t.me/faizradari",
                 },
                 {
                     "text": "🟢 WhatsApp Kanalımız",
