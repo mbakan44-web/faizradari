@@ -708,6 +708,48 @@ def post_poll_to_x(tweet_text: str, options: List[str], duration_minutes: int = 
         return ""
 
 
+def post_thread_to_x(tweets: List[str], first_image_path: str = None) -> List[str]:
+    """
+    X (@faizradari) hesabında birbirine yanıt (in_reply_to_tweet_id) olarak bağlı
+    çoklu Tweet Zinciri (Thread / Flood) yayınlar. İlk tweet'e kapak görseli ekler.
+    """
+    if not (X_API_KEY and X_API_SECRET and X_ACCESS_TOKEN and X_ACCESS_TOKEN_SECRET):
+        return []
+    tweet_ids: List[str] = []
+    try:
+        client_v2 = tweepy.Client(
+            consumer_key=X_API_KEY,
+            consumer_secret=X_API_SECRET,
+            access_token=X_ACCESS_TOKEN,
+            access_token_secret=X_ACCESS_TOKEN_SECRET,
+        )
+        first_media_ids = None
+        if first_image_path and Path(first_image_path).exists():
+            auth = tweepy.OAuth1UserHandler(X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET)
+            api_v1 = tweepy.API(auth)
+            m = api_v1.media_upload(filename=first_image_path)
+            first_media_ids = [m.media_id]
+
+        prev_id = None
+        for idx, raw_txt in enumerate(tweets):
+            cleaned = sanitize_x_text(raw_txt)
+            if len(cleaned) > 278:
+                cleaned = cleaned[:275].rsplit(" ", 1)[0] + "..."
+            if idx == 0:
+                res = client_v2.create_tweet(text=cleaned, media_ids=first_media_ids)
+            else:
+                time.sleep(1.5)
+                res = client_v2.create_tweet(text=cleaned, in_reply_to_tweet_id=prev_id)
+            cur_id = str(res.data.get("id", ""))
+            tweet_ids.append(cur_id)
+            prev_id = cur_id
+            print(f"[BAŞARILI] X Rehber Zinciri Tweet ({idx + 1}/{len(tweets)}) paylaşıldı! (Tweet ID: {cur_id})")
+        return tweet_ids
+    except Exception as e:
+        print(f"[UYARI] X Rehber Zinciri (Thread) paylaşım hatası: {e}")
+        return tweet_ids
+
+
 def post_carousel_to_buffer_instagram(image_urls: List[str], caption: str) -> bool:
     """Buffer GraphQL API üzerinden Instagram (@faizradari) hesabına 4 slaytlık Kaydırmalı (Carousel) Rehber paylaşır."""
     if not (BUFFER_API_KEY and BUFFER_INSTAGRAM_CHANNEL_ID and image_urls):
@@ -2449,6 +2491,118 @@ def send_x_poll_report(preview_only: bool = False, poll_idx: int = None) -> dict
     return {"ok": bool(tid), "tweet_id": tid, "poll": selected}
 
 
+def send_x_thread_report(preview_only: bool = False) -> dict:
+    """
+    SADECE X (@faizradari) İçin Haftalık 5 Tweetlik "Finans & Cep Rehberi Zinciri (Thread / Flood)":
+    - X algoritmasında okuma süresini (dwell time) ve yer işaretlerini (Bookmark/Kaydet) maksimize eder.
+    - 1. Tweet kapak infografiğiyle dikkat çeker; 2-3-4-5. tweetler birbirine yanıt olarak bağlanır.
+    - preview_only=True iken sadece ADMIN_CHAT_ID'ye (Telegram DM) önizleme gönderir.
+    """
+    tickers = fetch_market_tickers()
+    deps_500k, zero_offers = get_deposit_offers(500_000, 32)
+    iht_offers, _ = get_loan_offers("ihtiyac", 100_000, 12)
+    konut_offers, _ = get_loan_offers("konut", 2_000_000, 120)
+    usd_spreads, gold_spreads = get_bank_spread_offers()
+
+    best_d = deps_500k[0]
+    worst_d = deps_500k[-1]
+    diff_dep_y = (best_d.net_return - worst_d.net_return) * 12
+
+    best_i = iht_offers[0]
+    worst_i = iht_offers[-1]
+    diff_iht = worst_i.total_repayment - best_i.total_repayment
+
+    best_k = konut_offers[0]
+    best_g = gold_spreads[0] if gold_spreads else None
+    best_u = usd_spreads[0] if usd_spreads else None
+
+    # Kapak görseli (Tweet 1 için)
+    cover_rows = [
+        {"rank": "1", "title": f"Mevduat Lideri: {best_d.bank_name}", "sub": f"500.000 TL 32 gün net (%{best_d.annual_rate:.1f})", "value": f"+{format_tl(best_d.net_return)}", "highlight": True},
+        {"rank": "2", "title": f"İhtiyaç Kredisi: {best_i.bank_name}", "sub": f"100.000 TL 12 ay taksit (%{best_i.monthly_rate:.2f})", "value": format_tl(best_i.monthly_installment), "highlight": False},
+        {"rank": "3", "title": f"Konut Kredisi: {best_k.bank_name}", "sub": f"2.000.000 TL 120 ay taksit (%{best_k.monthly_rate:.2f})", "value": format_tl(best_k.monthly_installment), "highlight": False},
+        {"rank": "4", "title": f"En Dar Altın Makası: {best_g.bank_name if best_g else 'Albaraka'}", "sub": f"Canlı Gram Altın: {tickers.get('ALTIN', '—')}", "value": f"{best_g.spread_tl:.0f} TL" if best_g else "85 TL", "highlight": False},
+    ]
+    cover_path = render_viral_insight_image(
+        tag="HAFTALIK FİNANS REHBERİ ZİNCİRİ",
+        headline="BANKA SEÇİMİNDE BİNLERCE TL FARK YARATAN 4 TABLO",
+        big_metric_label="500.000 TL MEVDUATTA EN YÜKSEK İLE 8. BANKA YILLIK FARKI",
+        big_metric_value=f"Yılda +{format_tl(diff_dep_y)} Net Fark!",
+        rows=cover_rows,
+        question="Bu hafta birikiminizde ağırlığı mevduata mı, altına mı veriyorsunuz?",
+        output_path=str(Path(__file__).parent / "latest_thread_cover.png"),
+    )
+
+    t1 = (
+        f"Bankada parası olan veya kredi kullanacaklar için Haftanın Finans & Cep Rehberi ({_tr_short_date()})\n\n"
+        f"Yanlış banka tercihi 500.000 TL mevduatta yılda {format_tl(diff_dep_y)} kayba, 100.000 TL kredide {format_tl(diff_iht)} fazla ödemeye yol açıyor.\n\n"
+        f"Tüm bankaların net tablosunu 5 maddede inceledik 🧵👇 (1/5)"
+    )
+
+    t2 = (
+        f"1) 500.000 TL Vadeli Mevduat (32 Gün Net Kazanç):\n\n"
+        f"• {deps_500k[0].bank_name} (%{deps_500k[0].annual_rate:.1f}): +{format_tl(deps_500k[0].net_return)}\n"
+        f"• {deps_500k[1].bank_name} (%{deps_500k[1].annual_rate:.1f}): +{format_tl(deps_500k[1].net_return)}\n"
+        f"• {deps_500k[2].bank_name} (%{deps_500k[2].annual_rate:.1f}): +{format_tl(deps_500k[2].net_return)}\n"
+        f"• {deps_500k[3].bank_name} (%{deps_500k[3].annual_rate:.1f}): +{format_tl(deps_500k[3].net_return)}\n\n"
+        f"Not: %17,5 stopaj düşülmüş net tutarlardır. (2/5)"
+    )
+
+    z1 = zero_offers[0] if zero_offers else {"bank": "Garanti BBVA", "amount": "50.000 TL"}
+    z2 = zero_offers[1] if len(zero_offers) > 1 else {"bank": "Enpara", "amount": "50.000 TL"}
+    t3 = (
+        f"2) Kredi Çekecekler İçin En Uygun Oranlar:\n\n"
+        f"• 100k TL İhtiyaç (12 Ay): {best_i.bank_name} %{best_i.monthly_rate:.2f} (Taksit: {format_tl(best_i.monthly_installment)})\n"
+        f"• 2M TL Konut (120 Ay): {best_k.bank_name} %{best_k.monthly_rate:.2f} (Taksit: {format_tl(best_k.monthly_installment)})\n"
+        f"• Yeni Müşteri %0 Faiz: {z1['bank']} ve {z2['bank']} 50.000 TL'ye varan faizsiz nakit sunuyor. (3/5)"
+    )
+
+    g1_str = f"{gold_spreads[0].bank_name} ({gold_spreads[0].spread_tl:.0f} TL)" if gold_spreads else "Albaraka Türk"
+    g2_str = f"{gold_spreads[1].bank_name} ({gold_spreads[1].spread_tl:.0f} TL)" if len(gold_spreads) > 1 else "Kuveyt Türk"
+    u1_str = f"{usd_spreads[0].bank_name} ({usd_spreads[0].spread_tl:.2f} TL)" if usd_spreads else "Albaraka Türk"
+    t4 = (
+        f"3) Döviz & Altın Alırken Banka Makası:\n\n"
+        f"• Piyasa: Dolar {tickers.get('USD', '—')} | Euro {tickers.get('EUR', '—')} | Altın {tickers.get('ALTIN', '—')}\n"
+        f"• En Dar Altın Makası: {g1_str}, {g2_str}\n"
+        f"• En Dar Dolar Makası: {u1_str}\n\n"
+        f"Kural: 17:30 sonrası makas 4 kat açılır; 10:00-17:00 arası işlem yapın. (4/5)"
+    )
+
+    t5 = (
+        f"4) Özet & Hatırlatma:\n\n"
+        f"Bankaya gitmeden veya mobil şubeden işlem yapmadan önce bakmak için bu zinciri Yer İşaretlerine (Kaydet) ekleyebilirsiniz.\n\n"
+        f"Siz bu hafta birikiminizde ağırlığı yüksek mevduat faizine mi, yoksa altın ve dövize mi veriyorsunuz? Yorumlarda konuşalım 👇 (5/5)"
+    )
+
+    tweets = [t1, t2, t3, t4, t5]
+
+    if preview_only:
+        preview_body = "\n\n━━━━━━━━━━━━━━\n\n".join(
+            [f"🐦 <b>TWEET {i + 1}/5:</b>\n{tw}" for i, tw in enumerate(tweets)]
+        )
+        caption = (
+            f"🧵 <b>X (@faizradari) HAFTALIK REHBER ZİNCİRİ (5 TWEETLİK FLOOD) ÖNİZLEMESİ</b>\n"
+            f"<i>(Not: Bu zincir sadece X'te birbirine bağlı 5 tweetlik flood olarak yayınlanacaktır.)</i>\n\n"
+            f"{preview_body}"
+        )
+        # Telegram fotoğraf caption limiti 1024 karakter olduğu için önce kapak görselini, hemen altına 5 tweetlik metni gönderelim
+        r1 = _post_photo_to_telegram(
+            cover_path,
+            "🧵 <b>X REHBER ZİNCİRİ (THREAD) KAPAK GÖRSELİ (TWEET 1/5)</b>",
+            target_chat_id=ADMIN_CHAT_ID,
+        )
+        r2 = requests.post(
+            f"{API_BASE}/sendMessage",
+            json={"chat_id": ADMIN_CHAT_ID, "text": caption, "parse_mode": "HTML"},
+            timeout=25,
+        ).json()
+        print(f"[X THREAD ÖNİZLEME] Admin DM ({ADMIN_CHAT_ID}) -> Görsel: {r1.get('ok')}, Flood Metni: {r2.get('ok')}")
+        return {"ok": r1.get("ok") and r2.get("ok"), "tweets": tweets, "cover_path": cover_path}
+
+    t_ids = post_thread_to_x(tweets, first_image_path=cover_path)
+    return {"ok": len(t_ids) > 0, "tweet_ids": t_ids, "tweets": tweets}
+
+
 def check_and_set_dispatch_lock(slot_topic: str) -> bool:
     """
     KESİN GÜNLÜK MÜKERRER ENGELLEYİCİ:
@@ -2550,6 +2704,10 @@ if __name__ == "__main__":
         send_x_poll_report(preview_only=True)
     elif "--anket" in sys.argv:
         send_x_poll_report(preview_only=("--kanal" not in sys.argv))
+    elif "--thread-onizleme" in sys.argv:
+        send_x_thread_report(preview_only=True)
+    elif "--thread" in sys.argv:
+        send_x_thread_report(preview_only=("--kanal" not in sys.argv))
     elif "--haber" in sys.argv:
         headline = "TCMB Politika Faizi Gelişmesi"
         details = "Merkez Bankası piyasa beklentileri doğrultusunda kararını açıkladı."
@@ -2612,6 +2770,14 @@ if __name__ == "__main__":
                     send_carousel_guide_report(target_chat_id=CHANNEL_ID, preview_only=False)
                 except Exception as ce:
                     print(f"[UYARI] Otomatik Carousel rehber gönderim hatası: {ce}")
+
+        # 1.9. Haftalık Otomatik X Rehber Zinciri / Flood (Cuma saat 14:00-15:59, günde 1 kez, SADECE X)
+        if now_tr.weekday() == 4 and tr_hour in (14, 15):
+            if not check_and_set_dispatch_lock("x_thread"):
+                try:
+                    send_x_thread_report(preview_only=False)
+                except Exception as te:
+                    print(f"[UYARI] Otomatik X Rehber Zinciri gönderim hatası: {te}")
 
         # 2. Otomatik slot tespiti (Kalite Odaklı & Sıfır Spam Akışı)
         today_str = now_tr.strftime("%Y-%m-%d")
