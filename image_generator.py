@@ -854,39 +854,58 @@ def render_breaking_news_image(
     details: str,
     category: str = "TCMB FAİZ KARARI",
     output_path: str = "D:/faiz-radari/latest_breaking_news.png",
+    impact_note: str = "",
+    source: str = "",
+    tickers: Dict[str, str] = None,
+    question: str = "",
 ) -> str:
     """
-    TCMB faiz kararı, enflasyon açıklaması veya bankacılık düzenlemeleri gibi kritik
-    piyasa anlarında otomatik paylaşılan 1080x1080 'FLAŞ GELİŞME' infografiği.
+    TCMB faiz kararı, enflasyon açıklaması, altın/kur hareketi veya bankacılık düzenlemeleri gibi
+    kritik piyasa anlarında paylaşılan 1080x1080 'SON DAKİKA & PİYASA ETKİSİ' infografiği.
+    Sıfır tofu (emoji kutucuğu yok), canlı kur şeridi ve Faiz Radarı Cep Etkisi kutusu içerir.
     """
     width, height = 1080, 1080
     img = Image.new("RGB", (width, height), color=(10, 10, 18))
     draw = ImageDraw.Draw(img)
 
     for y in range(height):
-        r = int(18 + (10 - 18) * (y / height))
-        g = int(8 + (10 - 8) * (y / height))
-        b = int(14 + (24 - 14) * (y / height))
+        r = int(22 + (10 - 22) * (y / height))
+        g = int(9 + (12 - 9) * (y / height))
+        b = int(16 + (26 - 16) * (y / height))
         draw.line([(0, y), (width, y)], fill=(r, g, b))
 
-    draw.rectangle([(0, 0), (width, 8)], fill=(239, 68, 68))
+    # Üst kırmızı alarm şeridi
+    draw.rectangle([(0, 0), (width, 10)], fill=(239, 68, 68))
 
     f_top_alert = _load_font(18, bold=True)
     f_cat = _load_font(15, bold=True)
-    f_headline = _load_font(36, bold=True)
-    f_body = _load_font(19, bold=False)
+    f_headline = _load_font(34, bold=True)
+    f_sec_title = _load_font(17, bold=True)
+    f_body = _load_font(20, bold=False)
+    f_impact = _load_font(20, bold=True)
+    f_ticker_lbl = _load_font(13, bold=True)
+    f_ticker_val = _load_font(21, bold=True)
+    f_q = _load_font(17, bold=True)
     f_footer = _load_font(13, bold=False)
     f_brand = _load_font(15, bold=True)
 
-    draw.rounded_rectangle([(40, 36), (width - 40, 92)], radius=10, fill=(127, 29, 29), outline=(239, 68, 68), width=2)
-    draw.text((60, 48), "🚨 FLAŞ GELİŞME  |  FAİZ RADARI SON DAKİKA", font=f_top_alert, fill=(255, 255, 255))
+    # Üst Son Dakika Barı
+    draw.rounded_rectangle([(40, 32), (width - 40, 88)], radius=10, fill=(127, 29, 29), outline=(239, 68, 68), width=2)
+    draw.ellipse([(58, 52), (74, 68)], fill=(255, 255, 255))
+    draw.text((86, 48), "SON DAKİKA  |  FAİZ RADARI EKONOMİ MASASI", font=f_top_alert, fill=(255, 255, 255))
 
     today_str = datetime.now().strftime("%d.%m.%Y • %H:%M")
-    draw.text((width - 240, 52), f"⏱️ {today_str}", font=f_cat, fill=(254, 202, 202))
+    t_bb = draw.textbbox((0, 0), today_str, font=f_cat)
+    draw.text((width - 60 - (t_bb[2] - t_bb[0]), 50), today_str, font=f_cat, fill=(254, 202, 202))
 
-    cat_text = f"📌 {category.upper()}"
-    draw.rounded_rectangle([(40, 120), (320, 156)], radius=6, fill=(30, 41, 59), outline=(71, 85, 105), width=1)
-    draw.text((54, 127), cat_text, font=f_cat, fill=(245, 158, 11))
+    # Kategori + Kaynak Rozeti (Dinamik genişlik)
+    cat_label = category.upper()
+    if source:
+        cat_label = f"{cat_label}  •  KAYNAK: {source.upper()}"
+    cat_bb = draw.textbbox((0, 0), cat_label, font=f_cat)
+    cat_w = (cat_bb[2] - cat_bb[0]) + 36
+    draw.rounded_rectangle([(40, 108), (40 + cat_w, 146)], radius=8, fill=(30, 41, 59), outline=(245, 158, 11), width=1)
+    draw.text((58, 117), cat_label, font=f_cat, fill=(251, 191, 36))
 
     def _wrap(text: str, font, max_w: int) -> List[str]:
         words = text.split()
@@ -907,46 +926,88 @@ def render_breaking_news_image(
             lines.append(" ".join(cur))
         return lines
 
-    h_lines = _wrap(headline, f_headline, width - 100)
-    h_y = 180
+    # Ana Manşet
+    h_lines = _wrap(headline, f_headline, width - 90)[:3]
+    h_y = 164
     for hl in h_lines:
-        draw.text((45, h_y), hl, font=f_headline, fill=(255, 255, 255))
-        h_y += 48
+        draw.text((44, h_y), hl, font=f_headline, fill=(255, 255, 255))
+        h_y += 44
 
-    card_y = max(h_y + 24, 380)
-    card_h = 920 - card_y
-    draw.rounded_rectangle([(40, card_y), (width - 40, card_y + card_h)], radius=14, fill=(15, 23, 42), outline=(51, 65, 85), width=1)
-    draw.rounded_rectangle([(40, card_y + 10), (46, card_y + card_h - 10)], radius=3, fill=(239, 68, 68))
+    # 1. Kutu: Haberin Özeti
+    c1_y = max(h_y + 16, 304)
+    d_lines = _wrap(details, f_body, width - 140)[:5]
+    c1_h = max(165, 76 + len(d_lines) * 30 + 18)
+    draw.rounded_rectangle([(40, c1_y), (width - 40, c1_y + c1_h)], radius=14, fill=(15, 23, 42), outline=(51, 65, 85), width=1)
+    draw.rounded_rectangle([(40, c1_y + 12), (46, c1_y + c1_h - 12)], radius=3, fill=(239, 68, 68))
 
-    draw.text((68, card_y + 24), "📋 KARAR & PİYASA ETKİSİ ÖZETİ:", font=_load_font(18, bold=True), fill=(245, 158, 11))
-    draw.line([(68, card_y + 58), (width - 68, card_y + 58)], fill=(30, 41, 59), width=1)
+    draw.text((68, c1_y + 18), "HABERİN DETAYI & GELİŞME ÖZETİ", font=f_sec_title, fill=(248, 113, 113))
+    draw.line([(68, c1_y + 48), (width - 68, c1_y + 48)], fill=(30, 41, 59), width=1)
 
-    d_lines = _wrap(details, f_body, width - 140)
-    det_y = card_y + 76
+    det_y = c1_y + 62
     for dl in d_lines:
         draw.text((68, det_y), dl, font=f_body, fill=(241, 245, 249))
-        det_y += 32
+        det_y += 30
 
+    # 2. Kutu: Faiz Radarı Piyasa & Cep Etkisi
+    cur_y = c1_y + c1_h + 18
+    if impact_note:
+        imp_lines = _wrap(impact_note, f_impact, width - 140)[:4]
+        c2_h = max(150, 74 + len(imp_lines) * 30 + 16)
+        draw.rounded_rectangle([(40, cur_y), (width - 40, cur_y + c2_h)], radius=14, fill=(20, 30, 26), outline=(16, 185, 129), width=2)
+        draw.rounded_rectangle([(40, cur_y + 12), (46, cur_y + c2_h - 12)], radius=3, fill=(16, 185, 129))
+        draw.text((68, cur_y + 18), "FAİZ RADARI ANALİZİ  |  CEBİNİZE & PİYASAYA ETKİSİ", font=f_sec_title, fill=(52, 211, 153))
+        draw.line([(68, cur_y + 48), (width - 68, cur_y + 48)], fill=(30, 58, 47), width=1)
+
+        iy = cur_y + 62
+        for il in imp_lines:
+            draw.text((68, iy), il, font=f_impact, fill=(236, 253, 245))
+            iy += 30
+        cur_y += c2_h + 18
+
+    # 3. Canlı Piyasa Göstergeleri Şeridi (Dolar, Euro, Gram Altın)
+    if tickers:
+        strip_y = min(cur_y, 795)
+        strip_h = 82
+        box_w = (width - 80 - 24) // 3
+        items_t = [
+            ("DOLAR / TL", str(tickers.get("USD", "—")), (56, 189, 248)),
+            ("EURO / TL", str(tickers.get("EUR", "—")), (167, 139, 250)),
+            ("GRAM ALTIN", str(tickers.get("ALTIN", "—")), (251, 191, 36)),
+        ]
+        for idx, (tlbl, tval, tcol) in enumerate(items_t):
+            bx = 40 + idx * (box_w + 12)
+            draw.rounded_rectangle([(bx, strip_y), (bx + box_w, strip_y + strip_h)], radius=12, fill=(15, 23, 42), outline=(51, 65, 85), width=1)
+            draw.text((bx + 20, strip_y + 14), tlbl, font=f_ticker_lbl, fill=(148, 163, 184))
+            draw.text((bx + 20, strip_y + 38), tval, font=f_ticker_val, fill=tcol)
+        cur_y = strip_y + strip_h + 16
+
+    # 4. Etkileşim / Soru Şeridi
+    if question and cur_y <= 905:
+        draw.rounded_rectangle([(40, 895), (width - 40, 948)], radius=10, fill=(30, 27, 75), outline=(99, 102, 241), width=1)
+        q_short = question if len(question) <= 82 else question[:79] + "..."
+        draw.text((60, 911), f"SİZCE: {q_short}", font=f_q, fill=(224, 231, 255))
+
+    # Alt Bilgi & Marka Rozeti
     footer_y = 964
     draw.line([(40, footer_y), (width - 40, footer_y)], fill=(30, 41, 59), width=1)
     draw.text(
-        (40, footer_y + 12),
-        "⚠️ Kamuya açık resmi kurum açıklamalarından derlenmiştir. Yatırım tavsiyesi niteliği taşımaz.",
+        (40, footer_y + 14),
+        "Resmi kurum ve ekonomi basını verilerinden derlenmiştir. Yatırım tavsiyesi niteliği taşımaz.",
         font=f_footer,
-        fill=(100, 116, 139)
+        fill=(100, 116, 139),
     )
     draw.text(
-        (40, footer_y + 36),
-        "🔔 Anlık Bildirim & Takip: Telegram @faizradari  •  X: @faizradari  •  WhatsApp",
+        (40, footer_y + 38),
+        "Anlık Bildirim & Takip: Telegram @faizradari  •  X: @faizradari  •  Instagram: @faizradari",
         font=_load_font(13, bold=True),
-        fill=(148, 163, 184)
+        fill=(148, 163, 184),
     )
 
     badge_w = 230
     bx = width - 40 - badge_w
     by = footer_y + 16
     draw.rounded_rectangle([(bx, by), (bx + badge_w, by + 46)], radius=8, fill=(15, 23, 42), outline=(239, 68, 68), width=1)
-    draw.text((bx + 20, by + 13), "📡 FAİZ RADARI CANLI", font=f_brand, fill=(255, 255, 255))
+    draw.text((bx + 24, by + 13), "FAİZ RADARI CANLI", font=f_brand, fill=(255, 255, 255))
 
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     img.save(output_path, format="PNG", optimize=True)

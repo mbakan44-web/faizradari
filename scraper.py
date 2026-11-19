@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 import requests
 from bs4 import BeautifulSoup
-from calculator import LoanOffer, DepositOffer, SpreadOffer, RateDropAlert
+from calculator import LoanOffer, DepositOffer, SpreadOffer, RateDropAlert, format_tl
 
 CACHE_FILE = Path(__file__).parent / "rates_cache.json"
 
@@ -559,3 +559,293 @@ def get_bank_spread_offers() -> Tuple[List[SpreadOffer], List[SpreadOffer]]:
     usd_list = sorted(usd_map.values(), key=lambda x: x.spread_pct)[:7]
     gold_list = sorted(gold_map.values(), key=lambda x: x.spread_pct)[:7]
     return usd_list, gold_list
+
+
+def _extract_news_keywords(text: str) -> set:
+    stop_words = {
+        "ve", "ile", "için", "bir", "bu", "da", "de", "mi", "mu", "ne", "en",
+        "göre", "sonra", "önce", "olan", "olarak", "daha", "çok", "kadar", "gibi",
+    }
+    words = re.findall(r"[a-zçğıöşü0-9]{3,}", text.lower())
+    return {w for w in words if w not in stop_words}
+
+
+def _is_duplicate_news(headline: str, history: List[Dict]) -> bool:
+    kw_new = _extract_news_keywords(headline)
+    if not kw_new:
+        return False
+    for h in history:
+        old_title = h.get("headline", "")
+        kw_old = _extract_news_keywords(old_title)
+        if not kw_old:
+            continue
+        overlap = len(kw_new & kw_old) / float(min(len(kw_new), len(kw_old)))
+        if overlap >= 0.45:
+            return True
+    return False
+
+
+def fetch_breaking_economy_news(ignore_daily_limit: bool = False) -> Dict:
+    """
+    %100 Ücretsiz (0 TL) Otonom Son Dakika Ekonomi & TCMB Haber Avcısı:
+    - TRT Ekonomi, Habertürk Ekonomi, NTV Ekonomi, CNN Türk Ekonomi ve Google News Finans RSS akışlarını tarar.
+    - Vatandaşın cebini ilgilendirmeyen protokol, ödül, tıklama tuzağı (?) ve magazin haberlerini eler.
+    - Yalnızca yüksek puanlı makro/cep etkisi olan (TCMB, Faiz, Enflasyon, BDDK, Kredi, Mevduat, Altın/Dolar, Maaş/Vergi)
+      gelişmeleri yakalar ve canlı piyasa verileriyle zenginleştirir.
+    - Günde en fazla 1 otomatik flaş haber üretir; paylaşılan haberi bir daha asla tekrarlamaz.
+    """
+    import html as html_lib
+    import xml.etree.ElementTree as ET
+
+    cache = _load_full_cache()
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    history: List[Dict] = cache.get("dispatched_news_history", [])
+
+    if not ignore_daily_limit:
+        today_count = sum(1 for h in history if h.get("date") == today_str)
+        if today_count >= 1:
+            return {}
+
+    feeds = [
+        ("Bloomberg HT", "https://www.bloomberght.com/rss"),
+        ("TRT Haber Ekonomi", "https://www.trthaber.com/ekonomi_articles.rss"),
+        ("Habertürk Ekonomi", "https://www.haberturk.com/rss/ekonomi.xml"),
+        ("CNN Türk Ekonomi", "https://www.cnnturk.com/feed/rss/ekonomi/news"),
+        (
+            "Finans Haber Masası",
+            "https://news.google.com/rss/search?q=(TCMB+OR+%22Merkez+Bankas%C4%B1%22+OR+%22faiz+karar%C4%B1%22+OR+enflasyon+OR+BDDK+OR+mevduat+OR+%22konut+kredisi%22)+when:1d&hl=tr&gl=TR&ceid=TR:tr",
+        ),
+    ]
+
+    reject_patterns = [
+        r"\?$",
+        r"nasıl başladı",
+        r"ne kadar oldu\?",
+        r"belli oldu mu",
+        r"ne zaman yatacak",
+        r"ödülü",
+        r"bir araya geldi",
+        r"ziyaret etti",
+        r"taziye",
+        r"futbol|transfer|maç|süper lig",
+        r"burç|astroloji|magazin",
+        r"iski|aski|su kesintisi|elektrik kesintisi",
+        r"bitcoin|altcoin|shiba|dogecoin",
+        r"sayısal loto|şans topu|süper loto|on numara|milli piyango",
+    ]
+
+    category_rules = [
+        (
+            "MERKEZ BANKASI & FAİZ",
+            42,
+            [
+                "merkez bankası", "tcmb", "faiz kararı", "politika faizi",
+                "para politikası", "ppk", "faiz indirimi", "faiz artışı",
+                "fed tutanakları", "fed faiz",
+            ],
+        ),
+        (
+            "ENFLASYON & TÜİK VERİSİ",
+            38,
+            ["enflasyon", "tüfe", "tüik", "tüketici fiyatları", "alım gücü", "enflasyon raporu"],
+        ),
+        (
+            "BANKACILIK & KREDİ KARARI",
+            36,
+            [
+                "bddk", "mevduat faizi", "stopaj", "konut kredisi", "ihtiyaç kredisi",
+                "kredi kartı", "nakit avans", "kredi notu", "moody's", "fitch", "s&p",
+                "faiz yarışı",
+            ],
+        ),
+        (
+            "ALTIN & DÖVİZ PİYASASI",
+            30,
+            ["gram altın", "ons altın", "dolar/tl", "rekor kırdı", "merkez bankası rezerv", "dış borç"],
+        ),
+        (
+            "MAAŞ, VERGİ & EKONOMİ",
+            28,
+            ["asgari ücret", "emekli", "memur zammı", "vergi", "hazine ve maliye", "중", "orta vadeli program"],
+        ),
+    ]
+
+    candidates: List[Dict] = []
+
+    from email.utils import parsedate_to_datetime
+    from datetime import timezone
+    now_utc = datetime.now(timezone.utc)
+
+    for src_name, url in feeds:
+        try:
+            r = requests.get(url, headers=HEADERS, timeout=8)
+            if r.status_code != 200:
+                continue
+            root = ET.fromstring(r.content)
+            items = root.findall(".//item")
+            for it in items[:15]:
+                pub_str = (it.findtext("pubDate") or "").strip()
+                if pub_str:
+                    try:
+                        pub_dt = parsedate_to_datetime(pub_str).astimezone(timezone.utc)
+                        age_hours = (now_utc - pub_dt).total_seconds() / 3600.0
+                        if age_hours > 24.0:
+                            continue
+                    except Exception:
+                        pass
+
+                raw_t = it.findtext("title") or ""
+                raw_d = it.findtext("description") or ""
+
+                t = html_lib.unescape(re.sub(r"<[^>]+>", " ", raw_t)).strip()
+                t = re.sub(r"\s+-\s+[A-ZÇĞİÖŞÜa-zçğıöşü0-9\.\s]{2,28}$", "", t).strip()
+                t = re.sub(r"\s+", " ", t)
+
+                d = html_lib.unescape(re.sub(r"<[^>]+>", " ", raw_d)).strip()
+                d = re.sub(r"\s+", " ", d)
+                # Google News açıklamasında başlığın aynısı varsa temizle
+                if d.lower().startswith(t[:30].lower()):
+                    d = ""
+
+                if len(t) < 22 or len(t) > 135:
+                    continue
+
+                low_t = t.lower()
+                if any(re.search(pat, low_t) for pat in reject_patterns):
+                    continue
+
+                if _is_duplicate_news(t, history):
+                    continue
+
+                best_cat = ""
+                score = 0
+                combined = f"{low_t} {d.lower()}"
+                for cat_name, base_pts, kw_list in category_rules:
+                    hits = sum(1 for kw in kw_list if kw in combined)
+                    if hits > 0:
+                        cat_score = base_pts + (hits - 1) * 8
+                        if cat_score > score:
+                            score = cat_score
+                            best_cat = cat_name
+
+                if score < 28:
+                    continue
+
+                # Zengin özet açıklaması olan resmi kaynaklara (+10 puan) öncelik ver
+                if len(d) >= 55:
+                    score += 10
+
+                candidates.append({
+                    "source": src_name,
+                    "category": best_cat,
+                    "headline": t,
+                    "raw_summary": d,
+                    "score": score,
+                })
+        except Exception:
+            continue
+
+    if not candidates:
+        return {}
+
+    # Çoklu kaynakta benzer haber varsa puanını artır (doğrulama bonusu)
+    for i, c1 in enumerate(candidates):
+        kw1 = _extract_news_keywords(c1["headline"])
+        confirmations = 0
+        for j, c2 in enumerate(candidates):
+            if i != j and c1["source"] != c2["source"]:
+                kw2 = _extract_news_keywords(c2["headline"])
+                if kw1 and kw2 and (len(kw1 & kw2) / float(min(len(kw1), len(kw2)))) >= 0.4:
+                    confirmations += 1
+                    # Eğer c1'in özeti boşsa ve c2'nin özeti doluysa ödünç al
+                    if not c1["raw_summary"] and c2["raw_summary"]:
+                        c1["raw_summary"] = c2["raw_summary"]
+        c1["score"] += confirmations * 12
+
+    candidates.sort(key=lambda x: x["score"], reverse=True)
+    winner = candidates[0]
+
+    # Canlı piyasa verileriyle "Faiz Radarı Cep & Piyasa Etkisi" notu oluştur
+    tickers = fetch_market_tickers()
+    deps, _ = get_deposit_offers(500_000, 32)
+    ihts, _ = get_loan_offers("ihtiyac", 100_000, 12)
+    best_dep = deps[0] if deps else None
+    best_iht = ihts[0] if ihts else None
+
+    summary = winner["raw_summary"]
+    if not summary or len(summary) < 45:
+        summary = f"{winner['headline']}. Ekonomi ve finans piyasalarında yakından takip edilen gelişmenin detayları netleşti."
+    elif len(summary) > 320:
+        cut = summary[:318]
+        if ". " in cut[120:]:
+            summary = cut[:120 + cut[120:].rfind(". ") + 1]
+        else:
+            summary = cut.rsplit(" ", 1)[0] + "..."
+
+    cat = winner["category"]
+    dep_str = f"%{best_dep.annual_rate:.1f} ({best_dep.bank_name})" if best_dep else "%45,0"
+    iht_str = f"%{best_iht.monthly_rate:.2f} ({best_iht.bank_name})" if best_iht else "%2,89"
+
+    if "FAİZ" in cat or "BANKACILIK" in cat:
+        impact_note = (
+            f"Yurt içi bankalarda güncel en yüksek vadeli mevduat faizi {dep_str}, "
+            f"en uygun ihtiyaç kredisi oranı ise aylık {iht_str} seviyesinde uygulanıyor."
+        )
+        question = "Sizce bu gelişme önümüzdeki günlerde banka faiz oranlarını nasıl etkiler?"
+    elif "ALTIN" in cat:
+        impact_note = (
+            f"Serbest piyasada şu an Dolar/TL {tickers.get('USD', '—')}, Euro/TL {tickers.get('EUR', '—')} "
+            f"ve Gram Altın {tickers.get('ALTIN', '—')} seviyesinden işlem görüyor."
+        )
+        question = "Altın ve dövizdeki bu seyir hakkında sizin beklentiniz nedir?"
+    else:
+        impact_note = (
+            f"Piyasa Göstergeleri: Dolar/TL {tickers.get('USD', '—')} | Gram Altın {tickers.get('ALTIN', '—')} | "
+            f"En Yüksek Mevduat {dep_str}."
+        )
+        question = "Bu ekonomi gelişmesinin piyasalara ve bütçenize etkisini nasıl değerlendiriyorsunuz?"
+
+    voice_script = (
+        f"Son dakika ekonomi gelişmesi! {winner['headline']}. "
+        f"{impact_note} "
+        f"Peki sizce bu gelişme piyasaları nasıl etkiler? Yorumlarda buluşalım!"
+    )
+
+    reel_rows = [
+        {"rank": "!", "title": "SON DAKİKA GELİŞMESİ", "sub": winner["category"], "value": "CANLI", "highlight": True},
+        {"rank": "1", "title": "Dolar & Euro Kuru", "sub": f"Euro/TL: {tickers.get('EUR', '—')}", "value": tickers.get("USD", "—"), "highlight": False},
+        {"rank": "2", "title": "Serbest Piyasa Altın", "sub": "Kapalıçarşı & Banka Referans", "value": tickers.get("ALTIN", "—"), "highlight": False},
+        {"rank": "3", "title": "En Yüksek Mevduat", "sub": f"500.000 TL 32 gün net: +{format_tl(best_dep.net_return)}" if best_dep else "32 günlük vadeli", "value": f"%{best_dep.annual_rate:.1f}".replace(".", ",") if best_dep else "%45,0", "highlight": False},
+        {"rank": "4", "title": "En Uygun İhtiyaç Kredisi", "sub": f"{best_iht.bank_name} • 100.000 TL 12 ay" if best_iht else "100.000 TL 12 ay", "value": f"%{best_iht.monthly_rate:.2f}".replace(".", ",") if best_iht else "%2,89", "highlight": False},
+    ]
+
+    return {
+        "source": winner["source"],
+        "category": cat,
+        "headline": winner["headline"],
+        "summary": summary,
+        "impact_note": impact_note,
+        "details": f"{summary}\n\n{impact_note}",
+        "question": question,
+        "voice_script": voice_script,
+        "tickers": tickers,
+        "dep_leader": dep_str,
+        "loan_leader": iht_str,
+        "reel_rows": reel_rows,
+        "score": winner["score"],
+    }
+
+
+def mark_news_dispatched(news_item: Dict) -> None:
+    """Paylaşılan son dakika haberini önbelleğe kaydederek tekrar paylaşılmasını engeller."""
+    if not news_item or not news_item.get("headline"):
+        return
+    cache = _load_full_cache()
+    history: List[Dict] = cache.get("dispatched_news_history", [])
+    history.append({
+        "date": datetime.now().strftime("%Y-%m-%d"),
+        "headline": news_item["headline"],
+        "category": news_item.get("category", ""),
+    })
+    cache["dispatched_news_history"] = history[-40:]
+    _save_full_cache(cache)

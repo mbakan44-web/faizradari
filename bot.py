@@ -20,6 +20,8 @@ from scraper import (
     check_all_loan_rates_for_changes,
     has_rates_changed_since_last_publish,
     mark_rates_published,
+    fetch_breaking_economy_news,
+    mark_news_dispatched,
 )
 from image_generator import (
     render_loan_table_image,
@@ -487,11 +489,12 @@ def dispatch_to_buffer_omnichannel(
         ig_daily = cache.get("daily_instagram_posts", {})
         today_ig_list = ig_daily.get(today_str, [])
 
-        # Spam koruması: Instagram'da günde en fazla 2 kaliteli Reels ve aynı konu 2 kez asla atılmaz!
+        # Spam koruması: Instagram'da günde en fazla 2 kaliteli Reels (Son dakika haberi varsa +1) ve aynı konu 2 kez asla atılmaz!
         if topic in today_ig_list:
             print(f"[INSTAGRAM KORUMASI] '{topic}' bugün zaten Instagram'da paylaşıldı. Atlandı.")
             return
-        if len(today_ig_list) >= 2:
+        max_ig_limit = 3 if topic == "haber" else 2
+        if len(today_ig_list) >= max_ig_limit:
             print(f"[INSTAGRAM GÜNLÜK LİMİT] Bugün ({today_str}) zaten {len(today_ig_list)} Reels paylaşıldı. Kalite/algoritma koruması için sınırlandı.")
             return
 
@@ -529,21 +532,22 @@ def dispatch_to_buffer_omnichannel(
         _save_full_cache(cache)
 
         ref = "main"
-        if os.getenv("GITHUB_ACTIONS") == "true":
-            try:
-                import subprocess
-                subprocess.run(["git", "config", "user.name", "github-actions[bot]"], check=False)
-                subprocess.run(["git", "config", "user.email", "github-actions[bot]@users.noreply.github.com"], check=False)
-                subprocess.run(["git", "add", "rates_cache.json", "latest_vertical_story.png", "latest_story_video.mp4"], check=False)
-                subprocess.run(["git", "commit", "-m", "Auto-update live voiced animated Reel & cache for Buffer CDN"], check=False)
-                subprocess.run(["git", "pull", "--rebase"], check=False)
-                subprocess.run(["git", "push"], check=False)
-                sha_p = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=False)
-                if sha_p.returncode == 0 and sha_p.stdout.strip():
-                    ref = sha_p.stdout.strip()
-                time.sleep(3)
-            except Exception as pe:
-                print(f"[UYARI] Buffer öncesi medya pushlanamadı: {pe}")
+        try:
+            import subprocess
+            repo_dir = str(Path(__file__).parent)
+            if os.getenv("GITHUB_ACTIONS") == "true":
+                subprocess.run(["git", "config", "user.name", "github-actions[bot]"], cwd=repo_dir, check=False)
+                subprocess.run(["git", "config", "user.email", "github-actions[bot]@users.noreply.github.com"], cwd=repo_dir, check=False)
+            subprocess.run(["git", "add", "rates_cache.json", "latest_vertical_story.png", "latest_story_video.mp4"], cwd=repo_dir, check=False)
+            subprocess.run(["git", "commit", "-m", "Auto-update live voiced animated Reel & cache for Buffer CDN"], cwd=repo_dir, check=False)
+            subprocess.run(["git", "pull", "--rebase"], cwd=repo_dir, check=False)
+            subprocess.run(["git", "push"], cwd=repo_dir, check=False)
+            sha_p = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=repo_dir, capture_output=True, text=True, check=False)
+            if sha_p.returncode == 0 and sha_p.stdout.strip():
+                ref = sha_p.stdout.strip()
+            time.sleep(2)
+        except Exception as pe:
+            print(f"[UYARI] Buffer öncesi medya pushlanamadı: {pe}")
 
         timestamp = int(time.time())
         public_video_url = f"https://raw.githubusercontent.com/mbakan44-web/faizradari/{ref}/latest_story_video.mp4?v={timestamp}"
@@ -1776,22 +1780,34 @@ def send_breaking_news_report(
     headline: str,
     details: str,
     category: str = "TCMB FAİZ KARARI",
-    target_chat_id: str = CHANNEL_ID
+    target_chat_id: str = CHANNEL_ID,
+    impact_note: str = "",
+    source: str = "",
+    question: str = "Bu gelişme piyasa ve faiz beklentinizi nasıl etkiler?",
 ) -> dict:
     """Flaş haber, TCMB faiz kararı veya önemli piyasa gelişmelerini anında paylaşır."""
     print(f"[{datetime.now().strftime('%H:%M:%S')}] FLAŞ HABER oluşturuluyor: {headline}...")
+    tickers = fetch_market_tickers()
     img_path = render_breaking_news_image(
         headline=headline,
         details=details,
         category=category,
-        output_path=str(Path(__file__).parent / "latest_breaking_news.png")
+        output_path=str(Path(__file__).parent / "latest_breaking_news.png"),
+        impact_note=impact_note,
+        source=source,
+        tickers=tickers,
+        question=question,
     )
 
     now_str = datetime.now().strftime("%d.%m.%Y • %H:%M")
+    impact_block = f"\n\n💡 <b>Faiz Radarı Cep & Piyasa Etkisi:</b>\n{impact_note}" if impact_note else ""
+    src_line = f" (Kaynak: {source})" if source else ""
     caption = (
-        f"🚨 <b>FAİZ RADARI | FLAŞ GELİŞME</b> ({now_str})\n\n"
-        f"📌 <b>{headline}</b>\n\n"
-        f"📝 <b>Özet & Piyasa Etkisi:</b>\n{details}\n\n"
+        f"🚨 <b>FAİZ RADARI | SON DAKİKA EKONOMİ</b> ({now_str})\n\n"
+        f"📌 <b>{headline}</b>{src_line}\n\n"
+        f"📝 <b>Haber Özeti:</b>\n{details}"
+        f"{impact_block}\n\n"
+        f"💬 <b>{question}</b>\n\n"
         "⚠️ <i>Kamuya açık resmi verilerden derlenmiştir, yatırım tavsiyesi içermez.</i>\n"
         "🔔 <b>Anlık Piyasa Bildirimleri:</b> @faizradari"
     )
@@ -1800,42 +1816,144 @@ def send_breaking_news_report(
     result = _post_photo_to_telegram(img_path, caption, target_chat_id=target_chat_id, reply_markup=markup)
 
     if target_chat_id == CHANNEL_ID:
+        # X için haber odası formatı (Telegram kelimesi ve hashtag spamı yok!)
+        x_impact = f"\n\nPiyasa & Cep Etkisi:\n{impact_note}\n" if impact_note else "\n"
         x_text = (
-            f"🚨 FLAŞ | {headline}\n\n"
-            f"{details[:160]}...\n\n"
-            f"Detaylar ve canlı oranlar: @faizradari (Telegram)\n#faiz #tcmb #ekonomi"
+            f"SON DAKİKA | {headline}\n\n"
+            f"{details[:155].rstrip()}..."
+            f"{x_impact}\n"
+            f"{question}"
         )
         post_to_x(img_path, x_text)
         post_to_whatsapp(img_path, caption)
-        dispatch_to_buffer_omnichannel(img_path, "HAFTALIK FİNANS KARNESİ", topic="mevduat")
     return result
 
 
-def send_celebration_report(target_chat_id: str = CHANNEL_ID) -> dict:
-    """1.500+ Abone özel kutlama animasyonunu Telegram'a gönderir."""
-    gif_path = str(Path(__file__).parent / "faiz_radari_1500_kutlama.gif")
-    if not Path(gif_path).exists():
-        from create_celebration_gif import generate_celebration_gif
-        generate_celebration_gif(gif_path)
+def send_auto_breaking_news_report(
+    target_chat_id: str = CHANNEL_ID,
+    preview_only: bool = False,
+) -> dict:
+    """
+    Otonom Son Dakika Ekonomi & TCMB Haber Avcısı (0 TL / Ücretsiz RSS + Canlı Kur/Oran Sentezi):
+    - Resmi kaynaklardan (TRT Haber, Habertürk, CNN Türk, NTV, Google News Finans) yeni kırılma haberini yakalar.
+    - Haberin altına canlı banka kredi/mevduat/kur verileriyle 'Cebinize Etkisi' kutusunu ekler.
+    - Hem 1080x1080 Son Dakika İnfografiği hem de 1080x1920 30 FPS AhmetNeural Erkek Sesli Video üretir.
+    - preview_only=True iken SADECE ADMIN_CHAT_ID'ye önizleme gönderir, kanallara paylaşmaz.
+    """
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] Otonom Ekonomi Haber Avcısı taranıyor (preview={preview_only})...")
+    news = fetch_breaking_economy_news(ignore_daily_limit=preview_only or (target_chat_id != CHANNEL_ID))
+    if not news:
+        print("[HABER AVCISI] Yeni veya kriterlere uygun kritik ekonomi haberi bulunamadı.")
+        return {"ok": False, "reason": "no_qualifying_news"}
 
-    caption = (
-        "🎉 <b>1.500+ KİŞİLİK DEV BİR AİLE OLDUK!</b> 🚀\n\n"
-        "⚡ <i>Faiz Radarı topluluğu olarak kısa sürede 1.500 değerli üyemizi geride bıraktık!</i>\n\n"
-        "🤝 <b>Katkılarınız, güveniniz ve takibiniz için sonsuz teşekkürler.</b>\n\n"
-        "📊 <b>Neler Yapıyoruz?</b>\n"
-        "• Tüm bankaların güncel mevduat & kredi oranlarını anlık radarımıza alıyoruz.\n"
-        "• Masrafsız, gizli kesintisiz en avantajlı finans fırsatlarını tarafsız sunuyoruz.\n"
-        "• Dolar, altın ve makas analizleriyle paranızın değerini korumanıza destek oluyoruz.\n\n"
-        "🔔 <i>Birlikte daha güçlüyüz. Canlı takip ve hesaplama için dostlarınızla paylaşmayı unutmayın:</i>\n"
-        "👉 <b>@faizradari</b>"
+    headline = news["headline"]
+    summary = news["summary"]
+    category = news["category"]
+    source = news["source"]
+    impact_note = news["impact_note"]
+    question = news["question"]
+    tickers = news["tickers"]
+    voice_script = news["voice_script"]
+    reel_rows = news["reel_rows"]
+
+    print(f"[HABER YAKALANDI] [{category}] {headline} ({source} - Skor: {news.get('score')})")
+
+    img_path = render_breaking_news_image(
+        headline=headline,
+        details=summary,
+        category=category,
+        output_path=str(Path(__file__).parent / "latest_breaking_news.png"),
+        impact_note=impact_note,
+        source=source,
+        tickers=tickers,
+        question=question,
     )
+
+    video_path = str(Path(__file__).parent / "latest_breaking_news_video.mp4")
+    # Başlığı 2 satırlık vurucu Reels kancasına böl
+    words = headline.upper().split()
+    mid = min(4, max(2, len(words) // 2))
+    hook1 = " ".join(words[:mid])[:26]
+    hook2 = " ".join(words[mid:mid + 4])[:28]
+
+    render_animated_reel_video(
+        tag=f"SON DAKİKA • {category}",
+        hook_line1=hook1,
+        hook_line2=hook2,
+        subtitle=f"Kaynak: {source} • Faiz Radarı Cep & Piyasa Etkisi",
+        rows=reel_rows,
+        cta_text="TAKİP ET — Son dakika ekonomi ve faiz kararlarını kaçırma!",
+        question_text=question,
+        output_video_path=video_path,
+        voice_script=voice_script,
+    )
+
+    now_str = datetime.now().strftime("%d.%m.%Y • %H:%M")
+    caption = (
+        f"🚨 <b>FAİZ RADARI | SON DAKİKA EKONOMİ</b> ({now_str})\n\n"
+        f"📌 <b>{headline}</b> <i>({source})</i>\n\n"
+        f"📝 <b>Haberin Özeti:</b>\n{summary}\n\n"
+        f"💡 <b>Faiz Radarı Piyasa & Cep Etkisi:</b>\n{impact_note}\n\n"
+        f"💬 <b>{question}</b>\n\n"
+        "⚠️ <i>Resmi kurum ve ekonomi basını verilerinden derlenmiştir, yatırım tavsiyesi içermez.</i>\n"
+        "🔔 <b>Anlık Piyasa Bildirimleri:</b> @faizradari"
+    )
+
     markup = _default_reply_markup() if target_chat_id == CHANNEL_ID else _interactive_menu_markup()
-    res = _post_animation_to_telegram(gif_path, caption, target_chat_id=target_chat_id, reply_markup=markup)
-    if res.get("ok"):
-        print(f"[BAŞARILI] 1500 Kutlama GIF'i {target_chat_id} hedefine paylaşıldı!")
-    else:
-        print(f"[HATA] Telegram kutlama gönderimi başarısız: {res}")
-    return res
+
+    if preview_only or target_chat_id != CHANNEL_ID:
+        # ÖNİZLEME MODU: Hem 1080x1080 Son Dakika Kartını hem de Sesli Videoyu Admin DM'ye gönder!
+        res_photo = _post_photo_to_telegram(img_path, caption, target_chat_id=target_chat_id, reply_markup=markup)
+        res_video = {"ok": False}
+        if Path(video_path).exists():
+            with open(video_path, "rb") as vf:
+                res_video = requests.post(
+                    f"{API_BASE}/sendVideo",
+                    data={
+                        "chat_id": target_chat_id,
+                        "caption": f"🎙️ <b>SON DAKİKA SESLİ REELS / X VİDEO ÖNİZLEMESİ</b>\n\n📌 <b>{headline}</b>\n\n<i>Onay verdiğinizde bu format X, Instagram Reels, TikTok, Telegram ve WhatsApp için devreye alınacaktır.</i>",
+                        "parse_mode": "HTML",
+                        "supports_streaming": True,
+                    },
+                    files={"video": vf},
+                    timeout=60,
+                ).json()
+        print(f"[ÖNİZLEME GÖNDERİLDİ] Admin DM ({target_chat_id}) -> Kart: {res_photo.get('ok')}, Sesli Video: {res_video.get('ok')}")
+        return {"ok": res_photo.get("ok") or res_video.get("ok"), "news": news, "img_path": img_path, "video_path": video_path}
+
+    # CANLI YAYIN MODU: Önce haberi önbelleğe kilitle (mükerrer paylaşımı %100 engelle)
+    mark_news_dispatched(news)
+
+    # 1. Telegram
+    result = _post_photo_to_telegram(img_path, caption, target_chat_id=CHANNEL_ID, reply_markup=markup)
+
+    # 2. X (Twitter) — Yerel sesli video veya infografik kart + sıfır spam haber odası metni
+    x_text = (
+        f"SON DAKİKA | {headline}\n\n"
+        f"{summary[:130].rstrip()}...\n\n"
+        f"Cebinize Etkisi: {impact_note[:105].rstrip()}...\n\n"
+        f"{question}"
+    )
+    x_media = video_path if Path(video_path).exists() else img_path
+    post_to_x(x_media, x_text)
+
+    # 3. WhatsApp Kanalı
+    post_to_whatsapp(img_path, caption)
+
+    # 4. Instagram Reels (Buffer üzerinden sesli dikey video)
+    reel_data = {
+        "tag": f"SON DAKİKA • {category}",
+        "hook_line1": hook1,
+        "hook_line2": hook2,
+        "subtitle": f"Kaynak: {source} • Faiz Radarı Cep & Piyasa Etkisi",
+        "rows": reel_rows,
+        "cta_text": "TAKİP ET — Son dakika ekonomi ve faiz kararlarını kaçırma!",
+        "question_text": question,
+        "caption": f"SON DAKİKA | {headline}\n\n{summary}\n\nCebinize Etkisi:\n{impact_note}\n\n{question} 👇\n\n#ekonomi #finans #faiz #sondakika #piyasa",
+        "voice_script": voice_script,
+    }
+    dispatch_to_buffer_omnichannel(img_path, headline, topic="haber", reel_data=reel_data)
+    return result
 
 
 def check_and_set_dispatch_lock(slot_topic: str) -> bool:
@@ -1925,6 +2043,11 @@ if __name__ == "__main__":
         send_deposit_report(principal=500_000, days=32, force_publish="--force" in sys.argv)
     elif "--haftalik" in sys.argv or "--karne" in sys.argv:
         send_weekly_recap_report()
+    elif "--oto-haber-onizleme" in sys.argv:
+        send_auto_breaking_news_report(target_chat_id=ADMIN_CHAT_ID, preview_only=True)
+    elif "--oto-haber" in sys.argv:
+        target = CHANNEL_ID if "--kanal" in sys.argv else ADMIN_CHAT_ID
+        send_auto_breaking_news_report(target_chat_id=target, preview_only=(target != CHANNEL_ID))
     elif "--haber" in sys.argv:
         headline = "TCMB Politika Faizi Gelişmesi"
         details = "Merkez Bankası piyasa beklentileri doğrultusunda kararını açıkladı."
@@ -1964,6 +2087,13 @@ if __name__ == "__main__":
                 dispatch_rate_change_alerts(live_rate_alerts, target_chat_id=CHANNEL_ID)
         except Exception as e:
             print(f"[UYARI] Otomatik faiz değişim tarama hatası: {e}")
+
+        # 1.6. Otonom Son Dakika Ekonomi & TCMB Haber Avcısı (Günde en fazla 1 kez, saat 10:00-18:59 arasında)
+        if 10 <= tr_hour <= 18:
+            try:
+                send_auto_breaking_news_report(target_chat_id=CHANNEL_ID, preview_only=False)
+            except Exception as ne:
+                print(f"[UYARI] Otonom ekonomi haber tarama hatası: {ne}")
 
         # 2. Otomatik slot tespiti (Kalite Odaklı & Sıfır Spam Akışı)
         today_str = now_tr.strftime("%Y-%m-%d")
