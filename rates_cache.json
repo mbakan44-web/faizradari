@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-19 11:10",
+  "updated_at": "2026-11-19 08:29",
   "ihtiyac_kredisi": {
     "Odeabank": 3.09,
     "Ziraat Bankası": 3.69,
@@ -8,7 +8,7 @@
     "CEPTETEB": 3.39,
     "Türkiye İş Bankası": 3.88,
     "ON Dijital": 3.19,
-    "Enpara": 3.44,
+    "Enpara": 3.59,
     "Anadolubank": 3.09,
     "Garanti BBVA": 3.89,
     "Akbank": 3.44,
@@ -98,8 +98,8 @@
     "Halkbank": 3.65,
     "Ziraat Bankası": 3.29
   },
-  "last_dispatched_slot": "2026-11-19_09_bulten",
-  "last_dispatched_at": "2026-11-19 09:29:24",
+  "last_dispatched_slot": "2026-11-19_11_ihtiyac",
+  "last_dispatched_at": "2026-11-19 11:29:36",
   "last_makas_date": "2026-11-15",
   "last_published_fingerprints": {
     "ihtiyac": {
@@ -259,7 +259,8 @@
   },
   "daily_dispatched": {
     "2026-11-19": [
-      "bulten"
+      "bulten",
+      "ihtiyac"
     ]
   },
   "daily_instagram_posts": {
