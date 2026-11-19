@@ -1093,6 +1093,88 @@ def render_viral_insight_image(
     return output_path
 
 
+def _format_turkish_tts_text(text: str) -> str:
+    """Finansal metni Türkçe spikerin (edge-tts) en doğal telaffuz edeceği hale getirir."""
+    import re
+    s = text.strip()
+    # %2,89 -> yüzde 2 virgül 89 | %45,0 -> yüzde 45
+    def _pct_repl(m):
+        whole, frac = m.group(1), m.group(2)
+        if not frac or frac in ("0", "00"):
+            return f"yüzde {whole}"
+        return f"yüzde {whole} virgül {frac}"
+    s = re.sub(r"%\s*([0-9]+)(?:[,\.]([0-9]+))?", _pct_repl, s)
+    s = s.replace("₺", " lira").replace("TL", "lira").replace("$", " dolar")
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+
+def _probe_audio_duration(audio_path: str, ffmpeg_exe: str) -> float:
+    import re
+    import subprocess
+    try:
+        p = subprocess.run([ffmpeg_exe, "-i", str(audio_path)], capture_output=True, text=True)
+        m = re.search(r"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)", p.stderr)
+        if m:
+            return int(m.group(1)) * 3600 + int(m.group(2)) * 60 + float(m.group(3))
+    except Exception:
+        pass
+    return 0.0
+
+
+def generate_turkish_voiceover(
+    script_text: str,
+    output_mp3: str = None,
+    voice: str = "tr-TR-AhmetNeural",
+    rate: str = "+12%",
+) -> Tuple[str, float]:
+    """
+    Sıfır maliyetli Microsoft Neural Türkçe spiker (edge-tts) ile profesyonel
+    ekonomi bülteni seslendirmesi (MP3) ve gerçek süresini (saniye) üretir.
+    Hata durumunda sessizce ('', 0.0) döner; video üretimi fon müziğiyle devam eder.
+    """
+    if not script_text or not script_text.strip():
+        return "", 0.0
+
+    try:
+        import asyncio
+        import edge_tts
+        try:
+            import imageio_ffmpeg
+            ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+        except Exception:
+            ffmpeg_exe = "ffmpeg"
+
+        base_dir = Path(__file__).parent
+        if not output_mp3:
+            output_mp3 = str(base_dir / "latest_voiceover.mp3")
+
+        spoken_text = _format_turkish_tts_text(script_text)
+
+        async def _synth():
+            comm = edge_tts.Communicate(spoken_text, voice=voice, rate=rate, pitch="+0Hz")
+            await comm.save(output_mp3)
+
+        try:
+            asyncio.run(_synth())
+        except RuntimeError:
+            # Eğer aktif bir event loop varsa yeni loop oluştur
+            loop = asyncio.new_event_loop()
+            try:
+                loop.run_until_complete(_synth())
+            finally:
+                loop.close()
+
+        if Path(output_mp3).exists() and Path(output_mp3).stat().st_size > 1000:
+            dur = _probe_audio_duration(output_mp3, ffmpeg_exe)
+            print(f"[SESLİ SPİKER] Türkçe AI seslendirme üretildi ({voice}, {dur:.2f} sn).")
+            return str(output_mp3), dur
+    except Exception as e:
+        print(f"[UYARI] Türkçe AI seslendirme üretilemedi, sadece fon müziğine geçiliyor: {e}")
+
+    return "", 0.0
+
+
 def render_animated_reel_video(
     tag: str,
     hook_line1: str,
@@ -1101,6 +1183,8 @@ def render_animated_reel_video(
     rows: List[Dict],
     cta_text: str = "KAYDET — Lazım olduğunda elinin altında olsun!",
     question_text: str = "Sence hangi banka daha mantıklı? Yorumlara yaz!",
+    voice_script: str = "",
+    voice: str = "tr-TR-AhmetNeural",
     audio_path: str = None,
     output_video_path: str = None,
     output_cover_path: str = None,
@@ -1108,14 +1192,14 @@ def render_animated_reel_video(
     fps: int = 15,
 ) -> Tuple[str, str]:
     """
-    Instagram Reels ve mobil dikey ekranlar için %100 NATIVE 1080x1920 ANİMASYONLU video üretir!
-    - Sıkıştırılmış masaüstü tablo YOK: Büyük, telefonda tek bakışta okunan 5 mobil kart.
-    - Gerçek hareketli akış: Dev kanca başlık + satır satır kayarak açılan 5 banka kartı +
-      parlayan 1. sıra vurgusu + alt kaydetme/yorum çağrısı.
-    - Instagram Reels güvenli alanlarına (safe-zone) tam uyumlu.
-    - Ham RGB karelerini doğrudan FFmpeg pipe'ına akıtarak ~3 saniyede Full HD MP4 üretir.
+    Instagram Reels ve YouTube Shorts için %100 NATIVE 1080x1920 SESLİ & ANİMASYONLU video üretir!
+    - Sıfır maliyetli Türkçe AI Spiker (edge-tts) + kısık arka plan fon müziği (broadcast audio ducking).
+    - Büyük, telefonda tek bakışta okunan 5 mobil kartın sırayla sağdan kayarak açılması.
+    - Üstte canlı animasyonlu ses dalgası (equalizer) + konuşmayla senkronize alt yazı şeridi.
+    - Ham RGB karelerini doğrudan FFmpeg pipe'ına akıtarak saniyeler içinde Full HD MP4 üretir.
     """
     import math
+    import re
     import subprocess
     try:
         import imageio_ffmpeg
@@ -1130,6 +1214,25 @@ def render_animated_reel_video(
         output_video_path = str(base_dir / "latest_story_video.mp4")
     if not output_cover_path:
         output_cover_path = str(base_dir / "latest_vertical_story.png")
+
+    # 0. Türkçe AI Spiker Seslendirmesi (varsa otomatik süre senkronizasyonu!)
+    voice_mp3 = ""
+    vo_dur = 0.0
+    if voice_script:
+        voice_mp3, vo_dur = generate_turkish_voiceover(
+            script_text=voice_script,
+            output_mp3=str(base_dir / "latest_voiceover.mp3"),
+            voice=voice,
+            rate="+16%",
+        )
+        if voice_mp3 and vo_dur > 1.0:
+            duration_sec = max(9.0, min(24.0, vo_dur + 1.0))
+
+    # Konuşma cümlelerini alt yazı dilimlerine böl (ses kapalı izleyenler için)
+    sub_chunks: List[str] = []
+    if voice_script:
+        raw_sents = [s.strip() for s in re.split(r"(?<=[.!?])\s+", voice_script.strip()) if s.strip()]
+        sub_chunks = raw_sents[:4]
 
     W, H = 1080, 1920
     total_frames = int(duration_sec * fps)
@@ -1148,7 +1251,8 @@ def render_animated_reel_video(
         bg_draw.ellipse([(W // 2 - r_rad, 340 - r_rad), (W // 2 + r_rad, 340 + r_rad)], outline=(18, 30, 56), width=2)
 
     # Fontlar (Mobilde jilet gibi okunacak DEV boyutlar!)
-    f_tag = _load_font(22, bold=True)
+    f_tag = _load_font(21, bold=True)
+    f_audio_tag = _load_font(18, bold=True)
     f_hook1 = _load_font(60, bold=True)
     f_hook2 = _load_font(68, bold=True)
     f_sub = _load_font(26, bold=False)
@@ -1159,6 +1263,7 @@ def render_animated_reel_video(
     f_win_badge = _load_font(16, bold=True)
     f_cta = _load_font(26, bold=True)
     f_q = _load_font(23, bold=False)
+    f_cap = _load_font(26, bold=True)
     f_brand = _load_font(20, bold=True)
     f_legal = _load_font(15, bold=False)
 
@@ -1189,35 +1294,82 @@ def render_animated_reel_video(
             f_q = cand
             break
 
+    def _wrap_caption(txt: str, font, max_w: int) -> List[str]:
+        words = txt.split()
+        lines, cur = [], []
+        for w_tok in words:
+            test = " ".join(cur + [w_tok])
+            bb = _tmp_d.textbbox((0, 0), test, font=font)
+            if (bb[2] - bb[0]) <= max_w:
+                cur.append(w_tok)
+            else:
+                if cur:
+                    lines.append(" ".join(cur))
+                    cur = [w_tok]
+                else:
+                    lines.append(w_tok)
+        if cur:
+            lines.append(" ".join(cur))
+        return lines[:3]
+
     def ease_out_cubic(p: float) -> float:
         p = max(0.0, min(1.0, p))
         return 1.0 - (1.0 - p) ** 3
 
-    # FFmpeg sürecini başlat (ham RGB akışı + fon müziği -> H.264 AAC MP4)
-    cmd = [
-        ffmpeg_exe, "-y",
-        "-f", "rawvideo",
-        "-vcodec", "rawvideo",
-        "-pix_fmt", "rgb24",
-        "-s", f"{W}x{H}",
-        "-r", str(fps),
-        "-i", "pipe:0",
-        "-stream_loop", "-1",
-        "-i", str(audio_path),
-        "-c:v", "libx264",
-        "-preset", "fast",
-        "-crf", "23",
-        "-c:a", "aac",
-        "-b:a", "128k",
-        "-pix_fmt", "yuv420p",
-        "-shortest",
-        "-t", f"{duration_sec:.2f}",
-        str(output_video_path),
-    ]
+    # FFmpeg sürecini başlat (Sesli spiker varsa broadcast audio ducking ile miksler!)
+    if voice_mp3 and Path(voice_mp3).exists():
+        cmd = [
+            ffmpeg_exe, "-y",
+            "-f", "rawvideo",
+            "-vcodec", "rawvideo",
+            "-pix_fmt", "rgb24",
+            "-s", f"{W}x{H}",
+            "-r", str(fps),
+            "-i", "pipe:0",
+            "-stream_loop", "-1",
+            "-i", str(audio_path),
+            "-i", str(voice_mp3),
+            "-filter_complex",
+            "[1:a]volume=0.14[bg];[2:a]adelay=250|250,volume=1.20[vo];[bg][vo]amix=inputs=2:duration=longest:dropout_transition=2:normalize=0[aout]",
+            "-map", "0:v:0",
+            "-map", "[aout]",
+            "-c:v", "libx264",
+            "-preset", "fast",
+            "-crf", "23",
+            "-c:a", "aac",
+            "-b:a", "192k",
+            "-pix_fmt", "yuv420p",
+            "-t", f"{duration_sec:.2f}",
+            str(output_video_path),
+        ]
+    else:
+        cmd = [
+            ffmpeg_exe, "-y",
+            "-f", "rawvideo",
+            "-vcodec", "rawvideo",
+            "-pix_fmt", "rgb24",
+            "-s", f"{W}x{H}",
+            "-r", str(fps),
+            "-i", "pipe:0",
+            "-stream_loop", "-1",
+            "-i", str(audio_path),
+            "-c:v", "libx264",
+            "-preset", "fast",
+            "-crf", "23",
+            "-c:a", "aac",
+            "-b:a", "128k",
+            "-pix_fmt", "yuv420p",
+            "-shortest",
+            "-t", f"{duration_sec:.2f}",
+            str(output_video_path),
+        ]
 
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    cover_frame_idx = min(total_frames - 5, int(fps * 6.8))
+    cta_start = max(3.8, duration_sec - 3.4)
+    cover_frame_idx = min(total_frames - 4, int(fps * (cta_start + 1.2)))
     rows_to_draw = rows[:5]
+    # 5 kartın açılış aralığını toplam konuşma süresine göre akıllıca dağıt
+    card_interval = min(0.75, max(0.45, (cta_start - 1.2) / max(1, len(rows_to_draw))))
 
     try:
         for fi in range(total_frames):
@@ -1225,20 +1377,32 @@ def render_animated_reel_video(
             frame = bg_base.copy()
             draw = ImageDraw.Draw(frame)
 
-            # 1. Üst İlerleme Çubuğu (İzleyiciye dinamik video hissi verir)
+            # 1. Üst İlerleme Çubuğu
             prog_w = int(W * (fi / max(1, total_frames - 1)))
             draw.rectangle([(0, 0), (W, 8)], fill=(20, 32, 58))
             if prog_w > 0:
                 draw.rectangle([(0, 0), (prog_w, 8)], fill=(16, 185, 129))
 
-            # 2. Üst Canlı Rozet + Yanıp Sönen Canlı Nokta (y=165 — Instagram üst safe-zone altı)
+            # 2. Üst Canlı Rozet + Sağda Animasyonlu Ses Dalgası (Equalizer)
             pulse = 0.5 + 0.5 * math.sin(t * 5.0)
             dot_col = (int(16 + 40 * pulse), int(185 + 55 * pulse), int(129 + 40 * pulse))
-            draw.rounded_rectangle([(60, 165), (620, 222)], radius=28, fill=(14, 28, 52), outline=(56, 189, 248), width=2)
+            tag_right = 635 if voice_mp3 else 660
+            draw.rounded_rectangle([(60, 165), (tag_right, 222)], radius=28, fill=(14, 28, 52), outline=(56, 189, 248), width=2)
             draw.ellipse([(82, 184), (102, 204)], fill=dot_col)
             draw.text((116, 179), tag.upper(), font=f_tag, fill=(226, 232, 240))
 
-            # 3. Dev Kanca Başlık (0.0s - 0.8s arası aşağıdan yumuşak kayarak açılır)
+            if voice_mp3:
+                # Canlı 5 çubuklu equalizer + "SESLİ" rozeti (izleyicinin sesi açmasını sağlar!)
+                eq_x1, eq_x2 = 655, W - 125
+                draw.rounded_rectangle([(eq_x1, 165), (eq_x2, 222)], radius=28, fill=(12, 42, 36), outline=(16, 185, 129), width=2)
+                for bi in range(5):
+                    bar_h = int(10 + 18 * (0.5 + 0.5 * math.sin(t * 11.0 + bi * 1.4)))
+                    bx = eq_x1 + 24 + bi * 10
+                    by_mid = 194
+                    draw.rounded_rectangle([(bx, by_mid - bar_h // 2), (bx + 5, by_mid + bar_h // 2)], radius=2, fill=(52, 211, 153))
+                draw.text((eq_x1 + 84, 182), "SESLİ ANALİZ", font=f_audio_tag, fill=(167, 243, 208))
+
+            # 3. Dev Kanca Başlık (0.0s - 0.75s arası aşağıdan yumuşak kayarak açılır)
             h_prog = ease_out_cubic(t / 0.75)
             h_offset = int((1.0 - h_prog) * 70)
             draw.text((60, 255 + h_offset), hook_line1.upper(), font=f_hook1, fill=(255, 255, 255))
@@ -1251,8 +1415,7 @@ def render_animated_reel_video(
                 draw.text((60, 422), subtitle, font=f_sub, fill=(148, 163, 184))
                 draw.rectangle([(60, 470), (line_end, 475)], fill=(16, 185, 129))
 
-            # 4. 5 Büyük Mobil Kart — Sırayla Sağdan Kayarak Girer (t=0.9s, 1.5s, 2.1s, 2.7s, 3.3s)
-            # Sağ kenardan 130px boşluk bırakır (Instagram beğeni/yorum ikonlarının altında kalmaz!)
+            # 4. 5 Büyük Mobil Kart — Konuşma temposuyla senkronize sağdan kayarak girer
             card_left = 60
             card_right = W - 125
             base_y = 510
@@ -1260,7 +1423,7 @@ def render_animated_reel_video(
             card_gap = 20
 
             for idx, item in enumerate(rows_to_draw):
-                appear_t = 0.85 + idx * 0.55
+                appear_t = 0.75 + idx * card_interval
                 if t < appear_t:
                     continue
                 c_prog = ease_out_cubic((t - appear_t) / 0.45)
@@ -1273,7 +1436,6 @@ def render_animated_reel_video(
 
                 is_winner = item.get("highlight", idx == 0)
                 if is_winner:
-                    # 1. sıradaki lider kartta nefes alan zümrüt çerçeve parıltısı
                     g_val = int(185 + 50 * pulse)
                     bg_c = (8, 48, 39)
                     border_c = (32, g_val, 145)
@@ -1298,7 +1460,6 @@ def render_animated_reel_video(
                 draw.text((x1 + 112, title_y), str(item.get("title", "")), font=f_bank, fill=(255, 255, 255))
 
                 if is_winner:
-                    # Lider rozeti
                     draw.rounded_rectangle([(x1 + 112, y1 + 74), (x1 + 275, y1 + 100)], radius=8, fill=(16, 185, 129))
                     draw.text((x1 + 124, y1 + 78), "EN AVANTAJLI", font=f_win_badge, fill=(8, 22, 16))
                     draw.text((x1 + 288, y1 + 74), str(item.get("sub", "")), font=f_bank_sub, fill=(167, 243, 208))
@@ -1312,27 +1473,39 @@ def render_animated_reel_video(
                 v_col = (250, 204, 21) if is_winner else (56, 189, 248)
                 draw.text((x2 - 28 - vw, y1 + 48), val_s, font=f_val, fill=v_col)
 
-            # 5. Alt Kaydet & Yorum CTA Kartı (t >= 3.8s'de alttan yumuşak yükselir — Instagram alt safe-zone üstünde!)
-            cta_start = 3.8
-            if t >= cta_start:
+            # 5. Alt Alan: CTA açılmadan önce CANLI ALT YAZI, son 3.4 saniyede KAYDET & YORUM CTA KARTI!
+            box_center = (84 + (W - 149)) // 2
+            if t < cta_start and sub_chunks:
+                # Konuşma alt yazısını zaman dilimine göre göster
+                chunk_span = max(1.0, (cta_start - 0.25) / max(1, len(sub_chunks) - 1 if len(sub_chunks) > 1 else 1))
+                c_idx = min(len(sub_chunks) - 1, max(0, int((t - 0.25) / chunk_span))) if t >= 0.25 else 0
+                active_cap = sub_chunks[c_idx]
+                cap_lines = _wrap_caption(active_cap, f_cap, (W - 125) - 60 - 56)
+
+                cy_sub = 1392
+                draw.rounded_rectangle([(60, cy_sub), (W - 125, cy_sub + 162)], radius=22, fill=(13, 22, 44), outline=(56, 189, 248), width=2)
+                total_th = len(cap_lines) * 38
+                ty = cy_sub + (162 - total_th) // 2
+                for cl in cap_lines:
+                    cbb_l = draw.textbbox((0, 0), cl, font=f_cap)
+                    lw = cbb_l[2] - cbb_l[0]
+                    draw.text((box_center - lw // 2, ty), cl, font=f_cap, fill=(248, 250, 252))
+                    ty += 38
+            elif t >= cta_start:
                 cta_prog = ease_out_cubic((t - cta_start) / 0.6)
                 cta_off = int((1.0 - cta_prog) * 180)
                 cy = 1385 + cta_off
 
                 draw.rounded_rectangle([(60, cy), (W - 125, cy + 178)], radius=24, fill=(16, 26, 50), outline=(250, 204, 21), width=2)
-                # Parlak yeşil kaydetme şeridi
                 draw.rounded_rectangle([(84, cy + 20), (W - 149, cy + 84)], radius=32, fill=(16, 185, 129))
                 cbb = draw.textbbox((0, 0), cta_text, font=f_cta)
                 cw = cbb[2] - cbb[0]
-                box_center = (84 + (W - 149)) // 2
                 draw.text((box_center - cw // 2, cy + 36), cta_text, font=f_cta, fill=(8, 22, 16))
 
-                # Etkileşim sorusu
                 qbb = draw.textbbox((0, 0), question_text, font=f_q)
                 qw = qbb[2] - qbb[0]
                 draw.text((box_center - qw // 2, cy + 102), question_text, font=f_q, fill=(241, 245, 249))
 
-                # Sade marka imzası (ortalanmış, spam URL yok!)
                 b_sig = "@faizradari  •  Güncel Banka & Piyasa Radarı"
                 bsbb = draw.textbbox((0, 0), b_sig, font=f_brand)
                 draw.text((box_center - (bsbb[2] - bsbb[0]) // 2, cy + 140), b_sig, font=f_brand, fill=(56, 189, 248))

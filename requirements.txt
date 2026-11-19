@@ -5,3 +5,4 @@ python-dotenv>=1.0.0
 schedule>=1.2.0
 tweepy>=4.14.0
 imageio-ffmpeg>=0.5.1
+edge-tts>=7.0.0

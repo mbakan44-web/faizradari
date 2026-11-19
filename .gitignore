@@ -6,3 +6,5 @@ __pycache__/
 !latest_briefing_table.png
 .last_update_id
 google_webhook_kodu.gs
+latest_voiceover.mp3
+test_*.mp3

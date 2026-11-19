@@ -56,6 +56,7 @@ ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID", "702244471").strip()
 BUFFER_API_KEY = os.getenv("BUFFER_API_KEY", "V5XMW26ILFn0vGh-JEcGgMeopgyd2Q8HgHPyMTAOBAI").strip()
 BUFFER_TIKTOK_CHANNEL_ID = os.getenv("BUFFER_TIKTOK_CHANNEL_ID", "6af3513f62b70b94b0e575f0").strip()
 BUFFER_INSTAGRAM_CHANNEL_ID = os.getenv("BUFFER_INSTAGRAM_CHANNEL_ID", "6af362bc62b70b94b0e67a0e").strip()
+BUFFER_YOUTUBE_CHANNEL_ID = os.getenv("BUFFER_YOUTUBE_CHANNEL_ID", "").strip()
 
 
 def convert_to_whatsapp(text: str) -> str:
@@ -360,6 +361,71 @@ def build_social_hook_caption(topic: str, custom_summary: str = "") -> tuple[str
     return hooks.get(topic, hooks["analiz"])
 
 
+def post_to_buffer_youtube(media_url: str, title: str, description: str) -> bool:
+    """
+    Buffer GraphQL API üzerinden YouTube Shorts kanalına 0 TL maliyetle otomatik dikey video paylaşır.
+    BUFFER_YOUTUBE_CHANNEL_ID tanımlandığında otomatik devreye girer.
+    """
+    if not (BUFFER_API_KEY and BUFFER_YOUTUBE_CHANNEL_ID and media_url):
+        return False
+    try:
+        mutation = """
+        mutation CreatePost($input: CreatePostInput!) {
+          createPost(input: $input) {
+            ... on PostActionSuccess {
+              post {
+                id
+                status
+              }
+            }
+            ... on MutationError {
+              message
+            }
+          }
+        }
+        """
+        short_title = (title.strip()[:92] + " #shorts") if "#shorts" not in title.lower() else title.strip()[:99]
+        variables = {
+            "input": {
+                "channelId": BUFFER_YOUTUBE_CHANNEL_ID,
+                "text": description,
+                "schedulingType": "automatic",
+                "mode": "shareNow",
+                "needsApproval": False,
+                "metadata": {
+                    "youtube": {
+                        "title": short_title,
+                        "categoryId": "22",
+                        "privacy": "public",
+                        "madeForKids": False,
+                    }
+                },
+                "assets": [
+                    {
+                        "video": {
+                            "url": media_url
+                        }
+                    }
+                ]
+            }
+        }
+        headers = {
+            "Authorization": f"Bearer {BUFFER_API_KEY}",
+            "Content-Type": "application/json",
+        }
+        res = requests.post("https://api.buffer.com", json={"query": mutation, "variables": variables}, headers=headers, timeout=35).json()
+        post_data = res.get("data", {}).get("createPost", {})
+        if "post" in post_data:
+            print(f"[BAŞARILI] Video Buffer üzerinden YouTube Shorts kanalına iletildi! (Post ID: {post_data['post']['id']})")
+            return True
+        else:
+            print(f"[UYARI] Buffer YouTube Shorts gönderim hatası: {post_data.get('message', res)}")
+            return False
+    except Exception as e:
+        print(f"[UYARI] Buffer YouTube API hatası: {e}")
+        return False
+
+
 def dispatch_to_buffer_omnichannel(
     square_img_path: str,
     title: str,
@@ -367,11 +433,11 @@ def dispatch_to_buffer_omnichannel(
     reel_data: dict = None,
 ) -> None:
     """
-    Instagram Reels için:
-    1. Günlük spam kotasını kontrol eder (Günde EN FAZLA 2 yüksek kaliteli Reels).
-    2. reel_data verilmişse %100 native 1080x1920 ANİMASYONLU Reels videosu üretir (kinetik kartlar + müzik).
+    Instagram Reels ve YouTube Shorts için:
+    1. Günlük spam kotasını kontrol eder (Günde EN FAZLA 2 yüksek kaliteli sesli video).
+    2. reel_data verilmişse %100 native 1080x1920 TÜRKÇE AI SPİKERLİ + ANİMASYONLU Reels videosu üretir.
     3. GitHub Actions ortamındaysa medya + rates_cache.json dosyalarını güvenle CDN'e pushlar.
-    4. Instagram'a sesli animasyonlu Reels olarak yayınlar (TikTok ihtar kilidi kapalı kalır).
+    4. Instagram Reels'e (ve bağlıysa YouTube Shorts'a) anında yayınlar.
     """
     try:
         from scraper import _load_full_cache, _save_full_cache
@@ -396,7 +462,7 @@ def dispatch_to_buffer_omnichannel(
         v_path = str(Path(__file__).parent / "latest_vertical_story.png")
         video_path = str(Path(__file__).parent / "latest_story_video.mp4")
 
-        # 1. Native Animasyonlu Reels (öncelikli) veya yedek temiz dikey video
+        # 1. Native Türkçe Sesli & Animasyonlu Reels (öncelikli)
         if reel_data:
             render_animated_reel_video(
                 tag=reel_data.get("tag", "CANLI PİYASA VERİSİ"),
@@ -406,9 +472,10 @@ def dispatch_to_buffer_omnichannel(
                 rows=reel_data.get("rows", []),
                 cta_text=reel_data.get("cta_text", "KAYDET — Karar vermeden önce lazım olur!"),
                 question_text=reel_data.get("question_text", "Sence hangi banka daha avantajlı? Yorumlara yaz!"),
+                voice_script=reel_data.get("voice_script", ""),
                 output_video_path=video_path,
                 output_cover_path=v_path,
-                duration_sec=8.0,
+                duration_sec=8.5,
                 fps=15,
             )
         else:
@@ -432,7 +499,7 @@ def dispatch_to_buffer_omnichannel(
                 subprocess.run(["git", "config", "user.name", "github-actions[bot]"], check=False)
                 subprocess.run(["git", "config", "user.email", "github-actions[bot]@users.noreply.github.com"], check=False)
                 subprocess.run(["git", "add", "rates_cache.json", "latest_vertical_story.png", "latest_story_video.mp4"], check=False)
-                subprocess.run(["git", "commit", "-m", "Auto-update live animated Reel & cache for Buffer CDN"], check=False)
+                subprocess.run(["git", "commit", "-m", "Auto-update live voiced animated Reel & cache for Buffer CDN"], check=False)
                 subprocess.run(["git", "pull", "--rebase"], check=False)
                 subprocess.run(["git", "push"], check=False)
                 time.sleep(3)
@@ -452,8 +519,13 @@ def dispatch_to_buffer_omnichannel(
         else:
             print("[GÜVENLİK KİLİDİ] TikTok otomatik gönderimi hesap güvenliği için kapalı.")
 
-        # Instagram: Animasyonlu sesli Reels olarak paylaş
+        # Instagram: Türkçe sesli + animasyonlu Reels olarak paylaş
         post_to_buffer_instagram(public_video_url, caption, is_video=True)
+
+        # YouTube Shorts (BUFFER_YOUTUBE_CHANNEL_ID tanımlıysa aynı sesli dikey videoyu Shorts'a da gönder!)
+        if BUFFER_YOUTUBE_CHANNEL_ID:
+            yt_title = f"{reel_data.get('hook_line1', title)} {reel_data.get('hook_line2', '')}".strip() if reel_data else title
+            post_to_buffer_youtube(public_video_url, yt_title, caption)
     except Exception as e:
         print(f"[UYARI] Buffer omnichannel gönderim hatası: {e}")
 
@@ -484,14 +556,13 @@ def sanitize_x_text(text: str) -> str:
 def post_to_x(img_path: str = None, tweet_text: str = "") -> None:
     """
     X (Twitter) paylaşım motoru:
-    - img_path verilmişse: Görsel + Metin paylaşır (Günde 1 kez).
-    - img_path None ise: Yalnızca zengin metin paylaşır (~0.01$ düşük maliyetli, günde 6 kez).
+    - img_path .mp4 ise: Yerel sesli video (native tweet_video) olarak yükler (X algoritmasında en yüksek erişim!).
+    - img_path .png/.jpg ise: Görselli paylaşım yapar.
     - tweet_text: sanitize_x_text ile URL'lerden arındırılarak 0.01$ tarifesinde kalması sağlanır.
     """
     if not (X_API_KEY and X_API_SECRET and X_ACCESS_TOKEN and X_ACCESS_TOKEN_SECRET):
         return
     try:
-        # URL temizliği (0.20$ yerine 0.01$ PostCreate tarifesi için zorunlu)
         cleaned_text = sanitize_x_text(tweet_text)
 
         client_v2 = tweepy.Client(
@@ -501,14 +572,35 @@ def post_to_x(img_path: str = None, tweet_text: str = "") -> None:
             access_token_secret=X_ACCESS_TOKEN_SECRET,
         )
         media_ids = None
+        is_video = False
         if img_path and Path(img_path).exists():
             auth = tweepy.OAuth1UserHandler(X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET)
             api_v1 = tweepy.API(auth)
-            media = api_v1.media_upload(filename=img_path)
-            media_ids = [media.media_id]
+            if str(img_path).lower().endswith(".mp4"):
+                is_video = True
+                media = api_v1.media_upload(
+                    filename=img_path,
+                    media_category="tweet_video",
+                    chunked=True,
+                )
+                # Video işlenene kadar bekle
+                if hasattr(media, "processing_info") and media.processing_info:
+                    state = media.processing_info.get("state")
+                    while state in ("pending", "in_progress"):
+                        wait_s = media.processing_info.get("check_after_secs", 3)
+                        time.sleep(max(1, int(wait_s)))
+                        status = api_v1.get_media_upload_status(media.media_id)
+                        media.processing_info = getattr(status, "processing_info", None) or {}
+                        state = media.processing_info.get("state")
+                        if state == "failed":
+                            raise RuntimeError(f"X video işleme hatası: {media.processing_info}")
+                media_ids = [media.media_id]
+            else:
+                media = api_v1.media_upload(filename=img_path)
+                media_ids = [media.media_id]
 
         res = client_v2.create_tweet(text=cleaned_text, media_ids=media_ids)
-        mode = "Görselli" if media_ids else "Metin"
+        mode = "Sesli Videolu" if is_video else ("Görselli" if media_ids else "Metin")
         print(f"[BAŞARILI] {mode} Tweet X (@faizradari) hesabında paylaşıldı! (Tweet ID: {res.data.get('id')})")
     except Exception as e:
         print(f"[UYARI] X paylaşımı yapılamadı: {e}")
@@ -1017,6 +1109,14 @@ def send_loan_report(
             }
             for i, o in enumerate(offers[:5])
         ]
+        best_o = offers[0]
+        second_o = offers[1] if len(offers) > 1 else offers[0]
+        v_script = (
+            f"{format_tl(principal)} {lbl.lower()} çekecekler dikkat! "
+            f"Bankalar arasında tam {diff_tl} fark var. "
+            f"Bugün en uygun oran %{best_o.monthly_rate:.2f} ile {best_o.bank_name}, ardından {second_o.bank_name} geliyor. "
+            f"Kredi çekmeden önce bu listeyi mutlaka kaydet!"
+        )
         reel_data = {
             "tag": f"GÜNCEL {lbl} • {_tr_short_date()}",
             "hook_line1": f"{format_tl(principal)} KREDİDE",
@@ -1025,6 +1125,7 @@ def send_loan_report(
             "rows": reel_rows,
             "cta_text": "KAYDET — Kredi çekmeden önce lazım olur!",
             "question_text": "Sence bu oranlar önümüzdeki ay düşer mi? Yorumlara yaz!",
+            "voice_script": v_script,
         }
         dispatch_to_buffer_omnichannel(img_path, f"{lbl} FAİZ ORANLARI", topic=loan_type, reel_data=reel_data)
     return result
@@ -1076,6 +1177,13 @@ def send_deposit_report(
             }
             for i, d in enumerate(deposits[:5])
         ]
+        second_d = deposits[1] if len(deposits) > 1 else best
+        v_script_dep = (
+            f"{format_tl(principal)} mevduatta güncel net kazançlar belli oldu! "
+            f"Stopaj sonrası en yüksek getiri %{best.annual_rate:.1f} ile {best.bank_name} tarafında, ayda net {format_tl(best.net_return)}. "
+            f"İkinci sırada {second_d.bank_name} var. "
+            f"Paranı değerlendirmeden önce bu tabloyu mutlaka kaydet!"
+        )
         reel_data = {
             "tag": f"CANLI MEVDUAT • {_tr_short_date()}",
             "hook_line1": f"{format_tl(principal)} MEVDUATTA",
@@ -1084,6 +1192,7 @@ def send_deposit_report(
             "rows": reel_rows,
             "cta_text": "KAYDET — Banka seçmeden önce lazım olur!",
             "question_text": "Birikimin mevduatta mı, altında mı? Yorumlara yaz!",
+            "voice_script": v_script_dep,
         }
         dispatch_to_buffer_omnichannel(img_path, "GÜNCEL MEVDUAT FAİZLERİ", topic="mevduat", reel_data=reel_data)
     return result
@@ -1127,6 +1236,13 @@ def send_spread_report(target_chat_id: str = CHANNEL_ID) -> dict:
                 "highlight": i == 0,
             })
 
+        b1_sp = src_list[0].bank_name if src_list else "bankalar"
+        b2_sp = src_list[1].bank_name if len(src_list) > 1 else ""
+        v_script_sp = (
+            f"Gram altın alırken bankalara boşuna fazla makas ödemeyin! "
+            f"Bugün en dar alış satış makası {b1_sp}" + (f" ve {b2_sp}" if b2_sp else "") + " tarafında. "
+            f"İşlem yapmadan önce bu listeyi mutlaka kaydet, sen hangi bankayı kullanıyorsun yorumlara yaz!"
+        )
         reel_data = {
             "tag": f"CANLI MAKAS RADARI • {_tr_short_date()}",
             "hook_line1": "GRAM ALTIN ALIRKEN",
@@ -1135,6 +1251,7 @@ def send_spread_report(target_chat_id: str = CHANNEL_ID) -> dict:
             "rows": reel_rows,
             "cta_text": "KAYDET — Altın almadan önce kontrol et!",
             "question_text": "Altın alırken hangi bankayı kullanıyorsun? Yorumlara yaz!",
+            "voice_script": v_script_sp,
         }
         dispatch_to_buffer_omnichannel(img_path, "BANKA DÖVİZ & ALTIN MAKASLARI", topic="makas", reel_data=reel_data)
     return result
@@ -1171,6 +1288,11 @@ def send_viral_insight_report(target_chat_id: str = CHANNEL_ID) -> dict:
         question = "1 Milyon TL'niz olsa mevduata mı koyardınız, altına mı?"
         hook1, hook2 = "1 MİLYON TL MEVDUAT", f"AYLIK +{format_tl(best.net_return)}!"
         sub = "32 günlük vade • %17,5 stopaj sonrası net kazançlar"
+        v_script_ins = (
+            f"1 milyon lirası olan biri bugün mevduattan ayda net kaç lira kazanıyor? "
+            f"Stopaj sonrası en yüksek getiri %{best.annual_rate:.1f} ile {best.bank_name} tarafında tam {format_tl(best.net_return)}. "
+            f"1 milyon liranız olsa mevduata mı koyardınız, altına mı? Yorumlara yazın!"
+        )
         x_text = (
             f"1.000.000 TL'si olan biri bugün 32 günlük vadeli mevduattan (%17,5 stopaj düşüldükten sonra) ayda net {format_tl(best.net_return)} kazanıyor.\n\n"
             f"En yüksek getiri sunan 3 banka:\n"
@@ -1197,6 +1319,12 @@ def send_viral_insight_report(target_chat_id: str = CHANNEL_ID) -> dict:
         question = "Sizce ev almak mı, yoksa 2 milyonu mevduatta tutup kira ödemek mi?"
         hook1, hook2 = "2 MİLYON TL HESABI:", "EV Mİ, MEVDUAT MI?"
         sub = f"Aylık faiz geliri +{format_tl(best_d2.net_return)} • Konut taksiti {format_tl(best_k.monthly_installment)}"
+        v_script_ins = (
+            f"2 milyon lirayla bugün ev mi almak mantıklı, yoksa parayı mevduata koyup kira mı ödemek? "
+            f"2 milyonun aylık net faiz getirisi {format_tl(best_d2.net_return)}. "
+            f"Aynı tutarda konut kredisi taksiti ise {format_tl(best_k.monthly_installment)}. "
+            f"Siz olsanız hangisini seçerdiniz? Yorumlara yazın!"
+        )
         x_text = (
             f"Günün en çok tartışılan hesabı:\n\n"
             f"2.000.000 TL'yi 32 günlük mevduata koyan biri aylık net {format_tl(best_d2.net_return)} kazanıyor ({best_d2.bank_name} %{best_d2.annual_rate:.1f}).\n\n"
@@ -1220,6 +1348,11 @@ def send_viral_insight_report(target_chat_id: str = CHANNEL_ID) -> dict:
         question = "Altın alırken bankayı mı, yoksa fiziki kuyumcuyu mu tercih ediyorsunuz?"
         hook1, hook2 = "100 GRAM ALTINDA", f"{format_tl(loss_100)} MAKAS FARKI!"
         sub = f"Canlı Gram Altın: {tickers.get('ALTIN', '—')} • Bankaların 100 gram maliyeti"
+        v_script_ins = (
+            f"Bankadan 100 gram altın alırken sadece makas farkından {format_tl(loss_100)} kaybedebileceğinizi biliyor musunuz? "
+            f"Bugün en dar makas {g_best.bank_name} tarafında. "
+            f"Altın almadan önce bu tabloyu mutlaka kaydet!"
+        )
         x_text = (
             f"Bugün bankadan 100 gram altın alıp satarken doğru bankayı seçmezseniz sadece makas farkından {format_tl(loss_100)} fazla ödüyorsunuz.\n\n"
             f"100 gram altında bankaların güncel makas maliyeti:\n"
@@ -1244,6 +1377,11 @@ def send_viral_insight_report(target_chat_id: str = CHANNEL_ID) -> dict:
         question = "Sizce 100.000 TL kredi için bu aylık taksitler ödenebilir mi?"
         hook1, hook2 = "100.000 TL KREDİDE", f"{format_tl(diff_l)} FARK VAR!"
         sub = "12 ay vade • Vergi ve masraflar dahil gerçek toplam maliyet"
+        v_script_ins = (
+            f"100 bin lira ihtiyaç kredisi çekerken yanlış bankayı seçen biri tam {format_tl(diff_l)} fazla ödüyor! "
+            f"Bugün en uygun oran %{best_l.monthly_rate:.2f} ile {best_l.bank_name}, aylık taksiti {format_tl(best_l.monthly_installment)}. "
+            f"Kredi çekmeden önce bu listeyi mutlaka kaydet!"
+        )
         x_text = (
             f"100.000 TL ihtiyaç kredisi (12 ay) çeken iki kişiden biri diğerine göre tam {format_tl(diff_l)} fazla geri ödeme yapıyor.\n\n"
             f"Bugün en düşük toplam geri ödeme sunan 3 banka:\n"
@@ -1269,6 +1407,11 @@ def send_viral_insight_report(target_chat_id: str = CHANNEL_ID) -> dict:
         question = "Döviz işlemlerinde hangi bankanın kurundan memnunsunuz?"
         hook1, hook2 = "10.000 DOLARDA", f"{format_tl(diff_10k)} MAKAS FARKI!"
         sub = f"Canlı Dolar/TL: {tickers.get('USD', '—')} • En dar makaslı 5 banka"
+        v_script_ins = (
+            f"Bankadan 10 bin dolar alım satımı yaparken banka seçiminize göre sadece makastan {format_tl(diff_10k)} fark oluşuyor! "
+            f"Bugün en dar dolar makası {u_best.bank_name} tarafında. "
+            f"Sen döviz alırken hangi bankayı kullanıyorsun, yorumlara yaz!"
+        )
         x_text = (
             f"Bankadan 10.000 Dolar alım-satımı yaparken banka tercihinize göre sadece makastan {format_tl(diff_10k)} fark oluşuyor.\n\n"
             f"10.000$ işlemde en düşük makas maliyeti:\n"
@@ -1290,6 +1433,11 @@ def send_viral_insight_report(target_chat_id: str = CHANNEL_ID) -> dict:
         question = "Bankaların %0 faizli hoş geldin kampanyalarından yararlandınız mı?"
         hook1, hook2 = "YENİ MÜŞTERİLERE", "50.000 TL %0 FAİZ!"
         sub = "3-6 ay vade • Güncel hoş geldin kampanyası sunan bankalar"
+        v_script_ins = (
+            f"Bankaların yeni müşterilere özel yüzde sıfır faizli nakit limitleri 50 bin liraya kadar çıkıyor! "
+            f"Başta {zero_offers[0]['bank']} ve {zero_offers[1]['bank']} olmak üzere güncel liste ekranda. "
+            f"İhtiyacın olduğunda bakmak için bu videoyu mutlaka kaydet!"
+        )
         x_text = (
             f"Bankaların yeni müşterilere özel %0 faizli kredi ve taksitli nakit avans kampanyaları devam ediyor.\n\n"
             f"Öne çıkan güncel limitler:\n"
@@ -1312,6 +1460,11 @@ def send_viral_insight_report(target_chat_id: str = CHANNEL_ID) -> dict:
         question = "Yüksek faiz için başka bankaya geçer misiniz, yoksa alışkanlık mı?"
         hook1, hook2 = "500.000 TL'DE YILDA", f"{format_tl(diff_y)} FARK!"
         sub = "32 günlük vadeli mevduat • %17,5 stopaj sonrası net getiri"
+        v_script_ins = (
+            f"500 bin liranızı düşük faizli bankada tutarsanız yılda tam {format_tl(diff_y)} daha az kazanıyorsunuz! "
+            f"Bugün en yüksek getiri %{best5.annual_rate:.1f} ile {best5.bank_name} tarafında. "
+            f"Yüksek faiz için banka değiştirir misiniz? Yorumlara yazın!"
+        )
         x_text = (
             f"500.000 TL'sini düşük faizli bankada tutan biri ile en yüksek faizli bankaya taşıyan arasında 1 yılda yaklaşık {format_tl(diff_y)} net gelir farkı oluşuyor.\n\n"
             f"500.000 TL'nin 32 günlük güncel net kazançları:\n"
@@ -1347,9 +1500,6 @@ def send_viral_insight_report(target_chat_id: str = CHANNEL_ID) -> dict:
         print(f"[BAŞARILI] Günün Cep Hesabı Analizi ({tag}) {target_chat_id} hedefine paylaşıldı!")
 
     if target_chat_id == CHANNEL_ID:
-        post_to_x(img_path, x_text)
-        post_to_whatsapp(img_path, tg_caption)
-
         ig_cap = (
             f"{headline}\n\n"
             f"{big_val}\n\n"
@@ -1366,8 +1516,15 @@ def send_viral_insight_report(target_chat_id: str = CHANNEL_ID) -> dict:
             "cta_text": "KAYDET — Lazım olduğunda elinin altında olsun!",
             "question_text": question,
             "caption": ig_cap,
+            "voice_script": v_script_ins,
         }
         dispatch_to_buffer_omnichannel(img_path, headline, topic="analiz", reel_data=reel_data)
+
+        # X'te yerel sesli video (native tweet_video) olarak paylaş — çok daha yüksek erişim!
+        video_path = str(Path(__file__).parent / "latest_story_video.mp4")
+        x_media = video_path if Path(video_path).exists() else img_path
+        post_to_x(x_media, x_text)
+        post_to_whatsapp(img_path, tg_caption)
 
     return result
 
