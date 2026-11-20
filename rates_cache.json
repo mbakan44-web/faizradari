@@ -98,13 +98,17 @@
     "Halkbank": 3.65,
     "Ziraat Bankası": 3.29
   },
-  "last_dispatched_slot": "2026-11-20_09_bulten",
-  "last_dispatched_at": "2026-11-20 09:29:31",
+  "last_dispatched_slot": "2026-11-20_11_ihtiyac",
+  "last_dispatched_at": "2026-11-20 11:30:28",
   "last_makas_date": "2026-11-19",
   "last_published_fingerprints": {
     "ihtiyac": {
-      "date": "2026-11-19",
+      "date": "2026-11-20",
       "fingerprint": [
+        [
+          "ON Dijital",
+          2.89
+        ],
         [
           "DenizBank",
           2.89
@@ -128,10 +132,6 @@
         [
           "Kuveyt Türk",
           3.18
-        ],
-        [
-          "ON Dijital",
-          3.19
         ],
         [
           "getirfinans",
@@ -265,7 +265,8 @@
       "mevduat"
     ],
     "2026-11-20": [
-      "bulten"
+      "bulten",
+      "ihtiyac"
     ]
   },
   "daily_instagram_posts": {
@@ -274,7 +275,8 @@
       "yaris"
     ],
     "2026-11-20": [
-      "haber"
+      "haber",
+      "ihtiyac"
     ]
   },
   "dispatched_news_history": [
