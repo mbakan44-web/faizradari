@@ -58,9 +58,9 @@ jobs:
         run: |
           TOPIC="${{ github.event.inputs.topic || 'auto' }}"
           if [ "$TOPIC" != "auto" ]; then
-            python bot.py --auto-slot --topic="$TOPIC"
+            python bot.py --auto-slot --topic="$TOPIC" || true
           else
-            python bot.py --auto-slot
+            python bot.py --auto-slot || true
           fi
           python ilan_radari.py --auto-slot || true
 
