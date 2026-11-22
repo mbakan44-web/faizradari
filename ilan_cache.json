@@ -2,6 +2,10 @@
   "dispatched_headlines": [
     "ATK 70 Sağlık ve Laboratuvar Personeli Alacak! Hemşire, Laborant, Biyolog ve Otopsi"
   ],
-  "daily_dispatched": {},
-  "updated_at": "2026-11-22 18:30"
+  "daily_dispatched": {
+    "2026-11-22": [
+      "spotlight_4"
+    ]
+  },
+  "updated_at": "2026-11-22 16:29"
 }
