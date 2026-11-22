@@ -301,8 +301,8 @@ def render_daily_jobs_table_image(
 
     # Footer
     draw.line([(40, 1004), (W - 40, 1004)], fill=(30, 41, 59), width=1)
-    draw.text((40, 1016), "Resmi kurum duyurularından derlenmiştir. Güncel ilan ve maaş takibi: @ilanradari", font=f_foot, fill=(148, 163, 184))
-    draw.text((40, 1038), "Kardeş Finans & Faiz Kanalımız: @faizradari", font=_load_font(13, bold=True), fill=(251, 191, 36))
+    draw.text((40, 1016), "Resmi kurum duyurularından derlenmiştir. Bilgilendirme amaçlıdır.", font=f_foot, fill=(148, 163, 184))
+    draw.text((40, 1038), "Günlük Kamu, İŞKUR ve Özel Sektör İş İlanları Takibi: @ilanradari", font=_load_font(13, bold=True), fill=(251, 191, 36))
 
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     img.save(output_path, format="PNG", optimize=True)
@@ -404,7 +404,7 @@ def render_job_spotlight_image(
     # Alt Bilgi
     draw.line([(40, 968), (W - 40, 968)], fill=(30, 41, 59), width=1)
     draw.text((40, 984), "İş arayan arkadaşlarınızla ve aile gruplarınızla paylaşmayı unutmayın.", font=_load_font(15, bold=True), fill=(251, 191, 36))
-    draw.text((40, 1012), "Günlük İş İlanları & Maaş Rehberi: @ilanradari   •   Finans & Faiz: @faizradari", font=f_foot, fill=(148, 163, 184))
+    draw.text((40, 1012), "Günlük İş İlanları, Personel Alımı & Maaş Rehberi: @ilanradari", font=f_foot, fill=(148, 163, 184))
 
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     img.save(output_path, format="PNG", optimize=True)
@@ -419,12 +419,9 @@ def _ilan_reply_markup() -> str:
     markup = {
         "inline_keyboard": [
             [
-                {"text": "📢 İlan Radarı Kanalı (@ilanradari)", "url": "https://t.me/ilanradari"},
+                {"text": "📢 İlan Radarı Kanalımız (@ilanradari)", "url": "https://t.me/ilanradari"},
                 {"text": "📲 İş Arayan Arkadaşına Gönder", "url": f"https://t.me/share/url?url=https://t.me/ilanradari&text={share_txt}"},
-            ],
-            [
-                {"text": "💰 Kardeş Kanal: Faiz & Mevduat Radarı (@faizradari)", "url": "https://t.me/faizradari"},
-            ],
+            ]
         ]
     }
     return json.dumps(markup)
@@ -442,8 +439,7 @@ def send_welcome_and_pin(target_chat_id: str = ILAN_CHANNEL_ID) -> dict:
         "🔔 <b>Önemli İlanları Kaçırmamak İçin:</b>\n"
         "• Sağ üstten kanal bildirimlerini (🔔) açmayı,\n"
         "• İş arayan yakınlarınızı ve arkadaşlarınızı kanalımıza davet etmeyi unutmayın!\n\n"
-        "👉 <b>Kanal Linkimiz:</b> https://t.me/ilanradari\n"
-        "🤝 <b>Finans & Kredi/Mevduat Kanalımız:</b> @faizradari"
+        "👉 <b>Resmi Kanalımız:</b> @ilanradari"
     )
     logo_path = Path(__file__).parent / "ilan_radari_logo.jpg"
     with open(logo_path, "rb") as f:
@@ -486,7 +482,7 @@ def send_daily_jobs_report(target_chat_id: str = ILAN_CHANNEL_ID) -> dict:
         f"{bullets}\n\n"
         "📌 <b>Başvuru Kanalları:</b> e-Devlet Kariyer Kapısı, İŞKUR e-Şube ve ilgili kurumların resmi duyuru sayfaları.\n\n"
         "📲 <i>İş arayan arkadaşlarınızla ve aile gruplarınızla paylaşmayı unutmayın!</i>\n"
-        "🔔 <b>Takip:</b> @ilanradari  |  <b>Finans:</b> @faizradari"
+        "🔔 <b>Takip:</b> @ilanradari"
     )
 
     with open(img_path, "rb") as f:
