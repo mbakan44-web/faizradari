@@ -419,7 +419,6 @@ def _ilan_reply_markup() -> str:
     markup = {
         "inline_keyboard": [
             [
-                {"text": "📢 İlan Radarı Kanalımız (@ilanradari)", "url": "https://t.me/ilanradari"},
                 {"text": "📲 İş Arayan Arkadaşına Gönder", "url": f"https://t.me/share/url?url=https://t.me/ilanradari&text={share_txt}"},
             ]
         ]
