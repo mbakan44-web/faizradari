@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-22 06:29",
+  "updated_at": "2026-11-22 08:29",
   "ihtiyac_kredisi": {
     "Odeabank": 3.09,
     "Ziraat Bankası": 3.69,
@@ -298,6 +298,9 @@
     "2026-11-21": [
       "haber",
       "analiz"
+    ],
+    "2026-11-22": [
+      "haber"
     ]
   },
   "dispatched_news_history": [
@@ -315,6 +318,11 @@
       "date": "2026-11-21",
       "headline": "BDDK'dan konut kredisi kararı! İki ve üzeri konutu olanlara yüzde 75 sınırı",
       "category": "BANKACILIK & KREDİ KARARI"
+    },
+    {
+      "date": "2026-11-22",
+      "headline": "Altın ve gümüşte sert düşüş",
+      "category": "MERKEZ BANKASI & FAİZ"
     }
   ]
 }
