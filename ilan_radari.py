@@ -987,6 +987,55 @@ if __name__ == "__main__":
         send_welcome_and_pin(ILAN_CHANNEL_ID)
         send_daily_jobs_report(ILAN_CHANNEL_ID)
         send_spotlight_job_report(ILAN_CHANNEL_ID, force=True)
+    elif "--sync-whatsapp" in sys.argv:
+        import time
+        welcome_cap = (
+            "🎯 <b>İLAN RADARI WHATSAPP KANALINA HOŞ GELDİNİZ!</b>\n"
+            "<i>Türkiye'nin Güncel İş İlanları, Kamu Personel Alımı ve Maaş Rehberi</i>\n\n"
+            "Bu kanalda her gün tek bakışlık net tablolarla şunları bulacaksınız:\n"
+            "📋 <b>1. Kamu & İŞKUR Personel Alımları:</b> Bakanlık, belediye, şehir hastanesi ve üniversite iş ilanları\n"
+            "💰 <b>2. Emekli Maaş Promosyonu Ligi:</b> Bankaların en yüksek nakit promosyon karşılaştırmaları\n"
+            "📊 <b>3. Meslek Meslek Maaş & Zam Hesapları:</b> Memur, işçi, emekli ve asgari ücret zam tabloları"
+        )
+        post_ilan_to_whatsapp(str(Path(__file__).parent / "ilan_radari_logo.jpg"), welcome_cap)
+        time.sleep(2)
+
+        jobs = fetch_live_job_announcements(limit=6)
+        if jobs:
+            img_table = render_daily_jobs_table_image(jobs, str(Path(__file__).parent / "latest_ilan_table.png"))
+            now_str = datetime.now().strftime("%d.%m.%Y")
+            top_hook = jobs[0]["title"]
+            bullets = "\n".join([f"{i + 1}️⃣ <b>{j['title'][:78]}</b> (<i>{j['tag']}</i>)" for i, j in enumerate(jobs[:6])])
+            table_cap = (
+                f"🔥 <b>{top_hook} (+{len(jobs[:6])-1} Yeni Kamu & İŞKUR İlanı!)</b>\n"
+                f"📋 <i>Günün Öne Çıkan Personel Alımları ({now_str}):</i>\n\n"
+                f"{bullets}\n\n"
+                "🏛️ <b>Resmi Başvuru Portalları:</b>\n"
+                "• https://isealimkariyerkapisi.cbiko.gov.tr (e-Devlet Kariyer Kapısı)\n"
+                "• https://esube.iskur.gov.tr (İŞKUR e-Şube)"
+            )
+            post_ilan_to_whatsapp(img_table, table_cap)
+            time.sleep(2)
+
+            for j_spot in jobs[:2]:
+                img_sp = render_job_spotlight_image(j_spot, str(Path(__file__).parent / "latest_ilan_spotlight.png"))
+                g_name = j_spot.get("gov_name", "Cumhurbaşkanlığı Kariyer Kapısı")
+                g_url = j_spot.get("gov_url", "https://isealimkariyerkapisi.cbiko.gov.tr")
+                cap_sp = (
+                    f"🚨 <b>{j_spot['title']}</b>\n"
+                    f"🏷️ <i>{j_spot['tag']} • {j_spot['badge']} ({now_str})</i>\n\n"
+                    f"📝 <b>İlan Özeti:</b>\n{j_spot['summary']}\n\n"
+                    f"🏛️ <b>Resmi Başvuru & Kurum Sayfası:</b>\n👉 {g_name} ({g_url})"
+                )
+                post_ilan_to_whatsapp(img_sp, cap_sp)
+                time.sleep(2)
+
+        for mid in (5, 6, 7, 9, 10, 12):
+            requests.post(
+                f"{API_BASE}/editMessageReplyMarkup",
+                json={"chat_id": ILAN_CHANNEL_ID, "message_id": mid, "reply_markup": _ilan_reply_markup("https://isealimkariyerkapisi.cbiko.gov.tr", "e-Devlet Kariyer Kapısı")},
+                timeout=10,
+            )
     elif "--auto-slot" in sys.argv:
         run_ilan_auto_slot()
     else:
