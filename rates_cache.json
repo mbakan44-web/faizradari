@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-23 06:29",
+  "updated_at": "2026-11-23 08:30",
   "ihtiyac_kredisi": {
     "Odeabank": 3.09,
     "Ziraat Bankası": 3.69,
@@ -64,7 +64,7 @@
     "HSBC": 40.5,
     "ING": 42.0,
     "Hayat Finans": 40.63,
-    "Odeabank": 43.0,
+    "Odeabank": 42.0,
     "ON Dijital": 41.5,
     "TOM Bank": 42.0,
     "Şekerbank": 41.0,
@@ -311,6 +311,9 @@
     "2026-11-22": [
       "haber",
       "analiz"
+    ],
+    "2026-11-23": [
+      "haber"
     ]
   },
   "dispatched_news_history": [
@@ -332,6 +335,11 @@
     {
       "date": "2026-11-22",
       "headline": "Altın ve gümüşte sert düşüş",
+      "category": "MERKEZ BANKASI & FAİZ"
+    },
+    {
+      "date": "2026-11-23",
+      "headline": "Piyasanın enflasyon beklentisi artarken, hanehalkının geriledi",
       "category": "MERKEZ BANKASI & FAİZ"
     }
   ]
