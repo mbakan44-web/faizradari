@@ -92,6 +92,69 @@ def _detect_job_tag_and_badge(title: str, desc: str) -> Tuple[str, str]:
     return tag, badge
 
 
+def _clean_clickbait_summary(text: str) -> str:
+    """
+    Haber sitelerinin özet sonuna eklediği 'Detaylar burada.', 'İşte detaylar...',
+    'Detaylar haberimizde.' gibi tıklama tuzağı cümlelerini ve özel site isimlerini temizler.
+    """
+    if not text:
+        return ""
+    cleaned = text
+    # Özel haber sitesi isimlerini ve uzantılarını temizle
+    cleaned = re.sub(r"\b(isinolsa\.com|memurlar\.net|kamupersoneli\.net|işin olsa|kamu personeli)\b", "", cleaned, flags=re.IGNORECASE)
+    # Son cümledeki 'Detaylar burada', 'İşte detaylar', 'Haberimizde' kalıplarını sil
+    tail_patterns = [
+        r"[^\.!\?]*\b(detaylar|ayrıntılar)\s+(burada|haberimizde|yazımızda|sayfamızda|aşağıda)[^\.!\?]*[\.!\?…]*",
+        r"[^\.!\?]*\bişte\s+(detaylar|başvuru\s+ekranı|şartlar|kadro\s+dağılımı)[^\.!\?]*[\.!\?…]*",
+        r"[^\.!\?]*\b(haberin\s+devamı|tıklayınız|başvuru\s+linki\s+haberimizde)[^\.!\?]*[\.!\?…]*",
+    ]
+    for pat in tail_patterns:
+        cleaned = re.sub(pat, " ", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned
+
+
+def _resolve_official_gov_link(title: str, summary: str) -> Tuple[str, str]:
+    """
+    İlanın içeriğine göre SADECE resmi kamu kurumu (.gov.tr / resmi banka) başvuru adresini döndürür.
+    Asla memurlar.net, isinolsa.com gibi üçüncü taraf haber sitelerine yönlendirmez.
+    """
+    comb = f"{title} {summary}".lower()
+    if "içişleri bakanlığı" in comb:
+        return ("İçişleri Bakanlığı & e-Devlet Kariyer Kapısı", "https://www.icisleri.gov.tr")
+    if "adli tıp" in comb or "atk " in comb or comb.startswith("atk"):
+        return ("Adli Tıp Kurumu (ATK) & Kariyer Kapısı", "https://www.atk.gov.tr")
+    if "tigem" in comb or "tarım işletmeleri" in comb:
+        return ("TİGEM Resmi Duyuru & Kariyer Kapısı", "https://www.tigem.gov.tr")
+    if "sağlık bakanlığı" in comb or "şehir hastanesi" in comb:
+        return ("Sağlık Bakanlığı (YHGM) Resmi Sayfası", "https://yhgm.saglik.gov.tr")
+    if "adalet bakanlığı" in comb or "cte" in comb or "ceza ve tevkifevleri" in comb:
+        return ("Adalet Bakanlığı / CTE Resmi Sayfası", "https://cte.adalet.gov.tr")
+    if "milli eğitim" in comb or "meb" in comb or "öğretmen" in comb:
+        return ("Milli Eğitim Bakanlığı (MEB Personel)", "https://personel.meb.gov.tr")
+    if "polis" in comb or "pomem" in comb or "bekçi" in comb or "emniyet" in comb:
+        return ("Polis Akademisi Başkanlığı Resmi Sayfası", "https://www.pa.edu.tr")
+    if "jandarma" in comb or "sahil güvenlik" in comb:
+        return ("Jandarma ve Sahil Güvenlik Akademisi (JSGA)", "https://vatandas.jandarma.gov.tr")
+    if "dsi" in comb or "devlet su işleri" in comb:
+        return ("DSİ Genel Müdürlüğü Resmi Sayfası", "https://www.dsi.gov.tr")
+    if "ogm" in comb or "orman genel" in comb:
+        return ("Orman Genel Müdürlüğü (OGM) Resmi Sayfası", "https://www.ogm.gov.tr")
+    if "denizbank" in comb:
+        return ("DenizBank Resmi Kariyer Portalı", "https://www.denizbank.com/insan-kaynaklari")
+    if "ziraat" in comb:
+        return ("Ziraat Bankası Resmi Duyuru Sayfası", "https://www.ziraatbank.com.tr")
+    if "vakıfbank" in comb:
+        return ("VakıfBank Resmi Duyuru Sayfası", "https://www.vakifbank.com.tr")
+    if "işkur" in comb or "işçi alımı" in comb or "sürekli işçi" in comb or "belediye" in comb:
+        return ("İŞKUR Resmi e-Şube Başvuru Ekranı", "https://esube.iskur.gov.tr")
+    if "kpss" in comb or "ösym" in comb:
+        return ("ÖSYM Aday İşlemleri Sistemi (AİS)", "https://ais.osym.gov.tr")
+    if "emekli" in comb or "maaş" in comb or "promosyon" in comb:
+        return ("Çalışma ve Sosyal Güvenlik Bakanlığı / SGK", "https://www.sgk.gov.tr")
+    return ("Cumhurbaşkanlığı Kariyer Kapısı (e-Devlet)", "https://isealimkariyerkapisi.cbiko.gov.tr")
+
+
 def fetch_live_job_announcements(limit: int = 8) -> List[Dict]:
     """
     İşin Olsa, KamuPersoneli, Google News Kamu İlanları ve Memurlar.net üzerinden
@@ -179,7 +242,13 @@ def fetch_live_job_announcements(limit: int = 8) -> List[Dict]:
                 if len(d) >= 50:
                     score += 12
 
-                clean_summary = d if len(d) >= 40 else f"{t}. Başvuru şartları, kadro dağılımı ve son başvuru tarihi e-Devlet Kariyer Kapısı ve İŞKUR üzerinden takip edilebilir."
+                cleaned_d = _clean_clickbait_summary(d)
+                gov_name, gov_url = _resolve_official_gov_link(t, cleaned_d)
+                clean_summary = (
+                    cleaned_d
+                    if len(cleaned_d) >= 35
+                    else f"{t}. Başvuru şartları, kontenjan dağılımı ve başvuru takvimi {gov_name} üzerinden yürütülmektedir."
+                )
                 if len(clean_summary) > 260:
                     clean_summary = clean_summary[:257].rsplit(" ", 1)[0] + "..."
 
@@ -189,7 +258,9 @@ def fetch_live_job_announcements(limit: int = 8) -> List[Dict]:
                     "summary": clean_summary,
                     "tag": tag,
                     "badge": badge,
-                    "source": src_name,
+                    "source": gov_name,
+                    "gov_name": gov_name,
+                    "gov_url": gov_url,
                     "score": score,
                 })
         except Exception:
@@ -274,8 +345,8 @@ def render_daily_jobs_table_image(
             t_str = t_str[:61].rsplit(" ", 1)[0] + "..."
         draw.text((138, ry + 22), t_str, font=f_row_title, fill=(255, 255, 255))
 
-        # Alt Kategori & Kaynak
-        sub_str = f"{j['tag']}  •  Kaynak: {j['source']}"
+        # Alt Kategori & Resmi Kurum
+        sub_str = f"{j['tag']}  •  {j.get('gov_name', 'e-Devlet Kariyer Kapısı')}"
         draw.text((138, ry + 64), sub_str, font=f_row_tag, fill=(52, 211, 153) if is_top else (56, 189, 248))
 
         # Sağ Durum Rozeti
@@ -411,19 +482,19 @@ def render_job_spotlight_image(
     return output_path
 
 
-def _ilan_reply_markup() -> str:
+def _ilan_reply_markup(official_url: str = "", official_name: str = "") -> str:
     import urllib.parse
     share_txt = urllib.parse.quote(
         "📋 Güncel kamu personel alımları, İŞKUR iş ilanları ve maaş/promosyon tabloları @ilanradari kanalında!\n👉 https://t.me/ilanradari"
     )
-    markup = {
-        "inline_keyboard": [
-            [
-                {"text": "📲 İş Arayan Arkadaşına Gönder", "url": f"https://t.me/share/url?url=https://t.me/ilanradari&text={share_txt}"},
-            ]
-        ]
-    }
-    return json.dumps(markup)
+    rows = []
+    if official_url:
+        btn_lbl = f"🏛️ Resmi Başvuru / Kurum Sayfası ({official_name[:26]})" if official_name else "🏛️ Resmi Kurum Başvuru Sayfası"
+        rows.append([{"text": btn_lbl, "url": official_url}])
+    rows.append([
+        {"text": "📲 İş Arayan Arkadaşına Gönder", "url": f"https://t.me/share/url?url=https://t.me/ilanradari&text={share_txt}"},
+    ])
+    return json.dumps({"inline_keyboard": rows})
 
 
 def send_welcome_and_pin(target_chat_id: str = ILAN_CHANNEL_ID) -> dict:
@@ -437,8 +508,7 @@ def send_welcome_and_pin(target_chat_id: str = ILAN_CHANNEL_ID) -> dict:
         "📊 <b>3. Meslek Meslek Maaş & Zam Hesapları:</b> Memur, kamu işçisi, emekli ve asgari ücret zam tabloları, kıdem tazminatı ve sosyal destek rehberleri.\n\n"
         "🔔 <b>Önemli İlanları Kaçırmamak İçin:</b>\n"
         "• Sağ üstten kanal bildirimlerini (🔔) açmayı,\n"
-        "• İş arayan yakınlarınızı ve arkadaşlarınızı kanalımıza davet etmeyi unutmayın!\n\n"
-        "👉 <b>Resmi Kanalımız:</b> @ilanradari"
+        "• İş arayan yakınlarınızı ve arkadaşlarınızı aşağıdaki butonla davet etmeyi unutmayın!"
     )
     logo_path = Path(__file__).parent / "ilan_radari_logo.jpg"
     with open(logo_path, "rb") as f:
@@ -475,13 +545,20 @@ def send_daily_jobs_report(target_chat_id: str = ILAN_CHANNEL_ID) -> dict:
     img_path = render_daily_jobs_table_image(jobs, str(Path(__file__).parent / "latest_ilan_table.png"))
     now_str = datetime.now().strftime("%d.%m.%Y")
 
-    bullets = "\n".join([f"{i + 1}️⃣ <b>{j['title']}</b> (<i>{j['tag']}</i>)" for i, j in enumerate(jobs[:6])])
+    bullets = "\n".join(
+        [
+            f"{i + 1}️⃣ <b>{j['title']}</b>\n   🏛️ <i>Resmi Kurum:</i> <a href=\"{j.get('gov_url', 'https://isealimkariyerkapisi.cbiko.gov.tr')}\">{j.get('gov_name', 'e-Devlet Kariyer Kapısı')}</a>"
+            for i, j in enumerate(jobs[:6])
+        ]
+    )
     caption = (
-        f"📋 <b>İLAN RADARI | GÜNÜN PERSONEL & İŞ İLANLARI</b> ({now_str})\n\n"
+        f"📋 <b>GÜNÜN KAMU, İŞKUR VE PERSONEL ALIM İLANLARI</b> ({now_str})\n\n"
         f"{bullets}\n\n"
-        "📌 <b>Başvuru Kanalları:</b> e-Devlet Kariyer Kapısı, İŞKUR e-Şube ve ilgili kurumların resmi duyuru sayfaları.\n\n"
-        "📲 <i>İş arayan arkadaşlarınızla ve aile gruplarınızla paylaşmayı unutmayın!</i>\n"
-        "🔔 <b>Takip:</b> @ilanradari"
+        "📌 <b>Resmi Başvuru Portalları:</b>\n"
+        "• <a href=\"https://isealimkariyerkapisi.cbiko.gov.tr\">e-Devlet Cumhurbaşkanlığı Kariyer Kapısı</a>\n"
+        "• <a href=\"https://esube.iskur.gov.tr\">İŞKUR Resmi e-Şube Portalı</a>\n"
+        "• <a href=\"https://ais.osym.gov.tr\">ÖSYM Aday İşlemleri Sistemi</a>\n\n"
+        "📲 <i>İş arayan arkadaşlarınızla aşağıdaki butonla hemen paylaşabilirsiniz.</i>"
     )
 
     with open(img_path, "rb") as f:
@@ -491,7 +568,7 @@ def send_daily_jobs_report(target_chat_id: str = ILAN_CHANNEL_ID) -> dict:
                 "chat_id": target_chat_id,
                 "caption": caption,
                 "parse_mode": "HTML",
-                "reply_markup": _ilan_reply_markup(),
+                "reply_markup": _ilan_reply_markup("https://isealimkariyerkapisi.cbiko.gov.tr", "e-Devlet Kariyer Kapısı"),
             },
             files={"photo": f},
             timeout=30,
@@ -518,14 +595,16 @@ def send_spotlight_job_report(target_chat_id: str = ILAN_CHANNEL_ID, force: bool
 
     img_path = render_job_spotlight_image(chosen, str(Path(__file__).parent / "latest_ilan_spotlight.png"))
     now_str = datetime.now().strftime("%d.%m.%Y • %H:%M")
+    gov_name = chosen.get("gov_name", "Cumhurbaşkanlığı Kariyer Kapısı (e-Devlet)")
+    gov_url = chosen.get("gov_url", "https://isealimkariyerkapisi.cbiko.gov.tr")
 
     caption = (
         f"🚨 <b>YENİ PERSONEL & İŞ İLANI DUYURUSU</b> ({now_str})\n\n"
         f"📌 <b>{chosen['title']}</b>\n"
         f"🏷️ <b>Kategori:</b> {chosen['tag']} ({chosen['badge']})\n\n"
         f"📝 <b>İlan Özeti:</b>\n{chosen['summary']}\n\n"
-        "📲 <i>Bu ilanı değerlendirebilecek arkadaşlaranıza aşağıdaki butonla hemen iletebilirsiniz.</i>\n"
-        "🔔 <b>Güncel İlan Takibi:</b> @ilanradari"
+        f"🏛️ <b>Resmi Başvuru & Kurum Sayfası:</b>\n👉 <a href=\"{gov_url}\">{gov_name} ({gov_url})</a>\n\n"
+        "📲 <i>Bu ilanı değerlendirebilecek arkadaşlarınıza aşağıdaki butonla hemen iletebilirsiniz.</i>"
     )
 
     with open(img_path, "rb") as f:
@@ -535,7 +614,7 @@ def send_spotlight_job_report(target_chat_id: str = ILAN_CHANNEL_ID, force: bool
                 "chat_id": target_chat_id,
                 "caption": caption,
                 "parse_mode": "HTML",
-                "reply_markup": _ilan_reply_markup(),
+                "reply_markup": _ilan_reply_markup(gov_url, gov_name),
             },
             files={"photo": f},
             timeout=30,
