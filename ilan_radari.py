@@ -633,12 +633,259 @@ def send_spotlight_job_report(target_chat_id: str = ILAN_CHANNEL_ID, force: bool
     return res
 
 
+def get_daily_fallback_guide(day_idx: int = None) -> Dict:
+    """
+    O saat diliminde yeni bir iş ilanı çıkmamışsa kanalın canlı kalması için
+    haftanın 7 gününe özel 7 farklı 'Maaş, Promosyon & Kariyer Rehberi Tablosu' üretir.
+    """
+    if day_idx is None:
+        day_idx = datetime.now(timezone(timedelta(hours=3))).weekday()
+
+    guides = [
+        # 0 - Pazartesi: Bankaların Güncel Emekli Maaş Promosyonu Ligi
+        {
+            "hook": "💰 Emekliye 24.000 TL'ye Varan Nakit Promosyon! Banka Banka Güncel Liste",
+            "header_badge": "EMEKLİ MAAŞ PROMOSYONU LİGİ",
+            "title": "EN YÜKSEK EMEKLİ PROMOSYONU VEREN 6 BANKA",
+            "subtitle": "SGK (SSK, Bağ-Kur ve Emekli Sandığı) emeklilerine sunulan güncel nakit promosyonlar:",
+            "gov_name": "Sosyal Güvenlik Kurumu (SGK)",
+            "gov_url": "https://www.sgk.gov.tr",
+            "footer_note": "Maaş taşıma başvuruları e-Devlet (turkiye.gov.tr) veya ilgili bankaların mobil şubelerinden yapılır.",
+            "rows": [
+                {"title": "VakıfBank Emekli Paketi", "sub": "12.000 TL Nakit Promosyon + Troy Emekli Kart Ek Nakit Avantajı", "badge": "24.000 TL'YE VARAN"},
+                {"title": "ING Türkiye Emekli Promosyonu", "sub": "Koşulsuz Nakit Promosyon + Otomatik Fatura Talimatı Ödülü", "badge": "20.000 TL'YE VARAN"},
+                {"title": "Yapı Kredi Emekli Paketi", "sub": "Maaş Tutarına Göre Nakit + Fatura & Kredi Kartı Ek Ödülü", "badge": "18.000 TL'YE VARAN"},
+                {"title": "Akbank Emekli Promosyonu", "sub": "15.000 TL Nakit Promosyon + 2.500 TL Chip-Para Fırsatı", "badge": "17.500 TL'YE VARAN"},
+                {"title": "Garanti BBVA & QNB", "sub": "Maaş Dilimine Göre Koşulsuz Nakit + Ek Fatura Bonusu", "badge": "15.000 - 16.250 TL"},
+                {"title": "Ziraat Bankası & Halkbank", "sub": "12.000 TL Kamu Promosyonu + Emekliye Özel Faizsiz Nakit", "badge": "12.000 TL + DESTEK"},
+            ],
+        },
+        # 1 - Salı: Meslek Meslek Güncel Kamu & Sözleşmeli Personel Maaşları
+        {
+            "hook": "📊 Kamu ve Sözleşmeli Personel Maaşları Ne Kadar? Meslek Meslek Net Tablo",
+            "header_badge": "KAMU & MEMUR MAAŞ REHBERİ",
+            "title": "MESLEK MESLEK GÜNCEL KAMU PERSONEL MAAŞLARI",
+            "subtitle": "Yeni başlayan ve derece/kademeye göre kamu personeli ortalama net maaş göstergeleri:",
+            "gov_name": "Cumhurbaşkanlığı Kariyer Kapısı (e-Devlet)",
+            "gov_url": "https://isealimkariyerkapisi.cbiko.gov.tr",
+            "footer_note": "Maaş tutarları aile yardımı, döner sermaye, ek ders ve bölge tazminatına göre değişiklik gösterebilir.",
+            "rows": [
+                {"title": "Kamu Mühendisi & Teknik Kadro", "sub": "Bakanlıklar, DSİ, Karayolları, TİGEM Sözleşmeli/Kadrolu", "badge": "68.000 - 74.000 TL"},
+                {"title": "Polis Memuru & Jandarma Personeli", "sub": "Emniyet Genel Müdürlüğü & Jandarma Görev Tazminatı Dahil", "badge": "64.000 - 71.000 TL"},
+                {"title": "Hemşire & Sağlık Teknikeri (4/B)", "sub": "Sağlık Bakanlığı, Şehir Hastaneleri ve Üniversite Hastaneleri", "badge": "56.000 - 65.000 TL"},
+                {"title": "Öğretmen (MEB Kadrolu / Sözleşmeli)", "sub": "Temel Maaş (Ek Ders ve Uzman Öğretmenlik Tazminatı Hariç)", "badge": "54.000 - 62.000 TL"},
+                {"title": "Büro Personeli, VHKİ & zabıt Katibi", "sub": "Bakanlıklar, Adliyeler, Üniversiteler ve İl Müdürlükleri", "badge": "51.000 - 67.000 TL"},
+                {"title": "Koruma ve Güvenlik Görevlisi & Destek", "sub": "Kamu Kurumları 4/B Sözleşmeli ve 4/D Sürekli İşçi Kadroları", "badge": "49.000 - 69.000 TL"},
+            ],
+        },
+        # 2 - Çarşamba: KPSS 50 - 60 - 70 Puanla Alım Yapan Kamu Kurumları
+        {
+            "hook": "🎓 KPSS 50, 60 ve 70 Puanla Hangi Kamu Kurumlarına Girilir? Başvuru Rehberi",
+            "header_badge": "KPSS PUAN & KURUM REHBERİ",
+            "title": "KPSS 50 - 60 - 70 PUANLA ALIM YAPAN KURUMLAR",
+            "subtitle": "Yüksek KPSS puanı olmadan açıktan ve sözleşmeli (4/B) personel alan başlıca kurumlar:",
+            "gov_name": "e-Devlet Kariyer Kapısı Başvuru Ekranı",
+            "gov_url": "https://isealimkariyerkapisi.cbiko.gov.tr",
+            "footer_note": "Tüm açıktan atama ve sözleşmeli personel ilanları isealimkariyerkapisi.cbiko.gov.tr adresinde yayınlanır.",
+            "rows": [
+                {"title": "Üniversiteler & Üniversite Hastaneleri", "sub": "Büro personeli, destek personeli, tekniker, hemşire (Mülakatsız puan sırasıyla)", "badge": "KPSS 50 - 65 PUAN"},
+                {"title": "Adalet Bakanlığı & CTE Personel Alımı", "sub": "Zabıt katibi, mübaşir, infaz koruma memuru (İKM), güvenlik görevlisi", "badge": "KPSS 70 TABAN PUAN"},
+                {"title": "İçişleri Bakanlığı, AFAD & Göç İdaresi", "sub": "Büro personeli, çağrı karşılama (112), teknisyen ve koruma güvenlik", "badge": "KPSS 60 - 65 PUAN"},
+                {"title": "Belediyeler (Zabıta & İtfaiye Eri)", "sub": "Belediyelerin kendi bünyesinde yaptığı memur, zabıta ve itfaiye alımları", "badge": "KPSS 60 - 70 PUAN"},
+                {"title": "Polis Akademisi (POMEM & Bekçi)", "sub": "Ön lisans KPSS 65, Lisans KPSS 60 taban puan ile polis memuru alımı", "badge": "KPSS 60 - 65 PUAN"},
+                {"title": "Gençlik ve Spor Bakanlığı (GSB & KYK)", "sub": "Yurt yönetim memuru, antrenör, gençlik çalışanı ve destek personeli", "badge": "KPSS 60 TABAN PUAN"},
+            ],
+        },
+        # 3 - Perşembe: Kıdem Tazminatı, İhbar Tazminatı & İşsizlik Maaşı Hakları
+        {
+            "hook": "📑 İstifa Eden Kıdem Tazminatı Alabilir mi? Çalışanların Bilmesi Gereken 6 Hak",
+            "header_badge": "ÇALIŞAN HAKLARI & TAZMİNAT REHBERİ",
+            "title": "KIDEM TAZMİNATI VE İŞSİZLİK MAAŞI REHBERİ",
+            "subtitle": "Özel sektör ve kamu işçilerinin tazminat ve İŞKUR işsizlik ödeneği şartları:",
+            "gov_name": "Çalışma Bakanlığı & İŞKUR e-Şube",
+            "gov_url": "https://esube.iskur.gov.tr",
+            "footer_note": "İşsizlik maaşı başvuruları işten ayrıldıktan sonraki 30 gün içinde e-Devlet veya İŞKUR üzerinden yapılır.",
+            "rows": [
+                {"title": "Her Yıl İçin 30 Günlük Brüt Maaş", "sub": "Aynı işyerinde en az 1 yıl çalışan işçi, her tam yıl için 1 brüt maaş kıdem alır", "badge": "KIDEM HAKKI"},
+                {"title": "SGK Emeklilik & Prim Günüyle İstifa", "sub": "Yaş hariç emeklilik prim gününü dolduran çalışan kendi istifa etse de tazminat alır", "badge": "İSTİFADA TAZMİNAT"},
+                {"title": "Askerlik ve Evlilik Nedeniyle Ayrılış", "sub": "Erkek çalışan askerlik, kadın çalışan evlilikten sonraki 1 yıl içinde tazminatlı ayrılabilir", "badge": "YASAL HAK"},
+                {"title": "Maaşın Eksik/Geç Yatması (Haklı Fesih)", "sub": "Ücreti zamanında ödenmeyen veya SGK primi eksik yatan işçi haklı fesihle tazminat alır", "badge": "İŞ KANUNU 24/II"},
+                {"title": "İŞKUR İşsizlik Maaşı (6 - 10 Ay)", "sub": "Son 3 yılda en az 600 gün primi olan ve kendi kusuru dışında ayrılanlara her ay ödenir", "badge": "İŞSİZLİK ÖDENEĞİ"},
+                {"title": "İhbar Süresi ve İhbar Tazminatı", "sub": "Kıdeme göre 2 ila 8 hafta önceden bildirim yapılmazsa peşin ihbar tazminatı ödenir", "badge": "2 - 8 HAFTA ÜCRET"},
+            ],
+        },
+        # 4 - Cuma: İŞKUR & Kurum Dışı KPSS Şartsız Kamu İşçisi Başvuru Rehberi
+        {
+            "hook": "🏛️ KPSS Şartsız Kamu İşçisi Alımlarına Nasıl Başvurulur? İŞKUR 6 Adım Rehberi",
+            "header_badge": "KPSS ŞARTSIZ İŞKUR REHBERİ",
+            "title": "KPSS ŞARTSIZ KAMU İŞÇİSİ ALIMI REHBERİ",
+            "subtitle": "Sınavsız / noter kurasıyla sürekli işçi alan kamu kurumları ve başvuru kanalları:",
+            "gov_name": "İŞKUR Resmi e-Şube Başvuru Portalı",
+            "gov_url": "https://esube.iskur.gov.tr",
+            "footer_note": "Başvurular tamamen ücretsizdir; İŞKUR e-Şube veya ALO 170 hattı üzerinden elektronik ortamda yapılır.",
+            "rows": [
+                {"title": "Sağlık Bakanlığı Sürekli İşçi Alımı", "sub": "Temizlik görevlisi, güvenlik görevlisi, klinik destek, şoför (Noter kurası ile)", "badge": "KPSS ŞARTSIZ"},
+                {"title": "İŞKUR 'Kurum Dışı Kamu İşçi' Ekranı", "sub": "Belediye şirketleri (BELTAŞ, İSPER, ANFA vb.) büro, şoför ve saha personeli", "badge": "SINAVSIZ ALIM"},
+                {"title": "Milli Eğitim Bakanlığı (MEB & İUP)", "sub": "Okullara temizlik, güvenlik ve bakım onarım personeli (İŞKUR üzerinden)", "badge": "KPSS ŞARTSIZ"},
+                {"title": "DSİ, Karayolları (KGM) & Orman (OGM)", "sub": "Operatör, şoför, usta, bekçi ve orman işçisi kadroları", "badge": "NOTER KURASI"},
+                {"title": "Üniversite ve Şehir Hastaneleri (4/D)", "sub": "En az ilkokul ve lise mezunu kadrolu sürekli işçi alımları", "badge": "4/D KADROLU İŞÇİ"},
+                {"title": "Toplum Yararına Programlar (TYP)", "sub": "Kamu kurumlarında geçici süreli sigortalı ve maaşlı çalışma programları", "badge": "e-DEVLET / İŞKUR"},
+            ],
+        },
+        # 5 - Cumartesi: Banka Personel Alımları & Sınavsız Başvuru Kanalları
+        {
+            "hook": "🏦 Bankalarda Gişe, Çağrı Merkezi ve Uzman Yardımcısı Alımları! Nasıl Başvurulur?",
+            "header_badge": "BANKA KARİYER & ALIM REHBERİ",
+            "title": "BANKA PERSONEL ALIMI VE BAŞVURU REHBERİ",
+            "subtitle": "KPSS şartı olmadan kendi sınav/mülakatıyla personel alan kamu ve özel bankalar:",
+            "gov_name": "İŞKUR & Resmi Banka Kariyer Portalları",
+            "gov_url": "https://esube.iskur.gov.tr",
+            "footer_note": "Özel bankalar yıl boyunca kendi kariyer sitelerinden, kamu bankaları ise yılda 1-2 kez toplu sınavla alım yapar.",
+            "rows": [
+                {"title": "Ziraat Bankası, VakıfBank & Halkbank", "sub": "Servis görevlisi (gişe), uzman yardımcısı ve müfettiş yardımcısı toplu sınavları", "badge": "KAMU BANKALARI"},
+                {"title": "İş Bankası, Garanti BBVA & Yapı Kredi", "sub": "Memur, gişe yetkilisi, ticari/bireysel satış ve genel müdürlük kadroları", "badge": "KPSS ŞARTSIZ"},
+                {"title": "Akbank, QNB & DenizBank Kariyer", "sub": "En az lise/ön lisans mezunu çağrı merkezi ve lisans mezunu şube kadroları", "badge": "YIL BOYU AÇIK"},
+                {"title": "Banka Çağrı Merkezi (Home Office)", "sub": "Deneyimsiz yeni mezunlara açık, uzaktan veya hibrit çalışma imkanı", "badge": "YENİ MEZUN"},
+                {"title": "Kuveyt Türk, Albaraka & Vakıf Katılım", "sub": "Katılım bankacılığı şube gişe ve müşteri ilişkileri yetkilisi alımları", "badge": "KATILIM BANKASI"},
+                {"title": "Merkez Bankası (TCMB) & BDDK / SPK", "sub": "Uzman yardımcısı, memur, güvenlik ve teknisyen kadroları", "badge": "ÜST KURUL MAAŞI"},
+            ],
+        },
+        # 6 - Pazar: Haftanın En Çok Aranan 6 Resmi Başvuru Kapısı
+        {
+            "hook": "🏛️ İş Arayanların Her Gün Kontrol Etmesi Gereken 6 Resmi Devlet Başvuru Kapısı!",
+            "header_badge": "RESMİ BAŞVURU KAPILARI REHBERİ",
+            "title": "TÜRKİYE'NİN 6 RESMİ İŞ & İLAN BAŞVURU KAPISI",
+            "subtitle": "Aracı sitelere gerek kalmadan doğrudan başvuru yapabileceğiniz resmi devlet portalları:",
+            "gov_name": "Cumhurbaşkanlığı Kariyer Kapısı",
+            "gov_url": "https://isealimkariyerkapisi.cbiko.gov.tr",
+            "footer_note": "Tüm resmi başvurular e-Devlet şifresiyle ücretsiz yapılır; hiçbir kamu kurumu başvuru için ücret talep etmez.",
+            "rows": [
+                {"title": "1. Cumhurbaşkanlığı Kariyer Kapısı", "sub": "isealimkariyerkapisi.cbiko.gov.tr • Tüm bakanlık ve kamu sözleşmeli alımları", "badge": "e-DEVLET GİRİŞLİ"},
+                {"title": "2. İŞKUR Resmi e-Şube Portalı", "sub": "esube.iskur.gov.tr • Kamu sürekli işçi ve özel sektör açık iş ilanları", "badge": "KPSS ŞARTSIZ"},
+                {"title": "3. İŞKUR Kurum Dışı Kamu İşçi İlanları", "sub": "iskur.gov.tr/baglantilar/kurum-disi-kamu-isci-alimi-ilani • Belediye alımları", "badge": "BELEDİYE KADROSU"},
+                {"title": "4. ÖSYM Aday İşlemleri Sistemi (AİS)", "sub": "ais.osym.gov.tr • KPSS merkezi yerleştirme ve Sağlık Bakanlığı tercihleri", "badge": "MERKEZİ ATAMA"},
+                {"title": "5. Resmi Gazete Çeşitli İlanlar Bölümü", "sub": "resmigazete.gov.tr • Her gece 00:00'da yayınlanan üniversite ve kurum ilanları", "badge": "RESMİ GAZETE"},
+                {"title": "6. Polis Akademisi & JSGA & MSB PERTEM", "sub": "pa.edu.tr • jandarma.gov.tr • personeltemin.msb.gov.tr (Polis, Bekçi, Uzman)", "badge": "EMNİYET & TSK"},
+            ],
+        },
+    ]
+    return guides[day_idx % len(guides)]
+
+
+def send_fallback_guide_report(target_chat_id: str = ILAN_CHANNEL_ID) -> dict:
+    """Yeni iş ilanı olmadığında günün Maaş / Promosyon / Kariyer Rehberi tablosunu üretir ve paylaşır."""
+    g = get_daily_fallback_guide()
+    jobs_like = [
+        {
+            "title": r["title"],
+            "tag": r["sub"],
+            "badge": r["badge"],
+            "source": g["gov_name"],
+            "gov_name": r["sub"],
+            "gov_url": g["gov_url"],
+        }
+        for r in g["rows"]
+    ]
+
+    W, H = 1080, 1080
+    img = Image.new("RGB", (W, H), color=(8, 13, 25))
+    draw = ImageDraw.Draw(img)
+    for y in range(H):
+        r_c = int(8 + (16 - 8) * (y / H))
+        g_c = int(13 + (24 - 13) * (y / H))
+        b_c = int(25 + (45 - 25) * (y / H))
+        draw.line([(0, y), (W, y)], fill=(r_c, g_c, b_c))
+
+    draw.rectangle([(0, 0), (W, 8)], fill=(16, 185, 129))
+    f_top = _load_font(17, bold=True)
+    f_h1 = _load_font(31, bold=True)
+    f_sub = _load_font(17, bold=False)
+    f_row_title = _load_font(20, bold=True)
+    f_row_sub = _load_font(15, bold=False)
+    f_badge = _load_font(14, bold=True)
+    f_foot = _load_font(13, bold=False)
+
+    today_str = datetime.now().strftime("%d.%m.%Y")
+    draw.rounded_rectangle([(40, 24), (W - 40, 74)], radius=10, fill=(15, 23, 42), outline=(16, 185, 129), width=2)
+    draw.ellipse([(58, 41), (74, 57)], fill=(52, 211, 153))
+    draw.text((86, 37), f"İLAN RADARI  |  {g['header_badge']}", font=f_top, fill=(255, 255, 255))
+    t_bb = draw.textbbox((0, 0), today_str, font=f_top)
+    draw.text((W - 60 - (t_bb[2] - t_bb[0]), 37), today_str, font=f_top, fill=(52, 211, 153))
+
+    draw.text((42, 92), g["title"], font=f_h1, fill=(255, 255, 255))
+    draw.text((42, 134), g["subtitle"], font=f_sub, fill=(148, 163, 184))
+
+    ry = 176
+    rh = 114
+    for idx, row in enumerate(g["rows"][:6]):
+        is_top = idx < 2
+        bg_c = (18, 36, 32) if is_top else (15, 23, 42)
+        bd_c = (16, 185, 129) if is_top else (51, 65, 85)
+        draw.rounded_rectangle([(40, ry), (W - 40, ry + rh)], radius=14, fill=bg_c, outline=bd_c, width=2 if is_top else 1)
+
+        rk_bg = (245, 158, 11) if is_top else (30, 41, 59)
+        rk_fg = (15, 23, 42) if is_top else (226, 232, 240)
+        draw.rounded_rectangle([(58, ry + 24), (118, ry + 88)], radius=12, fill=rk_bg)
+        rk_txt = f"{idx + 1}"
+        rk_bb = draw.textbbox((0, 0), rk_txt, font=_load_font(24, bold=True))
+        draw.text((88 - (rk_bb[2] - rk_bb[0]) // 2, ry + 41), rk_txt, font=_load_font(24, bold=True), fill=rk_fg)
+
+        draw.text((138, ry + 22), row["title"], font=f_row_title, fill=(255, 255, 255))
+        draw.text((138, ry + 62), row["sub"][:68], font=f_row_sub, fill=(148, 163, 184))
+
+        b_txt = row["badge"]
+        b_bb = draw.textbbox((0, 0), b_txt, font=f_badge)
+        bw = (b_bb[2] - b_bb[0]) + 32
+        bx1 = W - 62 - bw
+        b_bg = (16, 185, 129) if is_top else (30, 41, 59)
+        b_fg = (10, 20, 15) if is_top else (251, 191, 36)
+        draw.rounded_rectangle([(bx1, ry + 36), (W - 62, ry + 78)], radius=8, fill=b_bg)
+        draw.text((bx1 + 16, ry + 48), b_txt, font=f_badge, fill=b_fg)
+        ry += rh + 12
+
+    draw.rounded_rectangle([(40, 938), (W - 40, 988)], radius=10, fill=(30, 27, 75), outline=(129, 140, 248), width=1)
+    draw.text((60, 953), g["footer_note"][:95], font=_load_font(15, bold=True), fill=(224, 231, 255))
+    draw.line([(40, 1004), (W - 40, 1004)], fill=(30, 41, 59), width=1)
+    draw.text((40, 1016), "Resmi kurum verilerinden derlenmiştir. Bilgilendirme amaçlıdır.", font=f_foot, fill=(148, 163, 184))
+    draw.text((40, 1038), "Günlük İş İlanları, Personel Alımı & Maaş Rehberi: @ilanradari", font=_load_font(13, bold=True), fill=(251, 191, 36))
+
+    out_path = str(Path(__file__).parent / "latest_ilan_guide.png")
+    img.save(out_path, format="PNG", optimize=True)
+
+    bullets = "\n".join([f"• <b>{r['title']}:</b> <i>{r['badge']}</i>" for r in g["rows"][:6]])
+    caption = (
+        f"<b>{g['hook']}</b>\n"
+        f"📌 <i>{g['subtitle']}</i>\n\n"
+        f"{bullets}\n\n"
+        f"🏛️ <b>Resmi İşlem & Başvuru Adresi:</b>\n"
+        f"👉 <a href=\"{g['gov_url']}\">{g['gov_name']} ({g['gov_url']})</a>\n\n"
+        "📲 <i>Bu rehberi faydalı olabilecek arkadaşlarınızla aşağıdaki butonla paylaşabilirsiniz.</i>"
+    )
+    with open(out_path, "rb") as f:
+        res = requests.post(
+            f"{API_BASE}/sendPhoto",
+            data={
+                "chat_id": target_chat_id,
+                "caption": caption,
+                "parse_mode": "HTML",
+                "reply_markup": _ilan_reply_markup(g["gov_url"], g["gov_name"]),
+            },
+            files={"photo": f},
+            timeout=30,
+        ).json()
+    print(f"[YEDEK REHBER TABLOSU] {target_chat_id} ({g['header_badge']}) -> {res.get('ok')}")
+    return res
+
+
 def run_ilan_auto_slot() -> None:
     """
     GitHub Actions her çalıştığında @ilanradari kanalı için:
     - Gece 20:00 - 08:30 arası sessiz saat kuralına uyar.
     - Sabah (09:00-11:59): Günün 6'lı Kamu & İŞKUR Personel Alım İlanları Tablosunu paylaşır (günde 1 kez).
-    - Öğleden sonra / Akşam (12:00-19:59): Yeni çıkan önemli bir personel alımı / maaş duyurusu varsa Flaş İlan Kartı paylaşır.
+    - Öğleden sonra / Akşam (12:00-19:59):
+      1. Yeni çıkan önemli bir personel alımı / maaş duyurusu varsa Flaş İlan Kartı paylaşır.
+      2. Eğer o saatte yeni ilan çıkmamışsa ve bugün henüz Günün Maaş/Promosyon/Kariyer Rehberi
+         paylaşılmamışsa (günde 1 kez) otomatik olarak yedek rehber tablosunu paylaşır (sayfa asla cansız kalmaz!).
     """
     now_tr = datetime.now(timezone(timedelta(hours=3)))
     h = now_tr.hour
@@ -664,6 +911,15 @@ def run_ilan_auto_slot() -> None:
             daily[today_str] = today_list
             cache["daily_dispatched"] = daily
             save_ilan_cache(cache)
+        elif "fallback_guide" not in today_list:
+            # Yeni ilan yoksa günde 1 kez haftanın gününe özel Maaş/Promosyon/Kariyer Rehberi paylaş
+            res_fb = send_fallback_guide_report(ILAN_CHANNEL_ID)
+            if res_fb.get("ok"):
+                today_list.append("fallback_guide")
+                today_list.append(f"spotlight_{h // 2}")
+                daily[today_str] = today_list
+                cache["daily_dispatched"] = daily
+                save_ilan_cache(cache)
 
 
 if __name__ == "__main__":
