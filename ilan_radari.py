@@ -22,6 +22,60 @@ ILAN_CHANNEL_ID = os.getenv("ILAN_CHANNEL_ID", "@ilanradari").strip()
 FAIZ_CHANNEL_ID = os.getenv("TELEGRAM_CHANNEL_ID", "@faizradari").strip()
 ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID", "702244471").strip()
 
+WHAPI_TOKEN = os.getenv("WHAPI_TOKEN", "9HHe4hOHubOEGnfoSQ2CjR1ak1VxxqFK").strip()
+ILAN_WHATSAPP_CHANNEL_ID = os.getenv("ILAN_WHATSAPP_CHANNEL_ID", "120363432658946070@newsletter").strip()
+ILAN_WHATSAPP_INVITE_URL = "https://whatsapp.com/channel/0029Vb9rhBs90x2y0jH3O31J"
+
+
+def convert_ilan_to_whatsapp(text: str) -> str:
+    """Telegram HTML etiketlerini WhatsApp uyumlu metne dönüştürür ve ana Telegram kanalımıza yönlendirme ekler."""
+    t = re.sub(r'<a\s+href="([^"]+)"[^>]*>(.*?)</a>', r'\2 (\1)', text, flags=re.DOTALL)
+    t = re.sub(r'<b>(.*?)</b>', r'*\1*', t, flags=re.DOTALL)
+    t = re.sub(r'<strong>(.*?)</strong>', r'*\1*', t, flags=re.DOTALL)
+    t = re.sub(r'<i>(.*?)</i>', r'_\1_', t, flags=re.DOTALL)
+    t = re.sub(r'<em>(.*?)</em>', r'_\1_', t, flags=re.DOTALL)
+    t = re.sub(r'<[^>]+>', '', t)
+    t = (
+        t.strip()
+        + "\n\n🔔 *İlan Radarı Resmi Kanalları*\n"
+        + "• Yeni ilanları kaçırmamak için sağ üstteki çan simgesine tıklayarak bildirimleri açmayı unutmayın!\n"
+        + "📢 Tüm personel alım tabloları ve anlık ilan bildirimleri için Ana Telegram Kanalımız:\n"
+        + "👉 https://t.me/ilanradari"
+    )
+    return t.strip()
+
+
+def post_ilan_to_whatsapp(img_path: str, caption: str) -> bool:
+    """Whapi.cloud üzerinden İlan Radarı WhatsApp Kanalına (120363432658946070@newsletter) otomatik paylaşım yapar."""
+    if not (WHAPI_TOKEN and ILAN_WHATSAPP_CHANNEL_ID and Path(img_path).exists()):
+        return False
+    try:
+        import base64
+        wa_text = convert_ilan_to_whatsapp(caption)
+        ext = "jpeg" if str(img_path).lower().endswith((".jpg", ".jpeg")) else "png"
+        with open(img_path, "rb") as f:
+            img_b64 = base64.b64encode(f.read()).decode("utf-8")
+        payload = {
+            "to": ILAN_WHATSAPP_CHANNEL_ID,
+            "media": f"data:image/{ext};base64,{img_b64}",
+            "caption": wa_text,
+        }
+        headers = {
+            "Authorization": f"Bearer {WHAPI_TOKEN}",
+            "Content-Type": "application/json",
+            "User-Agent": "IlanRadari-Bot/1.0",
+        }
+        r = requests.post("https://gate.whapi.cloud/messages/image", json=payload, headers=headers, timeout=35)
+        ok = r.status_code in (200, 201)
+        if ok:
+            print(f"[BAŞARILI] İlan Radarı WhatsApp Kanalına ({ILAN_WHATSAPP_CHANNEL_ID}) paylaşıldı!")
+        else:
+            print(f"[UYARI] İlan Radarı WhatsApp paylaşım hatası ({r.status_code}): {r.text[:160]}")
+        return ok
+    except Exception as e:
+        print(f"[UYARI] İlan Radarı WhatsApp API hatası: {e}")
+        return False
+
 ILAN_CACHE_FILE = Path(__file__).parent / "ilan_cache.json"
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
@@ -493,6 +547,7 @@ def _ilan_reply_markup(official_url: str = "", official_name: str = "") -> str:
         rows.append([{"text": btn_lbl, "url": official_url}])
     rows.append([
         {"text": "📲 İş Arayan Arkadaşına Gönder", "url": f"https://t.me/share/url?url=https://t.me/ilanradari&text={share_txt}"},
+        {"text": "🟢 WhatsApp Kanalımız", "url": ILAN_WHATSAPP_INVITE_URL},
     ])
     return json.dumps({"inline_keyboard": rows})
 
@@ -579,6 +634,8 @@ def send_daily_jobs_report(target_chat_id: str = ILAN_CHANNEL_ID) -> dict:
             timeout=30,
         ).json()
     print(f"[İLAN TABLOSU] {target_chat_id} -> {res.get('ok')}")
+    if target_chat_id == ILAN_CHANNEL_ID:
+        post_ilan_to_whatsapp(img_path, caption)
     return res
 
 
@@ -628,6 +685,7 @@ def send_spotlight_job_report(target_chat_id: str = ILAN_CHANNEL_ID, force: bool
         history.append(chosen["title"])
         cache["dispatched_headlines"] = history[-60:]
         save_ilan_cache(cache)
+        post_ilan_to_whatsapp(img_path, caption)
 
     print(f"[FLAŞ İLAN KARTI] {target_chat_id} ({chosen['title'][:45]}...) -> {res.get('ok')}")
     return res
@@ -874,6 +932,8 @@ def send_fallback_guide_report(target_chat_id: str = ILAN_CHANNEL_ID) -> dict:
             timeout=30,
         ).json()
     print(f"[YEDEK REHBER TABLOSU] {target_chat_id} ({g['header_badge']}) -> {res.get('ok')}")
+    if target_chat_id == ILAN_CHANNEL_ID:
+        post_ilan_to_whatsapp(out_path, caption)
     return res
 
 
