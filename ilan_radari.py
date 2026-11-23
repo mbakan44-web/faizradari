@@ -657,10 +657,10 @@ def run_ilan_auto_slot() -> None:
             daily[today_str] = today_list
             cache["daily_dispatched"] = daily
             save_ilan_cache(cache)
-    elif h in (12, 13, 14, 15, 16, 17, 18, 19) and f"spotlight_{h // 4}" not in today_list:
+    elif h in (12, 13, 14, 15, 16, 17, 18, 19) and f"spotlight_{h // 2}" not in today_list:
         res = send_spotlight_job_report(ILAN_CHANNEL_ID)
         if res.get("ok"):
-            today_list.append(f"spotlight_{h // 4}")
+            today_list.append(f"spotlight_{h // 2}")
             daily[today_str] = today_list
             cache["daily_dispatched"] = daily
             save_ilan_cache(cache)
