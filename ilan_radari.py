@@ -547,17 +547,17 @@ def send_daily_jobs_report(target_chat_id: str = ILAN_CHANNEL_ID) -> dict:
 
     bullets = "\n".join(
         [
-            f"{i + 1}️⃣ <b>{j['title']}</b>\n   🏛️ <i>Resmi Kurum:</i> <a href=\"{j.get('gov_url', 'https://isealimkariyerkapisi.cbiko.gov.tr')}\">{j.get('gov_name', 'e-Devlet Kariyer Kapısı')}</a>"
+            f"{i + 1}️⃣ <b>{j['title'][:78]}</b> (<i>{j['tag']}</i>)"
             for i, j in enumerate(jobs[:6])
         ]
     )
     caption = (
         f"📋 <b>GÜNÜN KAMU, İŞKUR VE PERSONEL ALIM İLANLARI</b> ({now_str})\n\n"
         f"{bullets}\n\n"
-        "📌 <b>Resmi Başvuru Portalları:</b>\n"
-        "• <a href=\"https://isealimkariyerkapisi.cbiko.gov.tr\">e-Devlet Cumhurbaşkanlığı Kariyer Kapısı</a>\n"
-        "• <a href=\"https://esube.iskur.gov.tr\">İŞKUR Resmi e-Şube Portalı</a>\n"
-        "• <a href=\"https://ais.osym.gov.tr\">ÖSYM Aday İşlemleri Sistemi</a>\n\n"
+        "🏛️ <b>Resmi Başvuru Portalları:</b>\n"
+        "• <a href=\"https://isealimkariyerkapisi.cbiko.gov.tr\">e-Devlet Kariyer Kapısı</a>  |  "
+        "<a href=\"https://esube.iskur.gov.tr\">İŞKUR e-Şube</a>  |  "
+        "<a href=\"https://ais.osym.gov.tr\">ÖSYM AİS</a>\n\n"
         "📲 <i>İş arayan arkadaşlarınızla aşağıdaki butonla hemen paylaşabilirsiniz.</i>"
     )
 
