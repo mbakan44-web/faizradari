@@ -545,6 +545,10 @@ def send_daily_jobs_report(target_chat_id: str = ILAN_CHANNEL_ID) -> dict:
     img_path = render_daily_jobs_table_image(jobs, str(Path(__file__).parent / "latest_ilan_table.png"))
     now_str = datetime.now().strftime("%d.%m.%Y")
 
+    top_hook = jobs[0]["title"]
+    extra_cnt = max(0, len(jobs[:6]) - 1)
+    hook_line = f"🔥 <b>{top_hook}</b> (+{extra_cnt} Yeni Kamu & İŞKUR İlanı!)" if extra_cnt > 0 else f"🔥 <b>{top_hook}</b>"
+
     bullets = "\n".join(
         [
             f"{i + 1}️⃣ <b>{j['title'][:78]}</b> (<i>{j['tag']}</i>)"
@@ -552,7 +556,8 @@ def send_daily_jobs_report(target_chat_id: str = ILAN_CHANNEL_ID) -> dict:
         ]
     )
     caption = (
-        f"📋 <b>GÜNÜN KAMU, İŞKUR VE PERSONEL ALIM İLANLARI</b> ({now_str})\n\n"
+        f"{hook_line}\n"
+        f"📋 <i>Günün Öne Çıkan Personel Alımları ({now_str}):</i>\n\n"
         f"{bullets}\n\n"
         "🏛️ <b>Resmi Başvuru Portalları:</b>\n"
         "• <a href=\"https://isealimkariyerkapisi.cbiko.gov.tr\">e-Devlet Kariyer Kapısı</a>  |  "
@@ -599,9 +604,8 @@ def send_spotlight_job_report(target_chat_id: str = ILAN_CHANNEL_ID, force: bool
     gov_url = chosen.get("gov_url", "https://isealimkariyerkapisi.cbiko.gov.tr")
 
     caption = (
-        f"🚨 <b>YENİ PERSONEL & İŞ İLANI DUYURUSU</b> ({now_str})\n\n"
-        f"📌 <b>{chosen['title']}</b>\n"
-        f"🏷️ <b>Kategori:</b> {chosen['tag']} ({chosen['badge']})\n\n"
+        f"🚨 <b>{chosen['title']}</b>\n"
+        f"🏷️ <i>{chosen['tag']} • {chosen['badge']} ({now_str})</i>\n\n"
         f"📝 <b>İlan Özeti:</b>\n{chosen['summary']}\n\n"
         f"🏛️ <b>Resmi Başvuru & Kurum Sayfası:</b>\n👉 <a href=\"{gov_url}\">{gov_name} ({gov_url})</a>\n\n"
         "📲 <i>Bu ilanı değerlendirebilecek arkadaşlarınıza aşağıdaki butonla hemen iletebilirsiniz.</i>"

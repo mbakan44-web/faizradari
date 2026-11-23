@@ -80,12 +80,17 @@ def convert_to_whatsapp(text: str) -> str:
     t = re.sub(r'<[^>]+>', '', t)
     t = re.sub(
         r'🔔\s*\*?Takip:\*?\s*@faizradari',
-        '🔔 *Faiz Radarı Resmi Kanalları*\n'
-        '• Anlık bültenler için sağ üstteki çan simgesine tıklayarak bildirimleri açmayı unutmayın!\n'
-        '📢 Tüm detaylı tablolar ve anlık faiz bildirimleri için Ana Telegram Kanalımız:\n'
-        '👉 https://t.me/faizradari',
+        '',
         t
     )
+    if "https://t.me/faizradari" not in t:
+        t = (
+            t.strip()
+            + "\n\n🔔 *Faiz Radarı Resmi Kanalları*\n"
+            + "• Anlık bültenler için sağ üstteki çan simgesine tıklayarak bildirimleri açmayı unutmayın!\n"
+            + "📢 Tüm detaylı tablolar ve anlık faiz bildirimleri için Ana Telegram Kanalımız:\n"
+            + "👉 https://t.me/faizradari"
+        )
     return t.strip()
 
 
@@ -884,22 +889,12 @@ def _default_reply_markup() -> str:
         "inline_keyboard": [
             [
                 {
-                    "text": "📢 Telegram Kanalımız (@faizradari)",
-                    "url": "https://t.me/faizradari",
+                    "text": "📲 Arkadaşına Gönder",
+                    "url": "https://t.me/share/url?url=https://t.me/faizradari&text=Bankalar%C4%B1n%20canl%C4%B1%20kredi%2C%20mevduat%20ve%20d%C3%B6viz%20makas%20tablolar%C4%B1%20@faizradari%20kanal%C4%B1nda!",
                 },
                 {
                     "text": "🟢 WhatsApp Kanalımız",
                     "url": "https://whatsapp.com/channel/0029VbEfeZbDOQIhMaWcVg2I",
-                },
-            ],
-            [
-                {
-                    "text": "🐦 X'te (Twitter) Paylaş",
-                    "url": f"https://x.com/intent/tweet?text={encoded_x}",
-                },
-                {
-                    "text": "📲 Arkadaşına Gönder",
-                    "url": "https://t.me/share/url?url=https://t.me/faizradari&text=Bankalar%C4%B1n%20canl%C4%B1%20kredi%2C%20mevduat%20ve%20d%C3%B6viz%20makas%20tablolar%C4%B1%20@faizradari%20kanal%C4%B1nda!",
                 },
             ],
         ]
@@ -967,8 +962,8 @@ def build_loan_caption(offers, tickers) -> str:
     icon, header_title, label_name = title_map.get(loan_type, title_map["ihtiyac"])
 
     lines = [
-        f"{icon} <b>FAİZ RADARI | GÜNCEL {header_title}</b> ({now_str})",
-        f"💱 <b>Dolar:</b> {tickers.get('USD')} | <b>Euro:</b> {tickers.get('EUR')} | <b>Gram Altın:</b> {tickers.get('ALTIN')}\n",
+        f"🔥 <b>{principal_str} {label_name}nde Bankalar Arası Fark {format_tl(diff)}! En Uygun: {best.bank_name} (%{best.monthly_rate:.2f})</b>",
+        f"💱 <i>Dolar: {tickers.get('USD')} | Euro: {tickers.get('EUR')} | Gram Altın: {tickers.get('ALTIN')} ({now_str})</i>\n",
         f"📊 <b>{principal_str} {label_name} ({months} Ay Vade) En Uygun 5 Banka:</b>",
     ]
 
@@ -986,8 +981,7 @@ def build_loan_caption(offers, tickers) -> str:
 
     lines.append(
         "\n⚠️ <i>Yasal Uyarı: Veriler açık kaynaklardan derlenmiş olup bilgilendirme amaçlıdır, "
-        "yatırım/finansal tavsiye değildir.</i>\n"
-        "🔔 <b>Takip:</b> @faizradari"
+        "yatırım/finansal tavsiye değildir.</i>"
     )
     return "\n".join(lines)
 
@@ -1055,9 +1049,10 @@ def build_deposit_caption(deposits, zero_offers, tickers) -> str:
     principal_str = format_tl(deposits[0].principal)
     days = deposits[0].days
 
+    best_d = deposits[0]
     lines = [
-        f"💰 <b>FAİZ RADARI | VADELİ MEVDUAT & %0 FAİZ FIRSATLARI</b> ({now_str})",
-        f"📈 <b>{principal_str} Anaparanın {days} Günlük Net Mevduat Getirisi (%17,5 Stopaj Düşülmüş):</b>",
+        f"💰 <b>{principal_str} Mevduat {days} Günde Net +{format_tl(best_d.net_return)} Kazandırıyor! ({best_d.bank_name} %{best_d.annual_rate:.1f})</b>",
+        f"📈 <i>%17,5 Stopaj Düşülmüş Güncel Net Getiriler ({now_str}):</i>",
     ]
     medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"]
     for idx, dep in enumerate(deposits[:5]):
@@ -1073,8 +1068,7 @@ def build_deposit_caption(deposits, zero_offers, tickers) -> str:
 
     lines.append(
         "\n⚠️ <i>Yasal Uyarı: Mevduat oranları ve hoş geldin kampanyaları müşteri segmentine göre değişebilir, "
-        "yatırım tavsiyesi değildir.</i>\n"
-        "🔔 <b>Takip:</b> @faizradari"
+        "yatırım tavsiyesi değildir.</i>"
     )
     return "\n".join(lines)
 
@@ -1113,9 +1107,16 @@ def build_deposit_x_text(deposits, changed_banks: List[str] = None) -> str:
 
 def build_spread_caption(usd_spreads, gold_spreads, tickers) -> str:
     now_str = datetime.now().strftime("%d.%m.%Y • %H:%M")
+    u_best = usd_spreads[0] if usd_spreads else None
+    g_best = gold_spreads[0] if gold_spreads else None
+    hook_sp = (
+        f"💱 <b>En Düşük Dolar Makası {u_best.bank_name} ({u_best.spread_tl:.2f} ₺), Altın Makası {g_best.bank_name} ({g_best.spread_tl:.0f} ₺)!</b>"
+        if (u_best and g_best)
+        else f"💱 <b>Bankaların Güncel Dolar & Gram Altın Makas Farkları ({now_str})</b>"
+    )
     lines = [
-        f"💱 <b>FAİZ RADARI | BANKA DOLAR & ALTIN MAKAS TABLOSU</b> ({now_str})",
-        f"📊 <b>Serbest Piyasa Ref:</b> Dolar: <b>{tickers.get('USD')}</b> | Gram Altın: <b>{tickers.get('ALTIN')}</b>\n",
+        hook_sp,
+        f"📊 <i>Serbest Piyasa: Dolar {tickers.get('USD')} | Gram Altın {tickers.get('ALTIN')} ({now_str})</i>\n",
         "💵 <b>En Düşük Dolar (USD) Makası Veren Bankalar:</b>",
     ]
     medals = ["🥇", "🥈", "🥉", "4️⃣"]
@@ -1134,8 +1135,7 @@ def build_spread_caption(usd_spreads, gold_spreads, tickers) -> str:
 
     lines.append(
         "\n⚠️ <i>Yasal Uyarı: Banka alış-satış kurları açık kaynaklardan anlık çekilmektedir, "
-        "mesai saatleri dışında makaslar açılabilir. Yatırım tavsiyesi değildir.</i>\n"
-        "🔔 <b>Takip:</b> @faizradari"
+        "mesai saatleri dışında makaslar açılabilir. Yatırım tavsiyesi değildir.</i>"
     )
     return "\n".join(lines)
 
@@ -1261,13 +1261,10 @@ def dispatch_rate_change_alerts(alerts: List[RateDropAlert], target_chat_id: str
         new_s = f"%{a.new_rate:.2f}".replace(".", ",")
 
         caption = (
-            f"🚨 <b>FAİZ RADARI | FAİZ İNDİRİMİ ALARMI</b>\n\n"
-            f"📉 <b>{a.bank_name.upper()} {lname.upper()} FAİZİNİ DÜŞÜRDÜ!</b>\n\n"
-            f"📊 <b>Eski Oran:</b> {old_s} ➔ <b>Yeni Oran:</b> <b>{new_s}</b>\n"
+            f"📉 <b>{a.bank_name.upper()} {lname} Faizini {old_s} ➔ {new_s} Seviyesine Düşürdü! ({format_tl(a.total_savings)} Avantaj)</b>\n\n"
             f"💰 <b>{format_tl(a.principal)} ({a.months} Ay)</b> kredide toplam geri ödeme "
             f"<b>{format_tl(a.total_savings)} azaldı!</b> (Yeni Taksit: {format_tl(a.new_offer.monthly_installment)})\n\n"
-            f"⚠️ <i>Bilgilendirme amaçlıdır, yatırım tavsiyesi değildir.</i>\n"
-            f"🔔 <b>Anlık Takip:</b> @faizradari"
+            f"⚠️ <i>Bilgilendirme amaçlıdır, yatırım tavsiyesi değildir.</i>"
         )
 
         _post_photo_to_telegram(alert_img, caption, target_chat_id=target_chat_id)
@@ -1721,13 +1718,11 @@ def send_viral_insight_report(target_chat_id: str = CHANNEL_ID) -> dict:
     )
 
     tg_caption = (
-        f"💡 <b>FAİZ RADARI | {tag}</b> ({_tr_short_date()})\n\n"
-        f"📌 <b>{headline}</b>\n"
-        f"🔥 <b>{big_val}</b>\n\n"
+        f"🔥 <b>{headline} — {big_val}</b>\n"
+        f"💡 <i>{tag} ({_tr_short_date()}):</i>\n\n"
         + "\n".join([f"• <b>{r['title']}:</b> {r['value']} ({r['sub']})" for r in rows[:4]])
         + f"\n\n💬 <b>{question}</b>\n\n"
-        "⚠️ <i>Canlı banka verilerinden derlenmiştir, yatırım tavsiyesi değildir.</i>\n"
-        "🔔 <b>Takip:</b> @faizradari"
+        "⚠️ <i>Canlı banka verilerinden derlenmiştir, yatırım tavsiyesi değildir.</i>"
     )
 
     ig_cap = (
@@ -1835,12 +1830,12 @@ def build_briefing_caption(items: List[str] = None) -> str:
         "Bankaların güncel oranları, piyasa kurları ve öne çıkan fırsatlarla sabah finans özeti yayında.",
     ]
     hook = random.choice(hooks)
+    first_hook = items[0].split(";")[0] if (items and len(items) > 0) else "Piyasalarda Günün En Kritik 10 Finans Başlığı"
     lines = [
-        f"📊 <b>FAİZ RADARI | GÜNÜN FİNANS RAPORU</b> ({now_str})\n",
-        f"⚡ {hook}\n",
+        f"⚡ <b>{first_hook} | Günün 10 Maddelik Finans Özeti ({now_str})</b>\n",
+        f"📊 {hook}\n",
         "📌 <i>Detaylı oranları yukarıdaki infografikten inceleyebilirsiniz.</i>\n",
-        "⚠️ <i>Bilgilendirme amaçlıdır, yatırım tavsiyesi içermez.</i>\n",
-        "🔔 <b>Takip:</b> @faizradari"
+        "⚠️ <i>Bilgilendirme amaçlıdır, yatırım tavsiyesi içermez.</i>",
     ]
     return "\n".join(lines)
 
@@ -2083,13 +2078,11 @@ def send_auto_breaking_news_report(
 
     now_str = datetime.now().strftime("%d.%m.%Y • %H:%M")
     caption = (
-        f"🚨 <b>FAİZ RADARI | SON DAKİKA EKONOMİ</b> ({now_str})\n\n"
-        f"📌 <b>{headline}</b> <i>({source})</i>\n\n"
+        f"🚨 <b>{headline}</b> <i>({source} • {now_str})</i>\n\n"
         f"📝 <b>Haberin Özeti:</b>\n{summary}\n\n"
         f"💡 <b>Faiz Radarı Piyasa & Cep Etkisi:</b>\n{impact_note}\n\n"
         f"💬 <b>{question}</b>\n\n"
-        "⚠️ <i>Resmi kurum ve ekonomi basını verilerinden derlenmiştir, yatırım tavsiyesi içermez.</i>\n"
-        "🔔 <b>Anlık Piyasa Bildirimleri:</b> @faizradari"
+        "⚠️ <i>Resmi kurum ve ekonomi basını verilerinden derlenmiştir, yatırım tavsiyesi içermez.</i>"
     )
 
     markup = _default_reply_markup() if target_chat_id == CHANNEL_ID else _interactive_menu_markup()
@@ -2663,12 +2656,11 @@ def send_bank_vs_report(
         ]
     )
     caption = (
-        f"🆚 <b>FAİZ RADARI | 2 DEV BANKA DÜELLOSU: {b1.upper()} vs {b2.upper()}</b>\n\n"
+        f"🆚 <b>{b1.upper()} mı, {b2.upper()} mı? 4 Kategoride Kafa Kafaya Düello! (Skor: {s1} - {s2})</b>\n\n"
         f"{rounds_txt}\n\n"
         f"🏆 <b>Genel Skor:</b> {s1} - {s2} ({winner})\n\n"
         f"💬 <b>{question}</b>\n\n"
-        "⚠️ <i>Canlı banka verilerinden derlenmiştir, yatırım tavsiyesi değildir.</i>\n"
-        "🔔 <b>Takip:</b> @faizradari"
+        "⚠️ <i>Canlı banka verilerinden derlenmiştir, yatırım tavsiyesi değildir.</i>"
     )
 
     markup = _default_reply_markup() if target_chat_id == CHANNEL_ID else _interactive_menu_markup()
@@ -2808,12 +2800,11 @@ def send_investment_race_report(
         ]
     )
     caption = (
-        f"🏆 <b>FAİZ RADARI | 1 AY ÖNCE 100.000 TL YATIRAN BUGÜN NE KAZANDI?</b>\n\n"
+        f"🏆 <b>1 Ay Önce 100.000 TL Yatıran Bugün Ne Kazandı? Şampiyon: {winner['short_name']} ({format_tl(winner['final_tl'])})</b>\n\n"
         f"{list_txt}\n\n"
         f"🔥 <b>1. ile 5. Arasındaki 30 Günlük Fark:</b> {format_tl(gap)}\n\n"
         f"💬 <b>{question}</b>\n\n"
-        "⚠️ <i>Son 30 günlük gerçek piyasa verileri ve %17,5 stopaj sonrası net mevduat hesabıdır. Yatırım tavsiyesi değildir.</i>\n"
-        "🔔 <b>Takip:</b> @faizradari"
+        "⚠️ <i>Son 30 günlük gerçek piyasa verileri ve %17,5 stopaj sonrası net mevduat hesabıdır. Yatırım tavsiyesi değildir.</i>"
     )
 
     markup = _default_reply_markup() if target_chat_id == CHANNEL_ID else _interactive_menu_markup()
