@@ -1036,6 +1036,103 @@ if __name__ == "__main__":
                 json={"chat_id": ILAN_CHANNEL_ID, "message_id": mid, "reply_markup": _ilan_reply_markup("https://isealimkariyerkapisi.cbiko.gov.tr", "e-Devlet Kariyer Kapısı")},
                 timeout=10,
             )
+    elif "--announce-on-faizradari" in sys.argv:
+        import time
+        import base64
+        import shutil
+        import subprocess
+        from bot import WHATSAPP_CHANNEL_ID, post_to_x, post_to_buffer_instagram
+
+        card_path = str(Path(__file__).parent / "ilan_radari_magfi_1080x1080.png")
+        vid_path = str(Path(__file__).parent / "ilan_radari_magfi_video_15sn.mp4")
+
+        # 1. TELEGRAM (@faizradari)
+        tg_caption = (
+            "📢 <b>BİLGİLENDİRME: YENİ 'İLAN RADARI' SAYFAMIZ AÇILDI!</b> 🎯\n\n"
+            "Değerli takipçilerimiz; Türkiye genelindeki güncel <b>kamu personel alımlarını, İŞKUR iş ilanlarını, banka personel alımlarını</b> ve <b>meslek meslek maaş / emekli promosyon tablolarını</b> artık yeni <b>İlan Radarı</b> kanallarımızda paylaşıyoruz.\n\n"
+            "📋 <b>İlan Radarı'nda Her Gün Neler Paylaşılıyor?</b>\n"
+            "1️⃣ <b>Bakanlık, Hastane & Üniversite Alımları:</b> KPSS'li sözleşmeli personel ve memur ilanları\n"
+            "2️⃣ <b>İŞKUR & Belediye İlanları:</b> KPSS şartsız sürekli işçi ve kurum dışı personel alımları\n"
+            "3️⃣ <b>Banka Kariyer İlanları:</b> Gişe yetkilisi, çağrı merkezi ve uzman yardımcısı alımları\n"
+            "4️⃣ <b>Maaş & Haklar Rehberi:</b> Kamu maaş zamları, emekli promosyon ligi ve kıdem tazminatı tabloları\n\n"
+            "👇 <b>Aşağıdaki bağlantılardan Telegram ve WhatsApp kanallarımıza ücretsiz katılabilirsiniz:</b>\n"
+            "🔹 <b>Telegram Kanalımız:</b> https://t.me/ilanradari (@ilanradari)\n"
+            f"🟢 <b>WhatsApp Kanalımız:</b> {ILAN_WHATSAPP_INVITE_URL}"
+        )
+        tg_markup = json.dumps({
+            "inline_keyboard": [
+                [{"text": "📢 İlan Radarı Telegram Kanalı (@ilanradari)", "url": "https://t.me/ilanradari"}],
+                [{"text": "🟢 İlan Radarı WhatsApp Kanalı", "url": ILAN_WHATSAPP_INVITE_URL}],
+            ]
+        })
+        with open(card_path, "rb") as f:
+            r_tg = requests.post(
+                f"{API_BASE}/sendPhoto",
+                data={"chat_id": FAIZ_CHANNEL_ID, "caption": tg_caption, "parse_mode": "HTML", "reply_markup": tg_markup},
+                files={"photo": f},
+                timeout=30,
+            ).json()
+        print("1_TG_FAIZRADARI_OK:", r_tg.get("ok"), "MSG_ID:", r_tg.get("result", {}).get("message_id"))
+
+        # 2. WHATSAPP (Faiz Radarı WhatsApp Kanalı)
+        wa_caption = (
+            "📢 *BİLGİLENDİRME: YENİ 'İLAN RADARI' SAYFAMIZ AÇILDI!* 🎯\n\n"
+            "Değerli takipçilerimiz; Türkiye genelindeki güncel *kamu personel alımlarını, İŞKUR iş ilanlarını, banka personel alımlarını* ve *meslek meslek maaş / emekli promosyon tablolarını* artık yeni *İlan Radarı* kanallarımızda paylaşıyoruz.\n\n"
+            "📋 *İlan Radarı'nda Her Gün Neler Paylaşılıyor?*\n"
+            "1️⃣ *Bakanlık, Hastane & Üniversite Alımları:* KPSS'li sözleşmeli personel ve memur ilanları\n"
+            "2️⃣ *İŞKUR & Belediye İlanları:* KPSS şartsız sürekli işçi ve kurum dışı personel alımları\n"
+            "3️⃣ *Banka Kariyer İlanları:* Gişe yetkilisi, çağrı merkezi ve uzman yardımcısı alımları\n"
+            "4️⃣ *Maaş & Haklar Rehberi:* Kamu maaş zamları, emekli promosyon ligi ve kıdem tazminatı tabloları\n\n"
+            "👇 *Aşağıdaki linklerden ücretsiz katılabilirsiniz:*\n"
+            "🔹 *Telegram Kanalımız:* https://t.me/ilanradari\n"
+            f"🟢 *WhatsApp Kanalımız:* {ILAN_WHATSAPP_INVITE_URL}"
+        )
+        with open(card_path, "rb") as f:
+            img_b64 = base64.b64encode(f.read()).decode("utf-8")
+        headers_wa = {"Authorization": f"Bearer {WHAPI_TOKEN}", "Content-Type": "application/json", "User-Agent": "FaizRadari-Bot/1.0"}
+        r_wa = requests.post(
+            "https://gate.whapi.cloud/messages/image",
+            json={"to": WHATSAPP_CHANNEL_ID, "media": f"data:image/png;base64,{img_b64}", "caption": wa_caption},
+            headers=headers_wa,
+            timeout=35,
+        )
+        print("2_WA_FAIZRADARI_STATUS:", r_wa.status_code)
+
+        # 3. X (@faizradari)
+        x_text = (
+            "📢 Bilgilendirme: Yeni 'İlan Radarı' Sayfamız Açıldı!\n\n"
+            "Güncel kamu personel alımlarını, İŞKUR iş ilanlarını, KPSS şartsız memur/işçi alımlarını, banka iş ilanlarını ve maaş/promosyon tablolarını artık İlan Radarı sayfamızda paylaşıyoruz:\n\n"
+            "• Bakanlık, Belediye & Hastane Alımları\n"
+            "• İŞKUR & Banka İş İlanları\n"
+            "• Maaş & Emekli Promosyon Tabloları\n\n"
+            "👉 Telegram arama kısmına @ilanradari yazarak ücretsiz katılabilirsiniz!"
+        )
+        post_to_x(card_path, x_text)
+
+        # 4. INSTAGRAM (@faizradari via Buffer)
+        repo_dir = str(Path(__file__).parent)
+        shutil.copyfile(vid_path, str(Path(__file__).parent / "latest_story_video.mp4"))
+        subprocess.run(["git", "add", "-f", "latest_story_video.mp4", "ilan_radari.py"], cwd=repo_dir, check=False)
+        subprocess.run(["git", "commit", "-m", "chore: publish @ilanradari informative announcement across Faiz Radarı channels"], cwd=repo_dir, check=False)
+        subprocess.run(["git", "pull", "--rebase", "-X", "theirs"], cwd=repo_dir, check=False)
+        subprocess.run(["git", "push"], cwd=repo_dir, check=False)
+        sha_p = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=repo_dir, capture_output=True, text=True, check=False)
+        ref = sha_p.stdout.strip() if (sha_p.returncode == 0 and sha_p.stdout.strip()) else "main"
+        time.sleep(2)
+
+        ig_url = f"https://raw.githubusercontent.com/mbakan44-web/faizradari/{ref}/latest_story_video.mp4?v={int(time.time())}"
+        ig_caption = (
+            "📢 Bilgilendirme: Yeni 'İlan Radarı' Sayfamız Açıldı! 🎯\n\n"
+            "Türkiye genelindeki güncel kamu personel alımlarını, İŞKUR iş ilanlarını, banka personel alımlarını ve meslek meslek maaş/promosyon tablolarını artık yeni İlan Radarı kanalımızda tek tabloda paylaşıyoruz:\n\n"
+            "1️⃣ Bakanlık, Belediye, Şehir Hastanesi ve Üniversite personel alımları\n"
+            "2️⃣ İŞKUR KPSS'li ve KPSS şartsız güncel memur & işçi ilanları\n"
+            "3️⃣ Banka personel alımları, maaş zamları ve emekli promosyon ligi\n\n"
+            "👉 Katılmak için Telegram arama kısmına  @ilanradari  yazarak ücretsiz kanalımıza hemen katılabilirsiniz!\n\n"
+            "İş arayan arkadaşlarınızla paylaşmayı unutmayın 👇\n\n"
+            "#işilanları #personelalımı #kpss #işkur #kariyer"
+        )
+        ok_ig = post_to_buffer_instagram(ig_url, ig_caption, is_video=True)
+        print("4_IG_FAIZRADARI_OK:", ok_ig)
     elif "--auto-slot" in sys.argv:
         run_ilan_auto_slot()
     else:
