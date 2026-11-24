@@ -1988,29 +1988,25 @@ def send_breaking_news_report(
     )
 
     now_str = datetime.now().strftime("%d.%m.%Y • %H:%M")
+    src_line = f" <i>({source} • {now_str})</i>" if source else f" <i>({now_str})</i>"
     impact_block = f"\n\n💡 <b>Faiz Radarı Cep & Piyasa Etkisi:</b>\n{impact_note}" if impact_note else ""
-    src_line = f" (Kaynak: {source})" if source else ""
     caption = (
-        f"🚨 <b>FAİZ RADARI | SON DAKİKA EKONOMİ</b> ({now_str})\n\n"
-        f"📌 <b>{headline}</b>{src_line}\n\n"
-        f"📝 <b>Haber Özeti:</b>\n{details}"
+        f"🚨 <b>{headline}</b>{src_line}\n\n"
+        f"📝 <b>Haberin Özeti:</b>\n{details}"
         f"{impact_block}\n\n"
         f"💬 <b>{question}</b>\n\n"
-        "⚠️ <i>Kamuya açık resmi verilerden derlenmiştir, yatırım tavsiyesi içermez.</i>\n"
-        "🔔 <b>Anlık Piyasa Bildirimleri:</b> @faizradari"
+        "⚠️ <i>Resmi kurum ve ekonomi basını verilerinden derlenmiştir, yatırım tavsiyesi içermez.</i>"
     )
 
     markup = _default_reply_markup() if target_chat_id == CHANNEL_ID else _interactive_menu_markup()
     result = _post_photo_to_telegram(img_path, caption, target_chat_id=target_chat_id, reply_markup=markup)
 
     if target_chat_id == CHANNEL_ID:
-        # X için haber odası formatı (Telegram kelimesi ve hashtag spamı yok!)
-        x_impact = f"\n\nPiyasa & Cep Etkisi:\n{impact_note}\n" if impact_note else "\n"
+        # X için haber odası formatı (280 karakter sınırı ve link/hashtag spamı yok!)
         x_text = (
-            f"SON DAKİKA | {headline}\n\n"
-            f"{details[:155].rstrip()}..."
-            f"{x_impact}\n"
-            f"{question}"
+            f"🚨 SON DAKİKA | {headline}\n\n"
+            f"{details[:110].rstrip()}...\n\n"
+            f"💬 {question}"
         )
         post_to_x(img_path, x_text)
         post_to_whatsapp(img_path, caption)

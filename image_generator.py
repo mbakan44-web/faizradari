@@ -908,23 +908,27 @@ def render_breaking_news_image(
     draw.text((58, 117), cat_label, font=f_cat, fill=(251, 191, 36))
 
     def _wrap(text: str, font, max_w: int) -> List[str]:
-        words = text.split()
-        lines = []
-        cur = []
-        for w in words:
-            test = " ".join(cur + [w])
-            bb = draw.textbbox((0, 0), test, font=font)
-            if (bb[2] - bb[0]) <= max_w:
-                cur.append(w)
-            else:
-                if cur:
-                    lines.append(" ".join(cur))
-                    cur = [w]
+        paragraphs = text.split("\n")
+        all_lines = []
+        for para in paragraphs:
+            words = para.split()
+            if not words:
+                continue
+            cur = []
+            for w in words:
+                test = " ".join(cur + [w])
+                bb = draw.textbbox((0, 0), test, font=font)
+                if (bb[2] - bb[0]) <= max_w:
+                    cur.append(w)
                 else:
-                    lines.append(w)
-        if cur:
-            lines.append(" ".join(cur))
-        return lines
+                    if cur:
+                        all_lines.append(" ".join(cur))
+                        cur = [w]
+                    else:
+                        all_lines.append(w)
+            if cur:
+                all_lines.append(" ".join(cur))
+        return all_lines
 
     # Ana Manşet
     h_lines = _wrap(headline, f_headline, width - 90)[:3]
@@ -935,7 +939,7 @@ def render_breaking_news_image(
 
     # 1. Kutu: Haberin Özeti
     c1_y = max(h_y + 16, 304)
-    d_lines = _wrap(details, f_body, width - 140)[:5]
+    d_lines = _wrap(details, f_body, width - 140)[:6]
     c1_h = max(165, 76 + len(d_lines) * 30 + 18)
     draw.rounded_rectangle([(40, c1_y), (width - 40, c1_y + c1_h)], radius=14, fill=(15, 23, 42), outline=(51, 65, 85), width=1)
     draw.rounded_rectangle([(40, c1_y + 12), (46, c1_y + c1_h - 12)], radius=3, fill=(239, 68, 68))
@@ -966,7 +970,7 @@ def render_breaking_news_image(
 
     # 3. Canlı Piyasa Göstergeleri Şeridi (Dolar, Euro, Gram Altın)
     if tickers:
-        strip_y = min(cur_y, 795)
+        strip_y = 795 if cur_y <= 795 else cur_y
         strip_h = 82
         box_w = (width - 80 - 24) // 3
         items_t = [
