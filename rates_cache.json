@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-24 06:29",
+  "updated_at": "2026-11-24 08:29",
   "ihtiyac_kredisi": {
     "Odeabank": 3.09,
     "Ziraat Bankası": 3.69,
@@ -327,6 +327,9 @@
     "2026-11-23": [
       "haber",
       "analiz"
+    ],
+    "2026-11-24": [
+      "haber"
     ]
   },
   "dispatched_news_history": [
@@ -354,6 +357,11 @@
       "date": "2026-11-23",
       "headline": "Piyasanın enflasyon beklentisi artarken, hanehalkının geriledi",
       "category": "MERKEZ BANKASI & FAİZ"
+    },
+    {
+      "date": "2026-11-24",
+      "headline": "Altın fiyatlarında son durum",
+      "category": "ALTIN & DÖVİZ PİYASASI"
     }
   ]
 }
