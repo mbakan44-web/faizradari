@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-24 16:29",
+  "updated_at": "2026-11-25 06:29",
   "ihtiyac_kredisi": {
     "Odeabank": 3.09,
     "Ziraat Bankası": 3.69,
@@ -98,8 +98,8 @@
     "Halkbank": 3.65,
     "Ziraat Bankası": 3.29
   },
-  "last_dispatched_slot": "2026-11-24_19_mevduat",
-  "last_dispatched_at": "2026-11-24 19:29:43",
+  "last_dispatched_slot": "2026-11-25_09_bulten",
+  "last_dispatched_at": "2026-11-25 09:29:34",
   "last_makas_date": "2026-11-24",
   "last_published_fingerprints": {
     "ihtiyac": {
@@ -311,6 +311,9 @@
       "konut_tasit",
       "makas",
       "mevduat"
+    ],
+    "2026-11-25": [
+      "bulten"
     ]
   },
   "daily_instagram_posts": {
