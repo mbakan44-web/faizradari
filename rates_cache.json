@@ -98,8 +98,8 @@
     "Halkbank": 3.65,
     "Ziraat Bankası": 3.29
   },
-  "last_dispatched_slot": "2026-11-25_09_bulten",
-  "last_dispatched_at": "2026-11-25 09:29:34",
+  "last_dispatched_slot": "2026-11-25_11_ihtiyac",
+  "last_dispatched_at": "2026-11-25 11:30:31",
   "last_makas_date": "2026-11-24",
   "last_published_fingerprints": {
     "ihtiyac": {
@@ -313,7 +313,8 @@
       "mevduat"
     ],
     "2026-11-25": [
-      "bulten"
+      "bulten",
+      "ihtiyac"
     ]
   },
   "daily_instagram_posts": {
