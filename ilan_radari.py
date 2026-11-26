@@ -29,12 +29,16 @@ ILAN_WHATSAPP_INVITE_URL = "https://whatsapp.com/channel/0029Vb9rhBs90x2y0jH3O31
 
 def convert_ilan_to_whatsapp(text: str) -> str:
     """Telegram HTML etiketlerini WhatsApp uyumlu metne dönüştürür ve ana Telegram kanalımıza yönlendirme ekler."""
-    t = re.sub(r'<a\s+href="([^"]+)"[^>]*>(.*?)</a>', r'*\2*:\n\1', text, flags=re.DOTALL)
+    # WhatsApp'ta tarih ve saat görünmesin (kullanıcı kuralı)
+    t = re.sub(r'📅[^\n]*\n?', '', text)
+    t = re.sub(r'\(\d{1,2}\.\d{1,2}\.\d{4}[^\)]*\)', '', t)
+    t = re.sub(r'<a\s+href="([^"]+)"[^>]*>(.*?)</a>', r'*\2*:\n\1', t, flags=re.DOTALL)
     t = re.sub(r'<b>(.*?)</b>', r'*\1*', t, flags=re.DOTALL)
     t = re.sub(r'<strong>(.*?)</strong>', r'*\1*', t, flags=re.DOTALL)
     t = re.sub(r'<i>(.*?)</i>', r'_\1_', t, flags=re.DOTALL)
     t = re.sub(r'<em>(.*?)</em>', r'_\1_', t, flags=re.DOTALL)
     t = re.sub(r'<[^>]+>', '', t)
+    t = re.sub(r'\n{3,}', '\n\n', t)
     t = (
         t.strip()
         + "\n\n🔔 *İlan Radarı Resmi Kanalları*\n"
@@ -554,7 +558,7 @@ def render_job_spotlight_image(
     f_body = _load_font(21, bold=False)
     f_foot = _load_font(14, bold=False)
 
-    today_str = datetime.now().strftime("%d.%m.%Y • %H:%M")
+    today_str = datetime.now().strftime("%d.%m.%Y")
 
     # Üst Bar
     draw.rounded_rectangle([(40, 32), (W - 40, 88)], radius=10, fill=(18, 48, 38), outline=(16, 185, 129), width=2)
@@ -718,13 +722,13 @@ def send_daily_jobs_report(target_chat_id: str = ILAN_CHANNEL_ID) -> dict:
 
     caption = (
         f"{hook_line}\n"
-        f"📋 <b>GÜNÜN KAMU & İŞKUR İLANLARI AKŞAM ÖZETİ</b> <i>({now_str}):</i>\n\n"
+        "📋 <b>GÜNÜN KAMU & İŞKUR İLANLARI AKŞAM ÖZETİ:</b>\n\n"
         f"{bullets}\n\n"
         "🏛️ <b>Resmi Başvuru Portalları:</b>\n"
         "• <a href=\"https://isealimkariyerkapisi.cbiko.gov.tr\">e-Devlet Kariyer Kapısı</a>  |  "
-        "<a href=\"https://esube.iskur.gov.tr\">İŞKUR e-Şube</a>  |  "
-        "<a href=\"https://ais.osym.gov.tr\">ÖSYM AİS</a>\n\n"
-        "📲 <i>İş arayan ve kamuya atanmak isteyen sevdiklerinizle aşağıdaki butonla paylaşabilirsiniz.</i>"
+        "<a href=\"https://esube.iskur.gov.tr\">İŞKUR e-Şube</a>\n\n"
+        "📲 <i>İş arayan ve kamuya atanmak isteyen sevdiklerinizle aşağıdaki butonla paylaşabilirsiniz.</i>\n\n"
+        f"📅 <i>{now_str} • @ilanradari</i>"
     )
 
     with open(img_path, "rb") as f:
@@ -762,16 +766,17 @@ def send_spotlight_job_report(target_chat_id: str = ILAN_CHANNEL_ID, force: bool
         return {"ok": False, "reason": "no_new_job"}
 
     img_path = render_job_spotlight_image(chosen, str(Path(__file__).parent / "latest_ilan_spotlight.png"))
-    now_str = datetime.now().strftime("%d.%m.%Y • %H:%M")
+    now_str = datetime.now().strftime("%d.%m.%Y")
     gov_name = chosen.get("gov_name", "Cumhurbaşkanlığı Kariyer Kapısı (e-Devlet)")
     direct_url = chosen.get("direct_url") or chosen.get("gov_url", "https://isealimkariyerkapisi.cbiko.gov.tr")
 
     caption = (
-        f"🚨 <b>{chosen['title']}</b>\n"
-        f"🏷️ <i>{chosen['tag']} • {chosen['badge']} ({now_str})</i>\n\n"
-        f"📝 <b>İlan Özeti:</b>\n{chosen['summary']}\n\n"
-        f"🏛️ <b>Resmi İlan & Başvuru:</b>\n👉 <a href=\"{direct_url}\">İlan Detayı ve Başvuru İçin Tıklayın ↗</a>\n\n"
-        "📲 <i>Bu ilanı değerlendirebilecek arkadaşlarınıza aşağıdaki butonla hemen iletebilirsiniz.</i>"
+        f"📢 <b>{chosen['title']}</b>\n\n"
+        f"{chosen['summary']}\n\n"
+        f"🏛️ <b>Resmi İlan & Başvuru Detayı:</b>\n"
+        f"👉 <a href=\"{direct_url}\">İlan Detayı ve Başvuru İçin Tıklayın ↗</a>\n\n"
+        "📲 <i>İş arayan ve kamuya atanmak isteyen sevdiklerinizle paylaşabilirsiniz.</i>\n\n"
+        f"📅 <i>{now_str} • @ilanradari</i>"
     )
 
     with open(img_path, "rb") as f:
