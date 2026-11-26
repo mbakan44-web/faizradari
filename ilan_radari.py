@@ -117,8 +117,35 @@ def _is_dup_headline(title: str, existing_list: List[str]) -> bool:
     return False
 
 
+def _tr_lower(text: str) -> str:
+    """Türkçe karakterleri güvenli şekilde küçük harfe dönüştürür (İ/I uyuşmazlığını çözer)."""
+    if not text:
+        return ""
+    return text.replace("İ", "i").replace("I", "ı").replace("i̇", "i").lower()
+
+
+def is_vague_clickbait(title: str) -> bool:
+    """Kurum veya somut pozisyon adı içermeyen genel tık tuzağı / özet haber başlıklarını eler."""
+    t = _tr_lower(title)
+    if re.search(r"^\d{1,2}\s+[a-zçğıöşü]+\s+kamu\s+personel\s+alımı", t):
+        return True
+    institutions = [
+        "bakanlığ", "belediye", "üniversite", "hastane", "müdürlüğ", "valili", "adli tıp",
+        "işkur", "polis", "jandarma", "itfaiye", "nvi", "nüfus", "defterdarlık", "dsi",
+        "ogm", "tigem", "sgk", "vakıfbank", "ziraat", "halkbank", "denizbank", "öğretmen",
+        "doktor", "hemşire", "güvenlik", "zabıt", "kızılay"
+    ]
+    if "kamu personel alımı ilanları yayımlandı" in t or "personel alımı ilanları yayımlandı" in t or "iş ilanları yayımlandı" in t:
+        if not any(inst in t for inst in institutions):
+            return True
+    if re.search(r"işte\s+(başvuru\s+detayları|o\s+liste|o\s+şartlar|o\s+kadrolar|başvuru\s+şartları$)", t):
+        if not any(inst in t for inst in institutions):
+            return True
+    return False
+
+
 def _detect_job_tag_and_badge(title: str, desc: str) -> Tuple[str, str]:
-    comb = f"{title} {desc}".lower()
+    comb = _tr_lower(f"{title} {desc}")
     if "kpss şartsız" in comb or "kpss'siz" in comb or "sınavsız" in comb:
         tag = "KPSS ŞARTSIZ ALIM"
     elif "kpss" in comb:
@@ -135,7 +162,7 @@ def _detect_job_tag_and_badge(title: str, desc: str) -> Tuple[str, str]:
     elif "maaş" in comb or "zam" in comb or "asgari ücret" in comb:
         tag = "MAAŞ & ZAM REHBERİ"
     else:
-        tag = "KAMU & ÖZEL İLAN"
+        tag = "KAMU PERSONEL ALIMI"
 
     if "alacak" in comb or "başladı" in comb or "başvuru" in comb or "alım" in comb:
         badge = "BAŞVURU AKTİF"
@@ -173,23 +200,29 @@ def _resolve_official_gov_link(title: str, summary: str) -> Tuple[str, str]:
     İlanın içeriğine göre SADECE resmi kamu kurumu (.gov.tr / resmi banka) başvuru adresini döndürür.
     Asla memurlar.net, isinolsa.com gibi üçüncü taraf haber sitelerine yönlendirmez.
     """
-    comb = f"{title} {summary}".lower()
-    if "içişleri bakanlığı" in comb:
+    comb = _tr_lower(f"{title} {summary}")
+    if "içişleri" in comb or "icisleri" in comb or "nvi" in comb or "nüfus" in comb:
         return ("İçişleri Bakanlığı & e-Devlet Kariyer Kapısı", "https://www.icisleri.gov.tr")
     if "adli tıp" in comb or "atk " in comb or comb.startswith("atk"):
         return ("Adli Tıp Kurumu (ATK) & Kariyer Kapısı", "https://www.atk.gov.tr")
     if "tigem" in comb or "tarım işletmeleri" in comb:
         return ("TİGEM Resmi Duyuru & Kariyer Kapısı", "https://www.tigem.gov.tr")
-    if "sağlık bakanlığı" in comb or "şehir hastanesi" in comb:
-        return ("Sağlık Bakanlığı (YHGM) Resmi Sayfası", "https://yhgm.saglik.gov.tr")
-    if "adalet bakanlığı" in comb or "cte" in comb or "ceza ve tevkifevleri" in comb:
-        return ("Adalet Bakanlığı / CTE Resmi Sayfası", "https://cte.adalet.gov.tr")
+    if "sağlık bakanlığı" in comb or "saglik bakanligi" in comb or "şehir hastanesi" in comb or "sehir hastanesi" in comb:
+        return ("Sağlık Bakanlığı (YHGM) & Kariyer Kapısı", "https://yhgm.saglik.gov.tr")
+    if "adalet bakanlığı" in comb or "cte" in comb or "ceza ve tevkif" in comb or "zabıt katibi" in comb:
+        return ("Adalet Bakanlığı (CTE) Resmi Sayfası", "https://cte.adalet.gov.tr")
     if "milli eğitim" in comb or "meb" in comb or "öğretmen" in comb:
         return ("Milli Eğitim Bakanlığı (MEB Personel)", "https://personel.meb.gov.tr")
-    if "polis" in comb or "pomem" in comb or "bekçi" in comb or "emniyet" in comb:
-        return ("Polis Akademisi Başkanlığı Resmi Sayfası", "https://www.pa.edu.tr")
-    if "jandarma" in comb or "sahil güvenlik" in comb:
-        return ("Jandarma ve Sahil Güvenlik Akademisi (JSGA)", "https://vatandas.jandarma.gov.tr")
+    if "belediye" in comb or "itfaiye" in comb or "zabıta" in comb or "büyükşehir" in comb:
+        return ("İŞKUR Kurum Dışı & Belediye İlan Ekranı", "https://esube.iskur.gov.tr")
+    if "üniversite" in comb or "universite" in comb:
+        return ("YÖK & e-Devlet Kariyer Kapısı", "https://isealimkariyerkapisi.cbiko.gov.tr")
+    if "defterdarlık" in comb or "defterdarligi" in comb or "maliye" in comb or "gelir idaresi" in comb or "gib" in comb:
+        return ("Hazine ve Maliye Bakanlığı / GİB", "https://www.gib.gov.tr")
+    if "polis" in comb or "pomem" in comb or "bekçi" in comb or "emniyet" in comb or "egm" in comb:
+        return ("Polis Akademisi Başkanlığı", "https://www.pa.edu.tr")
+    if "jandarma" in comb or "sahil güvenlik" in comb or "jsga" in comb:
+        return ("Jandarma ve Sahil Güvenlik Personel Temin", "https://vatandas.jandarma.gov.tr")
     if "dsi" in comb or "devlet su işleri" in comb:
         return ("DSİ Genel Müdürlüğü Resmi Sayfası", "https://www.dsi.gov.tr")
     if "ogm" in comb or "orman genel" in comb:
@@ -200,9 +233,11 @@ def _resolve_official_gov_link(title: str, summary: str) -> Tuple[str, str]:
         return ("Ziraat Bankası Resmi Duyuru Sayfası", "https://www.ziraatbank.com.tr")
     if "vakıfbank" in comb:
         return ("VakıfBank Resmi Duyuru Sayfası", "https://www.vakifbank.com.tr")
-    if "işkur" in comb or "işçi alımı" in comb or "sürekli işçi" in comb or "belediye" in comb:
+    if "halkbank" in comb:
+        return ("Halkbank Resmi Kariyer Portalı", "https://www.halkbank.com.tr")
+    if "işkur" in comb or "iskur" in comb or "işçi alımı" in comb or "sürekli işçi" in comb:
         return ("İŞKUR Resmi e-Şube Başvuru Ekranı", "https://esube.iskur.gov.tr")
-    if "kpss" in comb or "ösym" in comb:
+    if "kpss" in comb or "ösym" in comb or "osym" in comb:
         return ("ÖSYM Aday İşlemleri Sistemi (AİS)", "https://ais.osym.gov.tr")
     if "emekli" in comb or "maaş" in comb or "promosyon" in comb:
         return ("Çalışma ve Sosyal Güvenlik Bakanlığı / SGK", "https://www.sgk.gov.tr")
@@ -276,6 +311,9 @@ def fetch_live_job_announcements(limit: int = 8) -> List[Dict]:
                     d = ""
 
                 if len(t) < 22 or len(t) > 125:
+                    continue
+
+                if is_vague_clickbait(t):
                     continue
 
                 low_all = f"{t} {d}".lower()
@@ -591,7 +629,7 @@ def send_welcome_and_pin(target_chat_id: str = ILAN_CHANNEL_ID) -> dict:
 
 
 def send_daily_jobs_report(target_chat_id: str = ILAN_CHANNEL_ID) -> dict:
-    """Günün öne çıkan 6 kamu ve İŞKUR iş ilanını tek tabloda @ilanradari kanalında paylaşır."""
+    """Günün öne çıkan 6 kamu ve İŞKUR iş ilanını tek tabloda @ilanradari kanalında paylaşır (Akşam Özeti)."""
     jobs = fetch_live_job_announcements(limit=6)
     if not jobs:
         print("[UYARI] Güncel iş ilanı bulunamadı.")
@@ -604,21 +642,27 @@ def send_daily_jobs_report(target_chat_id: str = ILAN_CHANNEL_ID) -> dict:
     extra_cnt = max(0, len(jobs[:6]) - 1)
     hook_line = f"🔥 <b>{top_hook}</b> (+{extra_cnt} Yeni Kamu & İŞKUR İlanı!)" if extra_cnt > 0 else f"🔥 <b>{top_hook}</b>"
 
-    bullets = "\n".join(
-        [
-            f"{i + 1}️⃣ <b>{j['title'][:78]}</b> (<i>{j['tag']}</i>)"
-            for i, j in enumerate(jobs[:6])
-        ]
-    )
+    bullet_lines = []
+    for i, j in enumerate(jobs[:6]):
+        t_clean = j["title"][:72].rstrip()
+        gov_name = j.get("gov_name", "Kariyer Kapısı")
+        gov_url = j.get("gov_url", "https://isealimkariyerkapisi.cbiko.gov.tr")
+        bullet_lines.append(
+            f"{i + 1}️⃣ <b>{t_clean}</b>\n"
+            f"   🏷️ <i>{j['tag']} • {j.get('badge', 'GÜNCEL')}</i>\n"
+            f"   👉 <b>Resmi Başvuru:</b> <a href=\"{gov_url}\">{gov_name}</a>"
+        )
+    bullets = "\n\n".join(bullet_lines)
+
     caption = (
         f"{hook_line}\n"
-        f"📋 <i>Günün Öne Çıkan Personel Alımları ({now_str}):</i>\n\n"
+        f"📋 <b>GÜNÜN KAMU & İŞKUR İLANLARI AKŞAM ÖZETİ</b> <i>({now_str}):</i>\n\n"
         f"{bullets}\n\n"
         "🏛️ <b>Resmi Başvuru Portalları:</b>\n"
         "• <a href=\"https://isealimkariyerkapisi.cbiko.gov.tr\">e-Devlet Kariyer Kapısı</a>  |  "
         "<a href=\"https://esube.iskur.gov.tr\">İŞKUR e-Şube</a>  |  "
         "<a href=\"https://ais.osym.gov.tr\">ÖSYM AİS</a>\n\n"
-        "📲 <i>İş arayan arkadaşlarınızla aşağıdaki butonla hemen paylaşabilirsiniz.</i>"
+        "📲 <i>İş arayan ve kamuya atanmak isteyen sevdiklerinizle aşağıdaki butonla paylaşabilirsiniz.</i>"
     )
 
     with open(img_path, "rb") as f:
@@ -940,16 +984,15 @@ def send_fallback_guide_report(target_chat_id: str = ILAN_CHANNEL_ID) -> dict:
 def run_ilan_auto_slot() -> None:
     """
     GitHub Actions her çalıştığında @ilanradari kanalı için:
-    - Gece 20:00 - 08:30 arası sessiz saat kuralına uyar.
-    - Sabah (09:00-11:59): Günün 6'lı Kamu & İŞKUR Personel Alım İlanları Tablosunu paylaşır (günde 1 kez).
-    - Öğleden sonra / Akşam (12:00-19:59):
-      1. Yeni çıkan önemli bir personel alımı / maaş duyurusu varsa Flaş İlan Kartı paylaşır.
-      2. Eğer o saatte yeni ilan çıkmamışsa ve bugün henüz Günün Maaş/Promosyon/Kariyer Rehberi
-         paylaşılmamışsa (günde 1 kez) otomatik olarak yedek rehber tablosunu paylaşır (sayfa asla cansız kalmaz!).
+    - Gece 21:00 - 08:30 arası sessiz saat kuralına uyar.
+    - GÜN BOYUNCA (08:30 - 18:30): Yeni açılan sıcak kamu/İŞKUR ilanlarını sırasıyla
+      tekil 'Flaş İlan Kartı' (Spotlight) olarak paylaşır. Yeni ilan yoksa haftanın rehberini sunar.
+    - AKŞAM (19:00 - 20:30): Günün tüm alımlarını toparlayan 'Günün Özet Tablosu' infografiğini
+      ve doğrudan linkli listesini akşam bülteni olarak paylaşır.
     """
     now_tr = datetime.now(timezone(timedelta(hours=3)))
     h = now_tr.hour
-    if h >= 20 or h < 8:
+    if h >= 21 or h < 8:
         return
 
     today_str = now_tr.strftime("%Y-%m-%d")
@@ -957,14 +1000,17 @@ def run_ilan_auto_slot() -> None:
     daily = cache.get("daily_dispatched", {})
     today_list = daily.get(today_str, [])
 
-    if h in (8, 9, 10, 11) and "daily_table" not in today_list:
+    # 1. AKŞAM ÖZET TABLOSU (19:00 - 20:59 arası günde 1 kez)
+    if h in (19, 20) and "daily_table" not in today_list:
         res = send_daily_jobs_report(ILAN_CHANNEL_ID)
         if res.get("ok"):
             today_list.append("daily_table")
             daily[today_str] = today_list
             cache["daily_dispatched"] = daily
             save_ilan_cache(cache)
-    elif h in (12, 13, 14, 15, 16, 17, 18, 19) and f"spotlight_{h // 2}" not in today_list:
+
+    # 2. GÜN İÇİ YENİ AÇILAN TEKİL İLANLAR (08:30 - 18:59 arası)
+    elif h in (8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18) and f"spotlight_{h // 2}" not in today_list:
         res = send_spotlight_job_report(ILAN_CHANNEL_ID)
         if res.get("ok"):
             today_list.append(f"spotlight_{h // 2}")
