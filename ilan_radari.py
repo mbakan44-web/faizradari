@@ -125,22 +125,29 @@ def _tr_lower(text: str) -> str:
 
 
 def is_vague_clickbait(title: str) -> bool:
-    """Kurum veya somut pozisyon adı içermeyen genel tık tuzağı / özet haber başlıklarını eler."""
+    """Kurum veya somut pozisyon adı içermeyen genel tık tuzağı, soru kalıbı ve özet haber başlıklarını eler."""
     t = _tr_lower(title)
-    if re.search(r"^\d{1,2}\s+[a-zçğıöşü]+\s+kamu\s+personel\s+alımı", t):
+    # Soru işareti içeren veya soru kalıbı taşıyan clickbait blog yazılarını KESİNLİKLE ele!
+    if "?" in title or "?" in t:
         return True
+    if any(q in t for q in ("ne zaman", "şartı var mı", "şartları neler", "nasıl başvurulur", "nereden yapılır", "başladı mı", "açıklandı mı", "kaç puan", "alımı var mı", "ne kadar olacak")):
+        return True
+    # Belirli bir kurum veya somut pozisyon adı içermeyen jenerik 'kamuya 11 bin...', 'personel alımı ilanları' başlıklarını ele
     institutions = [
         "bakanlığ", "belediye", "üniversite", "hastane", "müdürlüğ", "valili", "adli tıp",
         "işkur", "polis", "jandarma", "itfaiye", "nvi", "nüfus", "defterdarlık", "dsi",
-        "ogm", "tigem", "sgk", "vakıfbank", "ziraat", "halkbank", "denizbank", "öğretmen",
-        "doktor", "hemşire", "güvenlik", "zabıt", "kızılay"
+        "ogm", "tigem", "sgk", "vakıfbank", "ziraat", "halkbank", "denizbank", "rekabet kurumu",
+        "türk akreditasyon", "kalkınma ajansı", "tübitak", "afad", "öğretmen", "doktor",
+        "hemşire", "güvenlik", "zabıt", "kızılay", "uzman erbaş", "uzman yardımcısı"
     ]
+    if not any(inst in t for inst in institutions):
+        return True
+    if re.search(r"^\d{1,2}\s+[a-zçğıöşü]+\s+kamu\s+personel\s+alımı", t):
+        return True
     if "kamu personel alımı ilanları yayımlandı" in t or "personel alımı ilanları yayımlandı" in t or "iş ilanları yayımlandı" in t:
-        if not any(inst in t for inst in institutions):
-            return True
+        return True
     if re.search(r"işte\s+(başvuru\s+detayları|o\s+liste|o\s+şartlar|o\s+kadrolar|başvuru\s+şartları$)", t):
-        if not any(inst in t for inst in institutions):
-            return True
+        return True
     return False
 
 
@@ -199,10 +206,16 @@ def _resolve_official_gov_link(title: str, summary: str) -> Tuple[str, str]:
     """
     İlanın içeriğine göre SADECE resmi kamu kurumu (.gov.tr / resmi banka) başvuru adresini döndürür.
     Asla memurlar.net, isinolsa.com gibi üçüncü taraf haber sitelerine yönlendirmez.
+    Genel kamu ilanlarının ve KPSS'li sözleşmeli alımların resmi başvuru kapısı Cumhurbaşkanlığı Kariyer Kapısı'dır.
+    ÖSYM yalnızca merkezi tercih dönemlerinde geçerlidir.
     """
     comb = _tr_lower(f"{title} {summary}")
     if "içişleri" in comb or "icisleri" in comb or "nvi" in comb or "nüfus" in comb:
         return ("İçişleri Bakanlığı & e-Devlet Kariyer Kapısı", "https://www.icisleri.gov.tr")
+    if "rekabet kurumu" in comb:
+        return ("Rekabet Kurumu Resmi Portalı", "https://www.rekabet.gov.tr")
+    if "akreditasyon" in comb or "türkak" in comb or "turkak" in comb:
+        return ("Türk Akreditasyon Kurumu (TÜRKAK)", "https://www.turkak.org.tr")
     if "adli tıp" in comb or "atk " in comb or comb.startswith("atk"):
         return ("Adli Tıp Kurumu (ATK) & Kariyer Kapısı", "https://www.atk.gov.tr")
     if "tigem" in comb or "tarım işletmeleri" in comb:
@@ -215,13 +228,13 @@ def _resolve_official_gov_link(title: str, summary: str) -> Tuple[str, str]:
         return ("Milli Eğitim Bakanlığı (MEB Personel)", "https://personel.meb.gov.tr")
     if "belediye" in comb or "itfaiye" in comb or "zabıta" in comb or "büyükşehir" in comb:
         return ("İŞKUR Kurum Dışı & Belediye İlan Ekranı", "https://esube.iskur.gov.tr")
-    if "üniversite" in comb or "universite" in comb:
+    if "üniversite" in comb or "universite" in comb or "öğretim elemanı" in comb or "öğretim üyesi" in comb:
         return ("YÖK & e-Devlet Kariyer Kapısı", "https://isealimkariyerkapisi.cbiko.gov.tr")
     if "defterdarlık" in comb or "defterdarligi" in comb or "maliye" in comb or "gelir idaresi" in comb or "gib" in comb:
         return ("Hazine ve Maliye Bakanlığı / GİB", "https://www.gib.gov.tr")
     if "polis" in comb or "pomem" in comb or "bekçi" in comb or "emniyet" in comb or "egm" in comb:
         return ("Polis Akademisi Başkanlığı", "https://www.pa.edu.tr")
-    if "jandarma" in comb or "sahil güvenlik" in comb or "jsga" in comb:
+    if "jandarma" in comb or "sahil güvenlik" in comb or "jsga" in comb or "uzman erbaş" in comb:
         return ("Jandarma ve Sahil Güvenlik Personel Temin", "https://vatandas.jandarma.gov.tr")
     if "dsi" in comb or "devlet su işleri" in comb:
         return ("DSİ Genel Müdürlüğü Resmi Sayfası", "https://www.dsi.gov.tr")
@@ -237,8 +250,8 @@ def _resolve_official_gov_link(title: str, summary: str) -> Tuple[str, str]:
         return ("Halkbank Resmi Kariyer Portalı", "https://www.halkbank.com.tr")
     if "işkur" in comb or "iskur" in comb or "işçi alımı" in comb or "sürekli işçi" in comb:
         return ("İŞKUR Resmi e-Şube Başvuru Ekranı", "https://esube.iskur.gov.tr")
-    if "kpss" in comb or "ösym" in comb or "osym" in comb:
-        return ("ÖSYM Aday İşlemleri Sistemi (AİS)", "https://ais.osym.gov.tr")
+    if "ösym tercih" in comb or "kpss tercih" in comb or "merkezi tercih" in comb or "merkezi yerleştirme" in comb:
+        return ("ÖSYM Tercih İşlemleri Portalı", "https://ais.osym.gov.tr")
     if "emekli" in comb or "maaş" in comb or "promosyon" in comb:
         return ("Çalışma ve Sosyal Güvenlik Bakanlığı / SGK", "https://www.sgk.gov.tr")
     return ("Cumhurbaşkanlığı Kariyer Kapısı (e-Devlet)", "https://isealimkariyerkapisi.cbiko.gov.tr")
@@ -246,20 +259,23 @@ def _resolve_official_gov_link(title: str, summary: str) -> Tuple[str, str]:
 
 def fetch_live_job_announcements(limit: int = 8) -> List[Dict]:
     """
-    İşin Olsa, KamuPersoneli, Google News Kamu İlanları ve Memurlar.net üzerinden
-    canlı personel alımı, İŞKUR, belediye, bakanlık ve maaş/promosyon duyurularını çeker.
+    ilan.gov.tr (Basın İlan Kurumu), Kariyer Kapısı, İŞKUR ve doğrulanmış kamu kaynaklarından
+    canlı personel alımı, İŞKUR, belediye, bakanlık ve memur alım duyurularını çeker.
     """
     feeds = [
+        (
+            "İlan.gov.tr Resmi",
+            "https://news.google.com/rss/search?q=site:ilan.gov.tr+(%22Personel+Al%C4%B1m%C4%B1%22+OR+%22Al%C4%B1m+%C4%B0lan%C4%B1%22+OR+%22S%C3%B6zle%C5%9Fmeli%22+OR+%22%C4%B0%C5%9F%C3%A7i%22)&hl=tr&gl=TR&ceid=TR:tr",
+        ),
+        (
+            "Kariyer Kapısı Resmi",
+            "https://news.google.com/rss/search?q=(%22Kariyer+Kap%C4%B1s%C4%B1%22+OR+%22isealimkariyerkapisi%22)+when:3d&hl=tr&gl=TR&ceid=TR:tr",
+        ),
+        (
+            "İŞKUR Kamu Alımları",
+            "https://news.google.com/rss/search?q=(%22%C4%B0%C5%9EKUR+i%C5%9F%C3%A7i+al%C4%B1m%C4%B1%22+OR+%22belediye+personel+al%C4%B1m%C4%B1%22)+when:2d&hl=tr&gl=TR&ceid=TR:tr",
+        ),
         ("İşin Olsa", "https://www.isinolsa.com/rss"),
-        ("KamuPersoneli", "https://www.kamupersoneli.net/rss"),
-        (
-            "Kamu İlan Masası",
-            "https://news.google.com/rss/search?q=(%22personel+al%C4%B1m%C4%B1%22+OR+%22memur+al%C4%B1m%C4%B1%22+OR+%22i%C5%9F%C3%A7i+al%C4%B1m%C4%B1%22+OR+%22%C4%B0%C5%9EKUR%22+OR+%22KPSS%22+OR+%22bek%C3%A7i+al%C4%B1m%C4%B1%22)+when:2d&hl=tr&gl=TR&ceid=TR:tr",
-        ),
-        (
-            "Maaş & Promosyon Masası",
-            "https://news.google.com/rss/search?q=(%22emekli+promosyon%22+OR+%22memur+maa%C5%9F%C4%B1%22+OR+%22personel+alacak%22+OR+%22Kariyer+Kap%C4%B1s%C4%B1%22)+when:2d&hl=tr&gl=TR&ceid=TR:tr",
-        ),
     ]
 
     reject_pats = [
@@ -338,8 +354,8 @@ def fetch_live_job_announcements(limit: int = 8) -> List[Dict]:
                 gov_name, gov_url = _resolve_official_gov_link(t, cleaned_d)
                 clean_summary = (
                     cleaned_d
-                    if len(cleaned_d) >= 35
-                    else f"{t}. Başvuru şartları, kontenjan dağılımı ve başvuru takvimi {gov_name} üzerinden yürütülmektedir."
+                    if len(cleaned_d) >= 40
+                    else f"{t}. İlgili personel alımına dair başvuru şartları, kadro detayları ve takvim resmi başvuru portalında ({gov_name}) yayımlanmıştır."
                 )
                 if len(clean_summary) > 260:
                     clean_summary = clean_summary[:257].rsplit(" ", 1)[0] + "..."
