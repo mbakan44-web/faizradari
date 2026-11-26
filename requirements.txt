@@ -6,3 +6,5 @@ schedule>=1.2.0
 tweepy>=4.14.0
 imageio-ffmpeg>=0.5.1
 edge-tts>=7.0.0
+googlenewsdecoder>=0.2.2
+

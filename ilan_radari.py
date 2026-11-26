@@ -29,7 +29,7 @@ ILAN_WHATSAPP_INVITE_URL = "https://whatsapp.com/channel/0029Vb9rhBs90x2y0jH3O31
 
 def convert_ilan_to_whatsapp(text: str) -> str:
     """Telegram HTML etiketlerini WhatsApp uyumlu metne dönüştürür ve ana Telegram kanalımıza yönlendirme ekler."""
-    t = re.sub(r'<a\s+href="([^"]+)"[^>]*>(.*?)</a>', r'\2 (\1)', text, flags=re.DOTALL)
+    t = re.sub(r'<a\s+href="([^"]+)"[^>]*>(.*?)</a>', r'*\2*:\n\1', text, flags=re.DOTALL)
     t = re.sub(r'<b>(.*?)</b>', r'*\1*', t, flags=re.DOTALL)
     t = re.sub(r'<strong>(.*?)</strong>', r'*\1*', t, flags=re.DOTALL)
     t = re.sub(r'<i>(.*?)</i>', r'_\1_', t, flags=re.DOTALL)
@@ -122,6 +122,23 @@ def _tr_lower(text: str) -> str:
     if not text:
         return ""
     return text.replace("İ", "i").replace("I", "ı").replace("i̇", "i").lower()
+
+
+def _decode_job_url(raw_link: str) -> str:
+    """Google News veya yönlendirmeli linkleri gerçek ilan sayfasına dönüştürür."""
+    if not raw_link:
+        return ""
+    if "news.google.com" in raw_link:
+        try:
+            from googlenewsdecoder import gnewsdecoder
+            res = gnewsdecoder(raw_link, interval=0.1)
+            if res.get("status") or res.get("success"):
+                dec = res.get("decoded_url") or ""
+                if dec.startswith("http"):
+                    return dec
+        except Exception:
+            pass
+    return raw_link
 
 
 def is_vague_clickbait(title: str) -> bool:
@@ -316,6 +333,7 @@ def fetch_live_job_announcements(limit: int = 8) -> List[Dict]:
 
                 raw_t = it.findtext("title") or ""
                 raw_d = it.findtext("description") or ""
+                raw_link = (it.findtext("link") or "").strip()
 
                 t = html_lib.unescape(re.sub(r"<[^>]+>", " ", raw_t)).strip()
                 t = re.sub(r"\s+-\s+[A-ZÇĞİÖŞÜa-zçğıöşü0-9\.\s]{2,30}$", "", t).strip()
@@ -347,6 +365,8 @@ def fetch_live_job_announcements(limit: int = 8) -> List[Dict]:
                 score = hits * 10
                 if any(k in t.lower() for k in ("personel", "memur", "işçi", "alım", "alacak", "işkur", "kpss")):
                     score += 35
+                if "ilan.gov.tr" in url or "ilan.gov.tr" in raw_link:
+                    score += 30
                 if len(d) >= 50:
                     score += 12
 
@@ -369,13 +389,35 @@ def fetch_live_job_announcements(limit: int = 8) -> List[Dict]:
                     "source": gov_name,
                     "gov_name": gov_name,
                     "gov_url": gov_url,
+                    "raw_link": raw_link,
+                    "direct_url": gov_url,
                     "score": score,
                 })
         except Exception:
             continue
 
     items_out.sort(key=lambda x: x["score"], reverse=True)
-    return items_out[:limit]
+    top_items = items_out[:limit]
+    for item in top_items:
+        r_link = item.get("raw_link", "")
+        if r_link:
+            dec_url = _decode_job_url(r_link)
+            if dec_url and dec_url.startswith("http"):
+                if any(dom in dec_url for dom in ("ilan.gov.tr", "resmigazete.gov.tr", ".gov.tr", ".edu.tr")):
+                    item["direct_url"] = dec_url
+                    if "ilan.gov.tr" in dec_url:
+                        item["gov_name"] = "Basın İlan Kurumu (ilan.gov.tr)"
+                        item["gov_url"] = dec_url
+                    elif ".gov.tr" in dec_url or ".edu.tr" in dec_url:
+                        item["gov_url"] = dec_url
+                else:
+                    item["direct_url"] = item.get("gov_url", "https://isealimkariyerkapisi.cbiko.gov.tr")
+            else:
+                item["direct_url"] = item.get("gov_url", "https://isealimkariyerkapisi.cbiko.gov.tr")
+        else:
+            item["direct_url"] = item.get("gov_url", "https://isealimkariyerkapisi.cbiko.gov.tr")
+
+    return top_items
 
 
 def get_salary_and_promo_reference() -> List[Dict]:
@@ -597,7 +639,12 @@ def _ilan_reply_markup(official_url: str = "", official_name: str = "") -> str:
     )
     rows = []
     if official_url:
-        btn_lbl = f"🏛️ Resmi Başvuru / Kurum Sayfası ({official_name[:26]})" if official_name else "🏛️ Resmi Kurum Başvuru Sayfası"
+        if "ilan.gov.tr" in official_url:
+            btn_lbl = "🏛️ Resmi İlan Sayfası (ilan.gov.tr) ↗"
+        elif official_name:
+            btn_lbl = f"🏛️ Resmi Başvuru ({official_name[:24]}) ↗"
+        else:
+            btn_lbl = "🏛️ Resmi İlan Sayfası & Başvuru ↗"
         rows.append([{"text": btn_lbl, "url": official_url}])
     rows.append([
         {"text": "📲 İş Arayan Arkadaşına Gönder", "url": f"https://t.me/share/url?url=https://t.me/ilanradari&text={share_txt}"},
@@ -661,12 +708,11 @@ def send_daily_jobs_report(target_chat_id: str = ILAN_CHANNEL_ID) -> dict:
     bullet_lines = []
     for i, j in enumerate(jobs[:6]):
         t_clean = j["title"][:72].rstrip()
-        gov_name = j.get("gov_name", "Kariyer Kapısı")
-        gov_url = j.get("gov_url", "https://isealimkariyerkapisi.cbiko.gov.tr")
+        direct_url = j.get("direct_url") or j.get("gov_url", "https://isealimkariyerkapisi.cbiko.gov.tr")
         bullet_lines.append(
             f"{i + 1}️⃣ <b>{t_clean}</b>\n"
             f"   🏷️ <i>{j['tag']} • {j.get('badge', 'GÜNCEL')}</i>\n"
-            f"   👉 <b>Resmi Başvuru:</b> <a href=\"{gov_url}\">{gov_name}</a>"
+            f"   👉 <a href=\"{direct_url}\">İlan Detayı ve Başvuru İçin Tıklayın ↗</a>"
         )
     bullets = "\n\n".join(bullet_lines)
 
@@ -718,13 +764,13 @@ def send_spotlight_job_report(target_chat_id: str = ILAN_CHANNEL_ID, force: bool
     img_path = render_job_spotlight_image(chosen, str(Path(__file__).parent / "latest_ilan_spotlight.png"))
     now_str = datetime.now().strftime("%d.%m.%Y • %H:%M")
     gov_name = chosen.get("gov_name", "Cumhurbaşkanlığı Kariyer Kapısı (e-Devlet)")
-    gov_url = chosen.get("gov_url", "https://isealimkariyerkapisi.cbiko.gov.tr")
+    direct_url = chosen.get("direct_url") or chosen.get("gov_url", "https://isealimkariyerkapisi.cbiko.gov.tr")
 
     caption = (
         f"🚨 <b>{chosen['title']}</b>\n"
         f"🏷️ <i>{chosen['tag']} • {chosen['badge']} ({now_str})</i>\n\n"
         f"📝 <b>İlan Özeti:</b>\n{chosen['summary']}\n\n"
-        f"🏛️ <b>Resmi Başvuru & Kurum Sayfası:</b>\n👉 <a href=\"{gov_url}\">{gov_name} ({gov_url})</a>\n\n"
+        f"🏛️ <b>Resmi İlan & Başvuru:</b>\n👉 <a href=\"{direct_url}\">İlan Detayı ve Başvuru İçin Tıklayın ↗</a>\n\n"
         "📲 <i>Bu ilanı değerlendirebilecek arkadaşlarınıza aşağıdaki butonla hemen iletebilirsiniz.</i>"
     )
 
@@ -735,7 +781,7 @@ def send_spotlight_job_report(target_chat_id: str = ILAN_CHANNEL_ID, force: bool
                 "chat_id": target_chat_id,
                 "caption": caption,
                 "parse_mode": "HTML",
-                "reply_markup": _ilan_reply_markup(gov_url, gov_name),
+                "reply_markup": _ilan_reply_markup(direct_url, gov_name),
             },
             files={"photo": f},
             timeout=30,
@@ -976,7 +1022,7 @@ def send_fallback_guide_report(target_chat_id: str = ILAN_CHANNEL_ID) -> dict:
         f"📌 <i>{g['subtitle']}</i>\n\n"
         f"{bullets}\n\n"
         f"🏛️ <b>Resmi İşlem & Başvuru Adresi:</b>\n"
-        f"👉 <a href=\"{g['gov_url']}\">{g['gov_name']} ({g['gov_url']})</a>\n\n"
+        f"👉 <a href=\"{g['gov_url']}\">Resmi Sayfaya Git ↗</a>\n\n"
         "📲 <i>Bu rehberi faydalı olabilecek arkadaşlarınızla aşağıdaki butonla paylaşabilirsiniz.</i>"
     )
     with open(out_path, "rb") as f:
