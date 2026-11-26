@@ -98,12 +98,12 @@
     "Halkbank": 3.65,
     "Ziraat Bankası": 3.29
   },
-  "last_dispatched_slot": "2026-11-26_09_bulten",
-  "last_dispatched_at": "2026-11-26 09:30:41",
+  "last_dispatched_slot": "2026-11-26_11_ihtiyac",
+  "last_dispatched_at": "2026-11-26 11:37:20",
   "last_makas_date": "2026-11-25",
   "last_published_fingerprints": {
     "ihtiyac": {
-      "date": "2026-11-24",
+      "date": "2026-11-26",
       "fingerprint": [
         [
           "Enpara",
@@ -126,12 +126,12 @@
           2.99
         ],
         [
-          "Odeabank",
+          "Anadolubank",
           3.09
         ],
         [
-          "Anadolubank",
-          3.09
+          "Odeabank",
+          3.15
         ],
         [
           "Kuveyt Türk",
@@ -322,7 +322,8 @@
       "mevduat"
     ],
     "2026-11-26": [
-      "bulten"
+      "bulten",
+      "ihtiyac"
     ]
   },
   "daily_instagram_posts": {
@@ -355,7 +356,8 @@
       "analiz"
     ],
     "2026-11-26": [
-      "haber"
+      "haber",
+      "ihtiyac"
     ]
   },
   "dispatched_news_history": [
