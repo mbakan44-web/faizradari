@@ -242,9 +242,9 @@ def _resolve_official_gov_link(title: str, summary: str) -> Tuple[str, str]:
     """
     comb = _tr_lower(f"{title} {summary}")
 
-    # 1. Üniversite Bilişim Personeli Alımları (Kariyer Kapısı üzerinden)
+    # 1. Üniversite Bilişim Personeli Alımları (Kariyer Kapısı doğrudan şartlar sayfası)
     if any(k in comb for k in ("bilişim personeli", "yazılım personeli")) and any(k in comb for k in ("üniversite", "universite", "selçuk", "selcuk")):
-        return ("e-Devlet Kariyer Kapısı (Kamu İşe Alım)", "https://www.turkiye.gov.tr/cumhurbaskanligi-kamu-ise-alim")
+        return ("Kariyer Kapısı İlan Kılavuzu & Şartlar", "https://kariyerkapisi.gov.tr/IlanDetay?i=20b04c08-a1a3-4c86-93e3-f6876db3a74f")
 
     # 2. Merkezi Tercih & KPSS Alımları (Alım duyuruları ilan.gov.tr veya Kariyer Kapısı'ndadır)
     if any(k in comb for k in ("merkezi tercih", "kpss tercih", "merkezi yerleştirme")):
@@ -680,7 +680,9 @@ def _ilan_reply_markup(official_url: str = "", official_name: str = "") -> str:
     )
     rows = []
     if official_url:
-        if "ilan.gov.tr" in official_url:
+        if "IlanDetay" in official_url or "kariyerkapisi" in official_url:
+            btn_lbl = "🏛️ İlan Kılavuzu & Başvuru Şartları ↗"
+        elif "ilan.gov.tr" in official_url:
             btn_lbl = "🏛️ Resmi İlan Sayfası (ilan.gov.tr) ↗"
         elif official_name:
             btn_lbl = f"🏛️ Resmi Başvuru ({official_name[:24]}) ↗"
