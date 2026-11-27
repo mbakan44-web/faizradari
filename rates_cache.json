@@ -1,7 +1,7 @@
 {
-  "updated_at": "2026-11-27 10:28",
+  "updated_at": "2026-11-27 08:29",
   "ihtiyac_kredisi": {
-    "Odeabank": 2.99,
+    "Odeabank": 3.15,
     "Ziraat Bankası": 3.69,
     "QNB": 3.84,
     "ING": 2.99,
@@ -101,7 +101,7 @@
     "Yapı Kredi": 3.49,
     "Kuveyt Türk": 3.27,
     "CEPTETEB": 3.29,
-    "Akbank": 3.18,
+    "Akbank": 3.4,
     "Türkiye İş Bankası": 3.49,
     "VakıfBank": 3.39,
     "Halkbank": 3.65,
@@ -341,10 +341,6 @@
     ]
   },
   "daily_instagram_posts": {
-    "2026-11-19": [
-      "haber",
-      "yaris"
-    ],
     "2026-11-20": [
       "haber",
       "ihtiyac"
@@ -372,6 +368,9 @@
     "2026-11-26": [
       "haber",
       "ihtiyac"
+    ],
+    "2026-11-27": [
+      "haber"
     ]
   },
   "dispatched_news_history": [
@@ -413,6 +412,11 @@
     {
       "date": "2026-11-26",
       "headline": "Şimşek, Kavcıoğlu hakkında soruşturma izni verdi",
+      "category": "BANKACILIK & KREDİ KARARI"
+    },
+    {
+      "date": "2026-11-27",
+      "headline": "BDDK Başkanlığı'na Yusuf Kenan Bağır atandı",
       "category": "BANKACILIK & KREDİ KARARI"
     }
   ]
