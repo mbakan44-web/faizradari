@@ -486,7 +486,7 @@ def render_daily_jobs_table_image(
         draw.text((138, ry + 22), t_str, font=f_row_title, fill=(255, 255, 255))
 
         # Alt Kategori & Resmi Kurum
-        sub_str = f"{j['tag']}  •  {j.get('gov_name', 'e-Devlet Kariyer Kapısı')}"
+        sub_str = f"{j['tag']}  •  {j.get('gov_name', 'Resmi İlan Metni (ilan.gov.tr)')}"
         draw.text((138, ry + 64), sub_str, font=f_row_tag, fill=(52, 211, 153) if is_top else (56, 189, 248))
 
         # Sağ Durum Rozeti
@@ -505,7 +505,7 @@ def render_daily_jobs_table_image(
     draw.rounded_rectangle([(40, 938), (W - 40, 988)], radius=10, fill=(30, 27, 75), outline=(129, 140, 248), width=1)
     draw.text(
         (60, 953),
-        "BAŞVURU ADRESLERİ:  e-Devlet Kariyer Kapısı (turkiye.gov.tr)  •  esube.iskur.gov.tr  •  Resmi Gazete",
+        "BAŞVURU ADRESLERİ:  ilan.gov.tr  •  kariyerkapisi.gov.tr/isealim  •  esube.iskur.gov.tr",
         font=_load_font(16, bold=True),
         fill=(224, 231, 255),
     )
@@ -518,6 +518,56 @@ def render_daily_jobs_table_image(
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     img.save(output_path, format="PNG", optimize=True)
     return output_path
+
+
+def _get_application_steps(job: Dict) -> List[str]:
+    """
+    İlanın kurumuna ve türüne göre (Akademik, İŞKUR/İşçi, Askeri/Polis, Kariyer Kapısı, Genel)
+    görselde gösterilecek %100 doğru başvuru adımlarını belirler.
+    """
+    title = job.get("title", "")
+    summary = job.get("summary", "")
+    tag = job.get("tag", "")
+    comb = _tr_lower(f"{title} {summary} {tag}")
+
+    # 1. Üniversite Akademik Kadroları (Öğretim Elemanı, Öğretim Üyesi, Araştırma/Öğretim Görevlisi)
+    if any(k in comb for k in ("öğretim elemanı", "öğretim üyesi", "araştırma görevlisi", "öğretim görevlisi", "doçent", "profesör")) or tag == "AKADEMİK":
+        return [
+            "1. İlandaki fakülte, ALES taban puanı, dil ve özel şartları inceleyin.",
+            "2. Başvuru formu, onaylı mezuniyet ve yayın dosyanızı eksiksiz hazırlayın.",
+            "3. İlanda belirtilen usule göre (şahsen veya posta ile) Rektörlüğe teslim edin.",
+        ]
+
+    # 2. İŞKUR / Belediye Sürekli İşçi Alımları
+    if any(k in comb for k in ("işkur", "iskur", "sürekli işçi", "belediye işçi", "temizlik görevlisi")) or tag == "İŞÇİ ALIMI":
+        return [
+            "1. esube.iskur.gov.tr portalına e-Devlet veya İŞKUR şifrenizle giriş yapın.",
+            "2. İlan numarasını aratarak öğrenim ve ikamet şartlarını kontrol edin.",
+            "3. Belirtilen son başvuru tarihine kadar sistemden başvurunuzu onaylayın.",
+        ]
+
+    # 3. Polis, Bekçi, Askeri ve Güvenlik Alımları
+    if any(k in comb for k in ("polis", "pomem", "pmyo", "bekçi", "jandarma", "uzman erbaş", "subay", "astsubay", "msb")):
+        return [
+            "1. Resmi temin ekranına (pa.edu.tr / personeltemin.msb.gov.tr) giriş yapın.",
+            "2. KPSS taban puanı, yaş, boy/kilo ve sağlık şartlarını kontrol edin.",
+            "3. e-Devlet ile ön başvuruyu tamamlayıp sınav/mülakat takvimini takip edin.",
+        ]
+
+    # 4. Bakanlıklar & Kariyer Kapısı Sözleşmeli Personel Alımları
+    if any(k in comb for k in ("kariyer kapısı", "kariyerkapisi", "bakanlığı", "başkanlığı", "uzman yardımcısı", "müfettiş", "sözleşmeli personel")):
+        return [
+            "1. kariyerkapisi.gov.tr/isealim adresine e-Devlet şifrenizle giriş yapın.",
+            "2. Kurumun ilan kılavuzundaki öğrenim, KPSS ve özel şartları inceleyin.",
+            "3. Formu doldurup istenen belgeleri yükleyerek başvurunuzu tamamlayın.",
+        ]
+
+    # 5. Genel Kamu Fallback (ilan.gov.tr resmi kılavuzu)
+    return [
+        "1. Resmi ilan kılavuzundaki (ilan.gov.tr) genel ve özel şartları inceleyin.",
+        "2. Kurumun başvuru yöntemini (Kariyer Kapısı, İŞKUR veya Şahsen) teyit edin.",
+        "3. İstenen evrakları eksiksiz hazırlayarak son başvuru gününe kadar iletin.",
+    ]
 
 
 def render_job_spotlight_image(
@@ -602,11 +652,7 @@ def render_job_spotlight_image(
     draw.rounded_rectangle([(40, c2_y), (W - 40, c2_y + c2_h)], radius=16, fill=(18, 36, 32), outline=(16, 185, 129), width=2)
     draw.text((68, c2_y + 22), "NASIL BAŞVURU YAPILIR? (3 ADIMDA REHBER)", font=f_sec, fill=(52, 211, 153))
     draw.line([(68, c2_y + 54), (W - 68, c2_y + 54)], fill=(30, 58, 47), width=1)
-    steps = [
-        "1. e-Devlet Kariyer Kapısı (turkiye.gov.tr) veya İŞKUR e-Şube'ye giriş yapın.",
-        "2. İlgili kurumun ilan kılavuzundaki öğrenim ve KPSS/özel şartlarını kontrol edin.",
-        "3. Başvurunuzu son başvuru tarihine kadar elektronik ortamda tamamlayın.",
-    ]
+    steps = _get_application_steps(job)
     sy = c2_y + 72
     for st in steps:
         draw.text((68, sy), st, font=_load_font(18, bold=False), fill=(236, 253, 245))
