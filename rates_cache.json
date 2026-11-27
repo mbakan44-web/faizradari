@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-27 14:29",
+  "updated_at": "2026-11-27 16:29",
   "ihtiyac_kredisi": {
     "Odeabank": 3.15,
     "Ziraat Bankası": 3.69,
@@ -77,7 +77,7 @@
     "QNB": 40.5,
     "ColendiBank": 38.0,
     "Ziraat Dinamik": 45.0,
-    "Fibabanka": 42.0
+    "Fibabanka": 43.0
   },
   "konut_kredisi": {
     "VakıfBank": 2.84,
@@ -100,7 +100,7 @@
     "QNB": 3.59,
     "Yapı Kredi": 3.49,
     "Kuveyt Türk": 3.27,
-    "CEPTETEB": 3.29,
+    "CEPTETEB": 3.59,
     "Akbank": 3.4,
     "Türkiye İş Bankası": 3.49,
     "VakıfBank": 3.39,
@@ -109,8 +109,8 @@
     "Albaraka Türk": 3.27,
     "Vakıf Katılım": 3.19
   },
-  "last_dispatched_slot": "2026-11-27_17_makas",
-  "last_dispatched_at": "2026-11-27 17:29:20",
+  "last_dispatched_slot": "2026-11-27_19_mevduat",
+  "last_dispatched_at": "2026-11-27 19:29:19",
   "last_makas_date": "2026-11-27",
   "last_published_fingerprints": {
     "ihtiyac": {
@@ -225,19 +225,27 @@
       ]
     },
     "mevduat": {
-      "date": "2026-11-23",
+      "date": "2026-11-27",
       "fingerprint": [
+        [
+          "HadiBank",
+          45.0
+        ],
         [
           "Ziraat Dinamik",
           45.0
         ],
         [
-          "Alternatif Bank",
+          "Fibabanka",
           43.0
         ],
         [
+          "Alternatif Bank",
+          42.0
+        ],
+        [
           "Anadolubank",
-          43.0
+          42.0
         ],
         [
           "ING",
@@ -245,14 +253,6 @@
         ],
         [
           "Odeabank",
-          42.0
-        ],
-        [
-          "TOM Bank",
-          42.0
-        ],
-        [
-          "Fibabanka",
           42.0
         ],
         [
@@ -342,7 +342,8 @@
       "analiz",
       "x_thread",
       "konut_tasit",
-      "makas"
+      "makas",
+      "mevduat"
     ]
   },
   "daily_instagram_posts": {
