@@ -250,7 +250,7 @@ def _resolve_official_gov_link(title: str, summary: str) -> Tuple[str, str]:
     if "belediye" in comb or "itfaiye" in comb or "zabıta" in comb or "büyükşehir" in comb:
         return ("İŞKUR Kurum Dışı & Belediye İlan Ekranı", "https://esube.iskur.gov.tr")
     if "üniversite" in comb or "universite" in comb or "öğretim elemanı" in comb or "öğretim üyesi" in comb:
-        return ("YÖK & e-Devlet Kariyer Kapısı", "https://www.turkiye.gov.tr/cbiko-kariyer-kapisi-kamu-ise-alim")
+        return ("YÖK & e-Devlet Kariyer Kapısı", "https://www.turkiye.gov.tr/cumhurbaskanligi-kamu-ise-alim")
     if "defterdarlık" in comb or "defterdarligi" in comb or "maliye" in comb or "gelir idaresi" in comb or "gib" in comb:
         return ("Hazine ve Maliye Bakanlığı / GİB", "https://www.gib.gov.tr")
     if "polis" in comb or "pomem" in comb or "bekçi" in comb or "emniyet" in comb or "egm" in comb:
@@ -275,7 +275,7 @@ def _resolve_official_gov_link(title: str, summary: str) -> Tuple[str, str]:
         return ("ÖSYM Tercih İşlemleri Portalı", "https://ais.osym.gov.tr")
     if "emekli" in comb or "maaş" in comb or "promosyon" in comb:
         return ("Çalışma ve Sosyal Güvenlik Bakanlığı / SGK", "https://www.sgk.gov.tr")
-    return ("Cumhurbaşkanlığı Kariyer Kapısı (e-Devlet)", "https://www.turkiye.gov.tr/cbiko-kariyer-kapisi-kamu-ise-alim")
+    return ("Cumhurbaşkanlığı Kariyer Kapısı (e-Devlet)", "https://www.turkiye.gov.tr/cumhurbaskanligi-kamu-ise-alim")
 
 
 def fetch_live_job_announcements(limit: int = 8) -> List[Dict]:
@@ -415,11 +415,11 @@ def fetch_live_job_announcements(limit: int = 8) -> List[Dict]:
                     elif ".gov.tr" in dec_url or ".edu.tr" in dec_url:
                         item["gov_url"] = dec_url
                 else:
-                    item["direct_url"] = item.get("gov_url", "https://www.turkiye.gov.tr/cbiko-kariyer-kapisi-kamu-ise-alim")
+                    item["direct_url"] = item.get("gov_url", "https://www.turkiye.gov.tr/cumhurbaskanligi-kamu-ise-alim")
             else:
-                item["direct_url"] = item.get("gov_url", "https://www.turkiye.gov.tr/cbiko-kariyer-kapisi-kamu-ise-alim")
+                item["direct_url"] = item.get("gov_url", "https://www.turkiye.gov.tr/cumhurbaskanligi-kamu-ise-alim")
         else:
-            item["direct_url"] = item.get("gov_url", "https://www.turkiye.gov.tr/cbiko-kariyer-kapisi-kamu-ise-alim")
+            item["direct_url"] = item.get("gov_url", "https://www.turkiye.gov.tr/cumhurbaskanligi-kamu-ise-alim")
 
     return top_items
 
@@ -519,7 +519,7 @@ def render_daily_jobs_table_image(
     draw.rounded_rectangle([(40, 938), (W - 40, 988)], radius=10, fill=(30, 27, 75), outline=(129, 140, 248), width=1)
     draw.text(
         (60, 953),
-        "BAŞVURU ADRESLERİ:  e-Devlet Kariyer Kapısı (cbiko.gov.tr)  •  esube.iskur.gov.tr  •  Resmi Gazete",
+        "BAŞVURU ADRESLERİ:  e-Devlet Kariyer Kapısı (turkiye.gov.tr)  •  esube.iskur.gov.tr  •  Resmi Gazete",
         font=_load_font(16, bold=True),
         fill=(224, 231, 255),
     )
@@ -712,7 +712,7 @@ def send_daily_jobs_report(target_chat_id: str = ILAN_CHANNEL_ID) -> dict:
     bullet_lines = []
     for i, j in enumerate(jobs[:6]):
         t_clean = j["title"][:72].rstrip()
-        direct_url = j.get("direct_url") or j.get("gov_url", "https://www.turkiye.gov.tr/cbiko-kariyer-kapisi-kamu-ise-alim")
+        direct_url = j.get("direct_url") or j.get("gov_url", "https://www.turkiye.gov.tr/cumhurbaskanligi-kamu-ise-alim")
         bullet_lines.append(
             f"{i + 1}️⃣ <b>{t_clean}</b>\n"
             f"   🏷️ <i>{j['tag']} • {j.get('badge', 'GÜNCEL')}</i>\n"
@@ -725,7 +725,7 @@ def send_daily_jobs_report(target_chat_id: str = ILAN_CHANNEL_ID) -> dict:
         "📋 <b>GÜNÜN KAMU & İŞKUR İLANLARI AKŞAM ÖZETİ:</b>\n\n"
         f"{bullets}\n\n"
         "🏛️ <b>Resmi Başvuru Portalları:</b>\n"
-        "• <a href=\"https://www.turkiye.gov.tr/cbiko-kariyer-kapisi-kamu-ise-alim\">e-Devlet Kariyer Kapısı</a>  |  "
+        "• <a href=\"https://www.turkiye.gov.tr/cumhurbaskanligi-kamu-ise-alim\">e-Devlet Kariyer Kapısı</a>  |  "
         "<a href=\"https://esube.iskur.gov.tr\">İŞKUR e-Şube</a>\n\n"
         "📲 <i>İş arayan ve kamuya atanmak isteyen sevdiklerinizle aşağıdaki butonla paylaşabilirsiniz.</i>\n\n"
         f"📅 <i>{now_str} • @ilanradari</i>"
@@ -738,7 +738,7 @@ def send_daily_jobs_report(target_chat_id: str = ILAN_CHANNEL_ID) -> dict:
                 "chat_id": target_chat_id,
                 "caption": caption,
                 "parse_mode": "HTML",
-                "reply_markup": _ilan_reply_markup("https://www.turkiye.gov.tr/cbiko-kariyer-kapisi-kamu-ise-alim", "e-Devlet Kariyer Kapısı"),
+                "reply_markup": _ilan_reply_markup("https://www.turkiye.gov.tr/cumhurbaskanligi-kamu-ise-alim", "e-Devlet Kariyer Kapısı"),
             },
             files={"photo": f},
             timeout=30,
@@ -768,7 +768,7 @@ def send_spotlight_job_report(target_chat_id: str = ILAN_CHANNEL_ID, force: bool
     img_path = render_job_spotlight_image(chosen, str(Path(__file__).parent / "latest_ilan_spotlight.png"))
     now_str = datetime.now().strftime("%d.%m.%Y")
     gov_name = chosen.get("gov_name", "Cumhurbaşkanlığı Kariyer Kapısı (e-Devlet)")
-    direct_url = chosen.get("direct_url") or chosen.get("gov_url", "https://www.turkiye.gov.tr/cbiko-kariyer-kapisi-kamu-ise-alim")
+    direct_url = chosen.get("direct_url") or chosen.get("gov_url", "https://www.turkiye.gov.tr/cumhurbaskanligi-kamu-ise-alim")
 
     caption = (
         f"📢 <b>{chosen['title']}</b>\n\n"
@@ -836,7 +836,7 @@ def get_daily_fallback_guide(day_idx: int = None) -> Dict:
             "title": "MESLEK MESLEK GÜNCEL KAMU PERSONEL MAAŞLARI",
             "subtitle": "Yeni başlayan ve derece/kademeye göre kamu personeli ortalama net maaş göstergeleri:",
             "gov_name": "Cumhurbaşkanlığı Kariyer Kapısı (e-Devlet)",
-            "gov_url": "https://www.turkiye.gov.tr/cbiko-kariyer-kapisi-kamu-ise-alim",
+            "gov_url": "https://www.turkiye.gov.tr/cumhurbaskanligi-kamu-ise-alim",
             "footer_note": "Maaş tutarları aile yardımı, döner sermaye, ek ders ve bölge tazminatına göre değişiklik gösterebilir.",
             "rows": [
                 {"title": "Kamu Mühendisi & Teknik Kadro", "sub": "Bakanlıklar, DSİ, Karayolları, TİGEM Sözleşmeli/Kadrolu", "badge": "68.000 - 74.000 TL"},
@@ -854,7 +854,7 @@ def get_daily_fallback_guide(day_idx: int = None) -> Dict:
             "title": "KPSS 50 - 60 - 70 PUANLA ALIM YAPAN KURUMLAR",
             "subtitle": "Yüksek KPSS puanı olmadan açıktan ve sözleşmeli (4/B) personel alan başlıca kurumlar:",
             "gov_name": "e-Devlet Kariyer Kapısı Başvuru Ekranı",
-            "gov_url": "https://www.turkiye.gov.tr/cbiko-kariyer-kapisi-kamu-ise-alim",
+            "gov_url": "https://www.turkiye.gov.tr/cumhurbaskanligi-kamu-ise-alim",
             "footer_note": "Tüm açıktan atama ve sözleşmeli personel ilanları e-Devlet Kariyer Kapısı üzerinden yayınlanır.",
             "rows": [
                 {"title": "Üniversiteler & Üniversite Hastaneleri", "sub": "Büro personeli, destek personeli, tekniker, hemşire (Mülakatsız puan sırasıyla)", "badge": "KPSS 50 - 65 PUAN"},
@@ -926,7 +926,7 @@ def get_daily_fallback_guide(day_idx: int = None) -> Dict:
             "title": "TÜRKİYE'NİN 6 RESMİ İŞ & İLAN BAŞVURU KAPISI",
             "subtitle": "Aracı sitelere gerek kalmadan doğrudan başvuru yapabileceğiniz resmi devlet portalları:",
             "gov_name": "Cumhurbaşkanlığı Kariyer Kapısı",
-            "gov_url": "https://www.turkiye.gov.tr/cbiko-kariyer-kapisi-kamu-ise-alim",
+            "gov_url": "https://www.turkiye.gov.tr/cumhurbaskanligi-kamu-ise-alim",
             "footer_note": "Tüm resmi başvurular e-Devlet şifresiyle ücretsiz yapılır; hiçbir kamu kurumu başvuru için ücret talep etmez.",
             "rows": [
                 {"title": "1. Cumhurbaşkanlığı Kariyer Kapısı", "sub": "turkiye.gov.tr • Tüm bakanlık ve kamu sözleşmeli alımları", "badge": "e-DEVLET GİRİŞLİ"},
@@ -1124,7 +1124,7 @@ if __name__ == "__main__":
                 f"📋 <i>Günün Öne Çıkan Personel Alımları ({now_str}):</i>\n\n"
                 f"{bullets}\n\n"
                 "🏛️ <b>Resmi Başvuru Portalları:</b>\n"
-                "• https://www.turkiye.gov.tr/cbiko-kariyer-kapisi-kamu-ise-alim (e-Devlet Kariyer Kapısı)\n"
+                "• https://www.turkiye.gov.tr/cumhurbaskanligi-kamu-ise-alim (e-Devlet Kariyer Kapısı)\n"
                 "• https://esube.iskur.gov.tr (İŞKUR e-Şube)"
             )
             post_ilan_to_whatsapp(img_table, table_cap)
@@ -1133,7 +1133,7 @@ if __name__ == "__main__":
             for j_spot in jobs[:2]:
                 img_sp = render_job_spotlight_image(j_spot, str(Path(__file__).parent / "latest_ilan_spotlight.png"))
                 g_name = j_spot.get("gov_name", "Cumhurbaşkanlığı Kariyer Kapısı")
-                g_url = j_spot.get("gov_url", "https://www.turkiye.gov.tr/cbiko-kariyer-kapisi-kamu-ise-alim")
+                g_url = j_spot.get("gov_url", "https://www.turkiye.gov.tr/cumhurbaskanligi-kamu-ise-alim")
                 cap_sp = (
                     f"🚨 <b>{j_spot['title']}</b>\n"
                     f"🏷️ <i>{j_spot['tag']} • {j_spot['badge']} ({now_str})</i>\n\n"
@@ -1146,7 +1146,7 @@ if __name__ == "__main__":
         for mid in (5, 6, 7, 9, 10, 12):
             requests.post(
                 f"{API_BASE}/editMessageReplyMarkup",
-                json={"chat_id": ILAN_CHANNEL_ID, "message_id": mid, "reply_markup": _ilan_reply_markup("https://www.turkiye.gov.tr/cbiko-kariyer-kapisi-kamu-ise-alim", "e-Devlet Kariyer Kapısı")},
+                json={"chat_id": ILAN_CHANNEL_ID, "message_id": mid, "reply_markup": _ilan_reply_markup("https://www.turkiye.gov.tr/cumhurbaskanligi-kamu-ise-alim", "e-Devlet Kariyer Kapısı")},
                 timeout=10,
             )
     elif "--announce-on-faizradari" in sys.argv:
