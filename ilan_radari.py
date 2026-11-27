@@ -235,39 +235,20 @@ def _clean_clickbait_summary(text: str) -> str:
 
 def _resolve_official_gov_link(title: str, summary: str) -> Tuple[str, str]:
     """
-    İlanın kurumuna ve türüne göre doğru resmi kaynak veya başvuru sayfasını eşleştirir.
-    Asla tüm alımları ezbere Kariyer Kapısı veya ÖSYM'ye bağlamaz.
-    Türkiye'de üniversiteler, belediyeler, kalkınma ajansları, askeri alımlar ve KİT'ler
-    kendi resmi mevzuatları ve duyuru portalları üzerinden alım yaparlar.
+    İlanın kurumuna ve türüne göre varsayılan resmi portal adını ve genel URL'sini belirler.
+    Tüm gerçek ilanlarda asıl derin bağlantı (_decode_job_url ile çözümlenen ilan.gov.tr/ilan/...) korunur.
     """
     comb = _tr_lower(f"{title} {summary}")
 
-    # 1. Üniversite Bilişim Personeli Alımları (Kariyer Kapısı doğrudan şartlar sayfası)
-    if any(k in comb for k in ("bilişim personeli", "yazılım personeli")) and any(k in comb for k in ("üniversite", "universite", "selçuk", "selcuk")):
-        return ("Kariyer Kapısı İlan Kılavuzu & Şartlar", "https://kariyerkapisi.gov.tr/IlanDetay?i=20b04c08-a1a3-4c86-93e3-f6876db3a74f")
+    # 1. Kariyer Kapısı
+    if any(k in comb for k in ("kariyer kapısı", "kariyerkapisi", "isealimkariyerkapisi")):
+        return ("Kariyer Kapısı İlan Kılavuzu & Şartlar", "https://kariyerkapisi.gov.tr/isealim")
 
-    # 2. Merkezi Tercih & KPSS Alımları (Alım duyuruları ilan.gov.tr veya Kariyer Kapısı'ndadır)
-    if any(k in comb for k in ("merkezi tercih", "kpss tercih", "merkezi yerleştirme")):
-        return ("Basın İlan Kurumu Resmi İlan Portalı", "https://www.ilan.gov.tr")
-
-    # 3. İŞKUR & Belediye İşçi Alımları
+    # 2. İŞKUR & Belediye İşçi Alımları
     if any(k in comb for k in ("işkur", "iskur", "sürekli işçi", "belediye işçi", "kurum dışı kamu", "typ alımı")):
         return ("İŞKUR Resmi e-Şube Başvuru Ekranı", "https://esube.iskur.gov.tr")
 
-    # 4. Belediyeler, İtfaiye, Zabıta (Şahsen / Belediye Yazı İşleri)
-    if any(k in comb for k in ("belediye", "itfaiye eri", "itfaiye personeli", "zabıta memuru", "büyükşehir")):
-        return ("Belediye Duyuru & İŞKUR Ekranı", "https://esube.iskur.gov.tr")
-
-    # 5. Üniversiteler (Öğretim Elemanı, Öğretim Üyesi, Araştırma Görevlisi, Sözleşmeli Personel)
-    # Üniversiteler alımları rektörlük duyuruları, ilan.gov.tr ve Resmi Gazete ile yapar (asla Kariyer Kapısı değil)
-    if any(k in comb for k in ("üniversite", "universite", "öğretim elemanı", "öğretim üyesi", "araştırma görevlisi", "öğretim görevlisi", "rektörlüğü")):
-        return ("Resmi İlan Metni & Üniversite Duyurusu", "https://www.ilan.gov.tr")
-
-    # 6. Kalkınma Ajansları (Sanayi Bakanlığı Sınav Sistemi / ilan.gov.tr)
-    if any(k in comb for k in ("kalkınma ajansı", "ajansından personel")):
-        return ("Sanayi Bakanlığı Sınav Sistemi & Ajans Duyurusu", "https://sinavbasvuru.sanayi.gov.tr")
-
-    # 6. Polis & Askeri Temin
+    # 3. Polis & Askeri Temin
     if any(k in comb for k in ("polis", "pomem", "pmyo", "bekçi alımı")):
         return ("Polis Akademisi Başkanlığı", "https://www.pa.edu.tr")
     if any(k in comb for k in ("jandarma", "sahil güvenlik", "jsga", "uzman erbaş", "sözleşmeli er")):
@@ -275,68 +256,29 @@ def _resolve_official_gov_link(title: str, summary: str) -> Tuple[str, str]:
     if any(k in comb for k in ("milli savunma", "msb", "subay alımı", "astsubay alımı")):
         return ("MSB Personel Temin Dairesi", "https://personeltemin.msb.gov.tr")
 
-    # 7. Adalet Bakanlığı / Ceza ve Tevkifevleri / Adli Tıp
-    if any(k in comb for k in ("adli tıp", "atk ", comb.startswith("atk"))):
-        return ("Adli Tıp Kurumu (ATK) & ilan.gov.tr", "https://www.atk.gov.tr")
-    if any(k in comb for k in ("adalet bakanlığı", "cte", "ceza ve tevkif", "zabıt katibi", "mübaşir", "infaz koruma")):
-        return ("Adalet Bakanlığı (CTE) Resmi Sayfası", "https://cte.adalet.gov.tr")
-
-    # 8. Bakanlıklar ve Özel Kurumlar
-    if any(k in comb for k in ("içişleri", "icisleri", "nvi", "nüfus müdürlüğü")):
-        return ("İçişleri Bakanlığı Personel Portalı", "https://www.icisleri.gov.tr")
-    if "rekabet kurumu" in comb:
-        return ("Rekabet Kurumu Resmi Portalı", "https://www.rekabet.gov.tr")
-    if any(k in comb for k in ("akreditasyon", "türkak", "turkak")):
-        return ("Türk Akreditasyon Kurumu (TÜRKAK)", "https://www.turkak.org.tr")
-    if any(k in comb for k in ("tigem", "tarım işletmeleri")):
-        return ("TİGEM Resmi Duyuru Sayfası", "https://www.tigem.gov.tr")
-    if any(k in comb for k in ("sağlık bakanlığı", "saglik bakanligi", "şehir hastanesi")):
-        return ("Sağlık Bakanlığı (YHGM) Duyuruları", "https://yhgm.saglik.gov.tr")
-    if any(k in comb for k in ("milli eğitim", "meb", "öğretmen alımı")):
-        return ("Milli Eğitim Bakanlığı (MEB Personel)", "https://personel.meb.gov.tr")
-    if any(k in comb for k in ("defterdarlık", "maliye", "gelir idaresi", "gib")):
-        return ("Hazine ve Maliye Bakanlığı / GİB", "https://www.gib.gov.tr")
-    if any(k in comb for k in ("dsi", "devlet su işleri")):
-        return ("DSİ Genel Müdürlüğü Resmi Sayfası", "https://www.dsi.gov.tr")
-    if any(k in comb for k in ("ogm", "orman genel")):
-        return ("Orman Genel Müdürlüğü (OGM) Resmi Sayfası", "https://www.ogm.gov.tr")
-    if "denizbank" in comb:
-        return ("DenizBank Resmi Portalı", "https://www.denizbank.com")
-    if "ziraat" in comb:
-        return ("Ziraat Bankası Resmi Duyuru Sayfası", "https://www.ziraatbank.com.tr")
-    if "vakıfbank" in comb:
-        return ("VakıfBank Resmi Duyuru Sayfası", "https://www.vakifbank.com.tr")
-    if "halkbank" in comb:
-        return ("Halkbank Resmi Kariyer Portalı", "https://www.halkbank.com.tr")
-
-    # 9. Açıkça Kariyer Kapısı Belirtilenler
-    if any(k in comb for k in ("kariyer kapısı", "isealimkariyerkapisi", "kariyerkapisi")):
-        return ("e-Devlet Kariyer Kapısı", "https://www.turkiye.gov.tr/cumhurbaskanligi-kamu-ise-alim")
-
-    # 10. Genel Kamu Fallback: Basın İlan Kurumu (ilan.gov.tr) Resmi Duyurusu
-    # Asla her ilanı Kariyer Kapısı yapma!
-    return ("Resmi İlan Metni & Kurum Kılavuzu", "https://www.ilan.gov.tr")
+    # 4. Üniversiteler, Bakanlıklar ve Kamu Kurumları (Asıl kaynak Basın İlan Kurumu'dur)
+    return ("Resmi İlan Metni (ilan.gov.tr)", "https://www.ilan.gov.tr")
 
 
 def fetch_live_job_announcements(limit: int = 8) -> List[Dict]:
     """
-    ilan.gov.tr (Basın İlan Kurumu), Kariyer Kapısı, İŞKUR ve doğrulanmış kamu kaynaklarından
-    canlı personel alımı, İŞKUR, belediye, bakanlık ve memur alım duyurularını çeker.
+    ilan.gov.tr (Basın İlan Kurumu), Kariyer Kapısı ve doğrulanmış resmi kaynaklardan
+    canlı personel alımı, sözleşmeli personel, akademik ve kamu alım duyurularını çeker.
+    Tüm ilanlar doğrudan ilan.gov.tr/ilan/... derin bağlantısıyla açılır.
     """
     feeds = [
         (
-            "İlan.gov.tr Resmi",
-            "https://news.google.com/rss/search?q=site:ilan.gov.tr+(%22Personel+Al%C4%B1m%C4%B1%22+OR+%22Al%C4%B1m+%C4%B0lan%C4%B1%22+OR+%22S%C3%B6zle%C5%9Fmeli%22+OR+%22%C4%B0%C5%9F%C3%A7i%22)+when:7d&hl=tr&gl=TR&ceid=TR:tr",
+            "İlan.gov.tr Personel Alımları",
+            "https://news.google.com/rss/search?q=site:ilan.gov.tr+(%22personel+al%C4%B1m%C4%B1%22+OR+%22memur+al%C4%B1m%C4%B1%22+OR+%22s%C3%B6zle%C5%9Fmeli+personel%22+OR+%22i%C5%9F%C3%A7i+al%C4%B1m%C4%B1%22)+when:7d&hl=tr&gl=TR&ceid=TR:tr",
+        ),
+        (
+            "İlan.gov.tr Akademik & Kariyer",
+            "https://news.google.com/rss/search?q=site:ilan.gov.tr+(%22%C3%B6%C4%9Fretim+eleman%C4%B1%22+OR+%22uzman+erba%C5%9F%22+OR+%22uzman+yard%C4%B1mc%C4%B1s%C4%B1%22+OR+%22akademik+personel%22)+when:7d&hl=tr&gl=TR&ceid=TR:tr",
         ),
         (
             "Kariyer Kapısı Resmi",
-            "https://news.google.com/rss/search?q=(%22Kariyer+Kap%C4%B1s%C4%B1%22+OR+%22isealimkariyerkapisi%22)+when:3d&hl=tr&gl=TR&ceid=TR:tr",
+            "https://news.google.com/rss/search?q=site:kariyerkapisi.gov.tr+when:14d&hl=tr&gl=TR&ceid=TR:tr",
         ),
-        (
-            "İŞKUR Kamu Alımları",
-            "https://news.google.com/rss/search?q=(%22%C4%B0%C5%9EKUR+i%C5%9F%C3%A7i+al%C4%B1m%C4%B1%22+OR+%22belediye+personel+al%C4%B1m%C4%B1%22)+when:2d&hl=tr&gl=TR&ceid=TR:tr",
-        ),
-        ("İşin Olsa", "https://www.isinolsa.com/rss"),
     ]
 
     reject_pats = [
@@ -345,6 +287,7 @@ def fetch_live_job_announcements(limit: int = 8) -> List[Dict]:
         r"futbol|maç|transfer|galatasaray|fenerbahçe|beşiktaş",
         r"sayısal loto|şans topu|piyango",
         r"hava durumu|deprem",
+        r"ihale|ihalesi|mal alım|hizmet alım|doğrudan temin|yapım işi|onarım işi|ihale duyuru|iptal ilanı|düzeltme ilanı|konkordato|icra|satış ilanı|kiraya ver|taşınmaz sat|arsa sat|araç sat|sütur",
     ]
     positive_kws = [
         "personel", "memur", "işçi", "alım", "alacak", "kpss", "işkur",
@@ -394,7 +337,7 @@ def fetch_live_job_announcements(limit: int = 8) -> List[Dict]:
                 if is_vague_clickbait(t):
                     continue
 
-                low_all = f"{t} {d}".lower()
+                low_all = _tr_lower(f"{t} {d}")
                 if any(re.search(p, low_all) for p in reject_pats):
                     continue
 
@@ -441,24 +384,30 @@ def fetch_live_job_announcements(limit: int = 8) -> List[Dict]:
             continue
 
     items_out.sort(key=lambda x: x["score"], reverse=True)
-    top_items = items_out[:limit]
-    for item in top_items:
+    valid_items: List[Dict] = []
+    for item in items_out:
         r_link = item.get("raw_link", "")
         if r_link:
             dec_url = _decode_job_url(r_link)
             if dec_url and dec_url.startswith("http"):
+                # İhale, mal/hizmet alım ihaleleri, icra veya satış ilanlarını kesinlikle ele
+                if any(bad in dec_url for bad in ("ihale-duyurulari", "ihale", "mal-alim", "hizmet-alim", "/emlak/", "/vasita/", "/iflas-", "/icra-", "satisi")):
+                    continue
                 if "/ilan/" in dec_url or "ilan.gov.tr" in dec_url:
                     item["direct_url"] = dec_url
                     item["gov_name"] = "Resmi İlan Metni (ilan.gov.tr)"
                     item["gov_url"] = dec_url
-                elif any(dom in dec_url for dom in ("resmigazete.gov.tr", "turkiye.gov.tr", "kariyerkapisi", ".gov.tr", ".edu.tr", "iskur.gov.tr", "pa.edu.tr", "jandarma.gov.tr")):
+                elif any(dom in dec_url for dom in ("resmigazete.gov.tr", "kariyerkapisi", ".gov.tr", ".edu.tr", "iskur.gov.tr", "pa.edu.tr", "jandarma.gov.tr")):
                     item["direct_url"] = dec_url
                     item["gov_url"] = dec_url
                 else:
                     # Üçüncü taraf haber/blog sitesiyse gov_url'i bozma; direct_url olarak resmi gov_url'i kullan
                     item["direct_url"] = item.get("gov_url", "https://www.ilan.gov.tr")
+        valid_items.append(item)
+        if len(valid_items) >= limit:
+            break
 
-    return top_items
+    return valid_items
 
 
 def get_salary_and_promo_reference() -> List[Dict]:
@@ -751,7 +700,7 @@ def send_daily_jobs_report(target_chat_id: str = ILAN_CHANNEL_ID) -> dict:
     bullet_lines = []
     for i, j in enumerate(jobs[:6]):
         t_clean = j["title"][:72].rstrip()
-        direct_url = j.get("direct_url") or j.get("gov_url", "https://www.turkiye.gov.tr/cumhurbaskanligi-kamu-ise-alim")
+        direct_url = j.get("direct_url") or j.get("gov_url", "https://www.ilan.gov.tr")
         bullet_lines.append(
             f"{i + 1}️⃣ <b>{t_clean}</b>\n"
             f"   🏷️ <i>{j['tag']} • {j.get('badge', 'GÜNCEL')}</i>\n"
@@ -766,7 +715,7 @@ def send_daily_jobs_report(target_chat_id: str = ILAN_CHANNEL_ID) -> dict:
         "🏛️ <b>Resmi Başvuru & İlan Portalları:</b>\n"
         "• <a href=\"https://www.ilan.gov.tr\">Basın İlan Kurumu (ilan.gov.tr)</a>  |  "
         "<a href=\"https://esube.iskur.gov.tr\">İŞKUR e-Şube</a>  |  "
-        "<a href=\"https://www.turkiye.gov.tr/cumhurbaskanligi-kamu-ise-alim\">e-Devlet Kariyer Kapısı</a>\n\n"
+        "<a href=\"https://kariyerkapisi.gov.tr/isealim\">Kariyer Kapısı</a>\n\n"
         "📲 <i>İş arayan ve kamuya atanmak isteyen sevdiklerinizle aşağıdaki butonla paylaşabilirsiniz.</i>\n\n"
         f"📅 <i>{now_str} • @ilanradari</i>"
     )
@@ -880,8 +829,8 @@ def get_daily_fallback_guide(day_idx: int = None) -> Dict:
             "header_badge": "KAMU & MEMUR MAAŞ REHBERİ",
             "title": "MESLEK MESLEK GÜNCEL KAMU PERSONEL MAAŞLARI",
             "subtitle": "Yeni başlayan ve derece/kademeye göre kamu personeli ortalama net maaş göstergeleri:",
-            "gov_name": "Cumhurbaşkanlığı Kariyer Kapısı (e-Devlet)",
-            "gov_url": "https://www.turkiye.gov.tr/cumhurbaskanligi-kamu-ise-alim",
+            "gov_name": "Kariyer Kapısı İşe Alım Platformu",
+            "gov_url": "https://kariyerkapisi.gov.tr/isealim",
             "footer_note": "Maaş tutarları aile yardımı, döner sermaye, ek ders ve bölge tazminatına göre değişiklik gösterebilir.",
             "rows": [
                 {"title": "Kamu Mühendisi & Teknik Kadro", "sub": "Bakanlıklar, DSİ, Karayolları, TİGEM Sözleşmeli/Kadrolu", "badge": "68.000 - 74.000 TL"},
@@ -898,8 +847,8 @@ def get_daily_fallback_guide(day_idx: int = None) -> Dict:
             "header_badge": "KPSS PUAN & KURUM REHBERİ",
             "title": "KPSS 50 - 60 - 70 PUANLA ALIM YAPAN KURUMLAR",
             "subtitle": "Yüksek KPSS puanı olmadan açıktan ve sözleşmeli (4/B) personel alan başlıca kurumlar:",
-            "gov_name": "e-Devlet Kariyer Kapısı Başvuru Ekranı",
-            "gov_url": "https://www.turkiye.gov.tr/cumhurbaskanligi-kamu-ise-alim",
+            "gov_name": "Kariyer Kapısı İşe Alım Platformu",
+            "gov_url": "https://kariyerkapisi.gov.tr/isealim",
             "footer_note": "Tüm açıktan atama ve sözleşmeli personel ilanları e-Devlet Kariyer Kapısı üzerinden yayınlanır.",
             "rows": [
                 {"title": "Üniversiteler & Üniversite Hastaneleri", "sub": "Büro personeli, destek personeli, tekniker, hemşire (Mülakatsız puan sırasıyla)", "badge": "KPSS 50 - 65 PUAN"},
@@ -970,11 +919,11 @@ def get_daily_fallback_guide(day_idx: int = None) -> Dict:
             "header_badge": "RESMİ BAŞVURU KAPILARI REHBERİ",
             "title": "TÜRKİYE'NİN 6 RESMİ İŞ & İLAN BAŞVURU KAPISI",
             "subtitle": "Aracı sitelere gerek kalmadan doğrudan başvuru yapabileceğiniz resmi devlet portalları:",
-            "gov_name": "Cumhurbaşkanlığı Kariyer Kapısı",
-            "gov_url": "https://www.turkiye.gov.tr/cumhurbaskanligi-kamu-ise-alim",
+            "gov_name": "Kariyer Kapısı İşe Alım Platformu",
+            "gov_url": "https://kariyerkapisi.gov.tr/isealim",
             "footer_note": "Tüm resmi başvurular e-Devlet şifresiyle ücretsiz yapılır; hiçbir kamu kurumu başvuru için ücret talep etmez.",
             "rows": [
-                {"title": "1. Cumhurbaşkanlığı Kariyer Kapısı", "sub": "turkiye.gov.tr • Tüm bakanlık ve kamu sözleşmeli alımları", "badge": "e-DEVLET GİRİŞLİ"},
+                {"title": "1. Kariyer Kapısı İşe Alım", "sub": "kariyerkapisi.gov.tr/isealim • Tüm bakanlık ve kamu sözleşmeli alımları", "badge": "e-DEVLET GİRİŞLİ"},
                 {"title": "2. İŞKUR Resmi e-Şube Portalı", "sub": "esube.iskur.gov.tr • Kamu sürekli işçi ve özel sektör açık iş ilanları", "badge": "KPSS ŞARTSIZ"},
                 {"title": "3. İŞKUR Kurum Dışı Kamu İşçi İlanları", "sub": "iskur.gov.tr/baglantilar/kurum-disi-kamu-isci-alimi-ilani • Belediye alımları", "badge": "BELEDİYE KADROSU"},
                 {"title": "4. Basın İlan Kurumu (ilan.gov.tr)", "sub": "ilan.gov.tr • Kamu, akademik ve askeri tüm resmi personel alım ilanları", "badge": "RESMİ İLAN"},
@@ -1169,7 +1118,8 @@ if __name__ == "__main__":
                 f"📋 <i>Günün Öne Çıkan Personel Alımları ({now_str}):</i>\n\n"
                 f"{bullets}\n\n"
                 "🏛️ <b>Resmi Başvuru Portalları:</b>\n"
-                "• https://www.turkiye.gov.tr/cumhurbaskanligi-kamu-ise-alim (e-Devlet Kariyer Kapısı)\n"
+                "• https://www.ilan.gov.tr (Resmi İlan Portalı)\n"
+                "• https://kariyerkapisi.gov.tr/isealim (Kariyer Kapısı İşe Alım)\n"
                 "• https://esube.iskur.gov.tr (İŞKUR e-Şube)"
             )
             post_ilan_to_whatsapp(img_table, table_cap)
@@ -1177,8 +1127,8 @@ if __name__ == "__main__":
 
             for j_spot in jobs[:2]:
                 img_sp = render_job_spotlight_image(j_spot, str(Path(__file__).parent / "latest_ilan_spotlight.png"))
-                g_name = j_spot.get("gov_name", "Cumhurbaşkanlığı Kariyer Kapısı")
-                g_url = j_spot.get("gov_url", "https://www.turkiye.gov.tr/cumhurbaskanligi-kamu-ise-alim")
+                g_name = j_spot.get("gov_name", "Resmi İlan Metni (ilan.gov.tr)")
+                g_url = j_spot.get("direct_url") or j_spot.get("gov_url", "https://www.ilan.gov.tr")
                 cap_sp = (
                     f"🚨 <b>{j_spot['title']}</b>\n"
                     f"🏷️ <i>{j_spot['tag']} • {j_spot['badge']} ({now_str})</i>\n\n"
@@ -1191,7 +1141,7 @@ if __name__ == "__main__":
         for mid in (5, 6, 7, 9, 10, 12):
             requests.post(
                 f"{API_BASE}/editMessageReplyMarkup",
-                json={"chat_id": ILAN_CHANNEL_ID, "message_id": mid, "reply_markup": _ilan_reply_markup("https://www.turkiye.gov.tr/cumhurbaskanligi-kamu-ise-alim", "e-Devlet Kariyer Kapısı")},
+                json={"chat_id": ILAN_CHANNEL_ID, "message_id": mid, "reply_markup": _ilan_reply_markup("https://www.ilan.gov.tr", "Resmi İlan Portalı (ilan.gov.tr)")},
                 timeout=10,
             )
     elif "--announce-on-faizradari" in sys.argv:
