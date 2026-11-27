@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-27 08:29",
+  "updated_at": "2026-11-27 08:30",
   "ihtiyac_kredisi": {
     "Odeabank": 3.15,
     "Ziraat Bankası": 3.69,
@@ -109,12 +109,12 @@
     "Albaraka Türk": 3.27,
     "Vakıf Katılım": 3.19
   },
-  "last_dispatched_slot": "2026-11-27_09_bulten",
-  "last_dispatched_at": "2026-11-27 09:29:26",
+  "last_dispatched_slot": "2026-11-27_11_ihtiyac",
+  "last_dispatched_at": "2026-11-27 11:30:09",
   "last_makas_date": "2026-11-26",
   "last_published_fingerprints": {
     "ihtiyac": {
-      "date": "2026-11-26",
+      "date": "2026-11-27",
       "fingerprint": [
         [
           "Enpara",
@@ -122,6 +122,10 @@
         ],
         [
           "ON Dijital",
+          2.89
+        ],
+        [
+          "getirfinans",
           2.89
         ],
         [
@@ -137,16 +141,12 @@
           2.99
         ],
         [
+          "Türkiye Finans",
+          2.99
+        ],
+        [
           "Anadolubank",
           3.09
-        ],
-        [
-          "Odeabank",
-          3.15
-        ],
-        [
-          "Kuveyt Türk",
-          3.18
         ]
       ]
     },
@@ -337,7 +337,8 @@
       "mevduat"
     ],
     "2026-11-27": [
-      "bulten"
+      "bulten",
+      "ihtiyac"
     ]
   },
   "daily_instagram_posts": {
@@ -370,7 +371,8 @@
       "ihtiyac"
     ],
     "2026-11-27": [
-      "haber"
+      "haber",
+      "ihtiyac"
     ]
   },
   "dispatched_news_history": [
