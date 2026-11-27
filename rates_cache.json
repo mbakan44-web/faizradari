@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-27 12:29",
+  "updated_at": "2026-11-27 14:29",
   "ihtiyac_kredisi": {
     "Odeabank": 3.15,
     "Ziraat Bankası": 3.69,
@@ -11,7 +11,7 @@
     "Enpara": 2.79,
     "Anadolubank": 3.09,
     "Garanti BBVA": 3.89,
-    "Akbank": 3.44,
+    "Akbank": 3.49,
     "getirfinans": 2.89,
     "N Kolay": 3.99,
     "Kuveyt Türk": 3.18,
@@ -109,9 +109,9 @@
     "Albaraka Türk": 3.27,
     "Vakıf Katılım": 3.19
   },
-  "last_dispatched_slot": "2026-11-27_15_konut_tasit",
-  "last_dispatched_at": "2026-11-27 15:29:26",
-  "last_makas_date": "2026-11-26",
+  "last_dispatched_slot": "2026-11-27_17_makas",
+  "last_dispatched_at": "2026-11-27 17:29:20",
+  "last_makas_date": "2026-11-27",
   "last_published_fingerprints": {
     "ihtiyac": {
       "date": "2026-11-27",
@@ -341,7 +341,8 @@
       "ihtiyac",
       "analiz",
       "x_thread",
-      "konut_tasit"
+      "konut_tasit",
+      "makas"
     ]
   },
   "daily_instagram_posts": {
