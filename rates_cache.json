@@ -1,7 +1,7 @@
 {
-  "updated_at": "2026-11-27 06:29",
+  "updated_at": "2026-11-27 10:28",
   "ihtiyac_kredisi": {
-    "Odeabank": 3.15,
+    "Odeabank": 2.99,
     "Ziraat Bankası": 3.69,
     "QNB": 3.84,
     "ING": 2.99,
@@ -12,12 +12,17 @@
     "Anadolubank": 3.09,
     "Garanti BBVA": 3.89,
     "Akbank": 3.44,
-    "getirfinans": 3.29,
+    "getirfinans": 2.89,
     "N Kolay": 3.99,
     "Kuveyt Türk": 3.18,
     "Alternatif Bank": 2.99,
     "Yapı Kredi": 4.29,
-    "DenizBank": 2.89
+    "DenizBank": 2.89,
+    "ColendiBank": 3.14,
+    "Dünya Katılım": 3.79,
+    "Türkiye Finans": 2.99,
+    "Vakıf Katılım": 3.99,
+    "Ziraat Katılım": 3.99
   },
   "sifir_faiz_firsatlari": [
     {
@@ -53,23 +58,24 @@
   ],
   "mevduat_oranlari": {
     "Akbank": 37.75,
-    "Alternatif Bank": 43.0,
-    "Anadolubank": 43.0,
+    "Alternatif Bank": 42.0,
+    "Anadolubank": 42.0,
     "CEPTETEB": 40.5,
     "DenizBank": 41.0,
-    "Enpara": 36.5,
+    "Enpara": 36.0,
     "getirfinans": 40.0,
     "N Kolay": 37.0,
     "Halkbank": 36.0,
     "HSBC": 40.5,
     "ING": 42.0,
-    "Hayat Finans": 40.63,
+    "Hayat Finans": 40.52,
     "Odeabank": 42.0,
     "ON Dijital": 41.5,
-    "TOM Bank": 42.0,
+    "HadiBank": 45.0,
     "Şekerbank": 41.0,
     "Yapı Kredi": 39.75,
     "QNB": 40.5,
+    "ColendiBank": 38.0,
     "Ziraat Dinamik": 45.0,
     "Fibabanka": 42.0
   },
@@ -81,10 +87,13 @@
     "Halkbank": 2.99,
     "Türkiye İş Bankası": 3.05,
     "Yapı Kredi": 3.09,
-    "Garanti BBVA": 3.13,
-    "Akbank": 3.15,
+    "Garanti BBVA": 2.99,
+    "Akbank": 2.85,
     "ING": 3.19,
-    "CEPTETEB": 3.2
+    "CEPTETEB": 3.2,
+    "Albaraka Türk": 2.87,
+    "Türkiye Finans": 2.88,
+    "Vakıf Katılım": 2.99
   },
   "tasit_kredisi": {
     "Garanti BBVA": 3.29,
@@ -92,11 +101,13 @@
     "Yapı Kredi": 3.49,
     "Kuveyt Türk": 3.27,
     "CEPTETEB": 3.29,
-    "Akbank": 3.4,
+    "Akbank": 3.18,
     "Türkiye İş Bankası": 3.49,
     "VakıfBank": 3.39,
     "Halkbank": 3.65,
-    "Ziraat Bankası": 3.29
+    "Ziraat Bankası": 3.29,
+    "Albaraka Türk": 3.27,
+    "Vakıf Katılım": 3.19
   },
   "last_dispatched_slot": "2026-11-27_09_bulten",
   "last_dispatched_at": "2026-11-27 09:29:26",

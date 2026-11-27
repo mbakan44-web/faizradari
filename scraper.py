@@ -25,6 +25,7 @@ def normalize_bank_name(name: str) -> str:
     """
     n = name.strip()
     n = re.sub(r"\.com(\.tr)?", "", n, flags=re.IGNORECASE).strip()
+    n = re.sub(r"\s*(ihtiyaç|konut|taşıt)?\s*(kredisi|finansmanı|kredi hesaplama)?$", "", n, flags=re.IGNORECASE).strip()
 
     rules = [
         (r"^enpara.*", "Enpara"),
@@ -32,7 +33,9 @@ def normalize_bank_name(name: str) -> str:
         (r"^cepteteb.*|^teb.*", "CEPTETEB"),
         (r"^(türkiye\s+)?iş(\s+bankası)?$|^işbank.*", "Türkiye İş Bankası"),
         (r"^ziraat\s+dinamik.*", "Ziraat Dinamik"),
+        (r"^ziraat\s+katılım.*", "Ziraat Katılım"),
         (r"^ziraat(\s+bankası)?$", "Ziraat Bankası"),
+        (r"^vakıf\s+katılım.*", "Vakıf Katılım"),
         (r"^vakıf(\s*bank)?$", "VakıfBank"),
         (r"^halk(\s*bank)?$", "Halkbank"),
         (r"^garanti(\s+bbva)?.*", "Garanti BBVA"),
@@ -55,6 +58,11 @@ def normalize_bank_name(name: str) -> str:
         (r"^tom\s*bank.*", "TOM Bank"),
         (r"^hayat\s*finans.*", "Hayat Finans"),
         (r"^türk\s+ticaret.*", "Türk Ticaret Bankası"),
+        (r"^colendi.*", "ColendiBank"),
+        (r"^dünya\s*katılım.*", "Dünya Katılım"),
+        (r"^destek.*", "DestekBank"),
+        (r"^misyon.*", "Misyon Bank"),
+        (r"^hadi.*", "HadiBank"),
     ]
     for pat, canonical in rules:
         if re.search(pat, n, re.IGNORECASE):
@@ -170,46 +178,79 @@ def _parse_tr_float(val_str: str) -> float:
 
 
 def fetch_market_tickers() -> Dict[str, str]:
-    """Canlı Dolar, Euro ve Gram Altın kurlarını çeker."""
+    """Canlı Dolar, Euro, Gram Altın ve BIST 100 kurlarını çeker."""
     tickers = {"USD": "—", "EUR": "—", "ALTIN": "—", "BIST100": "—"}
+
+    # 1. doviz.com üzerinden anlık ve eksiksiz piyasa verisi
     try:
-        resp = requests.get("https://finans.truncgil.com/v4/today.json", headers=HEADERS, timeout=8)
+        resp = requests.get("https://www.doviz.com", headers=HEADERS, timeout=8)
         if resp.status_code == 200:
-            data = resp.json()
-            if "USD" in data and "Selling" in data["USD"]:
-                tickers["USD"] = f"{float(data['USD']['Selling']):.2f} ₺"
-            if "EUR" in data and "Selling" in data["EUR"]:
-                tickers["EUR"] = f"{float(data['EUR']['Selling']):.2f} ₺"
-            if "GRA" in data and "Selling" in data["GRA"]:
-                tickers["ALTIN"] = f"{float(data['GRA']['Selling']):,.0f} ₺".replace(",", ".")
+            soup = BeautifulSoup(resp.text, "html.parser")
+            for item in soup.select(".item"):
+                txt = " ".join(item.get_text().split()).upper()
+                if "DOLAR" in txt and tickers["USD"] == "—":
+                    parts = txt.split()
+                    if len(parts) >= 2:
+                        tickers["USD"] = f"{_parse_tr_float(parts[1]):.2f} ₺"
+                elif "EURO" in txt and tickers["EUR"] == "—":
+                    parts = txt.split()
+                    if len(parts) >= 2:
+                        tickers["EUR"] = f"{_parse_tr_float(parts[1]):.2f} ₺"
+                elif "GRAM ALTIN" in txt and tickers["ALTIN"] == "—":
+                    parts = txt.split()
+                    if len(parts) >= 3:
+                        tickers["ALTIN"] = f"{_parse_tr_float(parts[2]):,.0f} ₺".replace(",", ".")
+                elif "BIST 100" in txt and tickers["BIST100"] == "—":
+                    parts = txt.split()
+                    if len(parts) >= 3:
+                        tickers["BIST100"] = f"{_parse_tr_float(parts[2]):,.0f}".replace(",", ".")
     except Exception:
         pass
 
-    if tickers["USD"] == "—":
+    # 2. Döviz için güvenilir alternatif (open.er-api.com)
+    if tickers["USD"] == "—" or tickers["EUR"] == "—":
         try:
             r_usd = requests.get("https://open.er-api.com/v6/latest/USD", timeout=6).json()
-            usd_try = r_usd["rates"]["TRY"]
+            tickers["USD"] = f"{r_usd['rates']['TRY']:.2f} ₺"
             r_eur = requests.get("https://open.er-api.com/v6/latest/EUR", timeout=6).json()
-            eur_try = r_eur["rates"]["TRY"]
-            tickers["USD"] = f"{usd_try:.2f} ₺"
-            tickers["EUR"] = f"{eur_try:.2f} ₺"
+            tickers["EUR"] = f"{r_eur['rates']['TRY']:.2f} ₺"
         except Exception:
             pass
 
+    # 3. Altın için alternatif (altin.doviz.com)
     if tickers["ALTIN"] == "—":
         try:
-            r_g = requests.get("https://altin.in/banka/altin", headers=HEADERS, timeout=6)
-            m = re.search(r"Gram Altın Fiyatları[\s\S]{1,120}?([5678]\d{3}\.\d+)", r_g.text)
-            if m:
-                tickers["ALTIN"] = f"{float(m.group(1)):,.0f} ₺".replace(",", ".")
+            r_gold = requests.get("https://altin.doviz.com/gram-altin", headers=HEADERS, timeout=6)
+            if r_gold.status_code == 200:
+                soup_g = BeautifulSoup(r_gold.text, "html.parser")
+                val_el = soup_g.select_one('[data-socket-key="gram-altin"][data-socket-attr="s"]') or soup_g.select_one(".value")
+                if val_el:
+                    v = _parse_tr_float(val_el.get_text(strip=True))
+                    if v > 3000:
+                        tickers["ALTIN"] = f"{v:,.0f} ₺".replace(",", ".")
         except Exception:
             pass
+
+    # 4. Borsa (BIST 100) için Yahoo Finance alternatifi
+    if tickers["BIST100"] == "—":
+        try:
+            r_bist = requests.get(
+                "https://query1.finance.yahoo.com/v8/finance/chart/XU100.IS?range=1d&interval=1d",
+                headers=HEADERS,
+                timeout=6,
+            ).json()
+            bist_val = r_bist["chart"]["result"][0]["meta"]["regularMarketPrice"]
+            if bist_val and bist_val > 1000:
+                tickers["BIST100"] = f"{float(bist_val):,.0f}".replace(",", ".")
+        except Exception:
+            pass
+
     return tickers
 
 
 def _scrape_loan_rates_by_type(loan_type: str, principal: float, months: int) -> List[Tuple[str, float]]:
     """
-    Çok kaynaklı canlı kredi faizi tarayıcısı (TeklifimGelsin JSON + HangiKredi HTML regex).
+    Çok kaynaklı canlı kredi faizi tarayıcısı (HangiKredi HTML Tablo + TeklifimGelsin JSON).
     Tüm veriler normalize_bank_name ile tekilleştirilir.
     """
     slug_map = {
@@ -220,7 +261,37 @@ def _scrape_loan_rates_by_type(loan_type: str, principal: float, months: int) ->
     slug, min_r, max_r = slug_map.get(loan_type, ("ihtiyac-kredisi", 2.0, 6.0))
     scraped_rates: Dict[str, float] = {}
 
-    # Kaynak 1: TeklifimGelsin (Geniş banka JSON veri tabanı)
+    # Kaynak 1: HangiKredi Canlı Karşılaştırma Tablosu (En güncel ve geniş banka verisi)
+    try:
+        url_hk = f"https://www.hangikredi.com/kredi/{slug}"
+        resp_hk = requests.get(url_hk, headers=HEADERS, timeout=10)
+        if resp_hk.status_code == 200:
+            soup_hk = BeautifulSoup(resp_hk.text, "html.parser")
+            for tr in soup_hk.select('table tr, [data-testid="tableRow"]'):
+                tds = tr.find_all("td")
+                if len(tds) >= 4:
+                    img = tds[0].find("img")
+                    a = tds[0].find("a")
+                    raw_bank = (
+                        (img.get("alt") if img else "")
+                        or (a.get("title") if a else "")
+                        or (a.get("href") if a else "")
+                        or tds[0].get_text(strip=True)
+                    )
+                    rate_text = tds[3].get_text(strip=True)
+                    nums = re.findall(r"%\s*([0-9]+[,\.][0-9]{2})", rate_text)
+                    if not nums:
+                        nums = re.findall(r"([0-9]+[,\.][0-9]{2})", rate_text)
+                    if raw_bank and nums:
+                        norm_b = normalize_bank_name(raw_bank)
+                        r_val = float(nums[0].replace(",", "."))
+                        if min_r <= r_val <= max_r:
+                            if norm_b not in scraped_rates or r_val < scraped_rates[norm_b]:
+                                scraped_rates[norm_b] = r_val
+    except Exception:
+        pass
+
+    # Kaynak 2: TeklifimGelsin (Doğrulama ve ek bankalar)
     try:
         url_tg = f"https://teklifimgelsin.com/kredi/{slug}"
         resp_tg = requests.get(url_tg, headers=HEADERS, timeout=8)
@@ -232,28 +303,6 @@ def _scrape_loan_rates_by_type(loan_type: str, principal: float, months: int) ->
                 if min_r <= r_val <= max_r:
                     if norm_b not in scraped_rates or r_val < scraped_rates[norm_b]:
                         scraped_rates[norm_b] = r_val
-    except Exception:
-        pass
-
-    # Kaynak 2: HangiKredi (Piyasa doğrulama)
-    try:
-        url_hk = f"https://www.hangikredi.com/kredi/{slug}?amount={int(principal)}&maturity={months}"
-        resp_hk = requests.get(url_hk, headers=HEADERS, timeout=8)
-        if resp_hk.status_code == 200:
-            known_banks = [
-                "QNB", "Enpara", "Akbank", "Garanti BBVA", "İş Bankası", "Yapı Kredi",
-                "CEPTETEB", "DenizBank", "ING", "ON Dijital", "Alternatif Bank",
-                "N Kolay", "Fibabanka", "Ziraat", "VakıfBank", "Halkbank", "Kuveyt Türk",
-                "getirfinans", "Odeabank", "Anadolubank"
-            ]
-            for bank in known_banks:
-                m = re.search(rf"{re.escape(bank)}[\s\S]{{1,350}}?%?\s*([1-6][,\.][0-9]{{2}})", resp_hk.text, re.IGNORECASE)
-                if m:
-                    r_val = float(m.group(1).replace(",", "."))
-                    norm_b = normalize_bank_name(bank)
-                    if min_r <= r_val <= max_r:
-                        if norm_b not in scraped_rates or r_val < scraped_rates[norm_b]:
-                            scraped_rates[norm_b] = r_val
     except Exception:
         pass
 
