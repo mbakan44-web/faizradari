@@ -492,69 +492,107 @@ def get_bank_spread_offers() -> Tuple[List[SpreadOffer], List[SpreadOffer]]:
     """
     Bankaların canlı Dolar (USD/TRY) ve Gram Altın (TL) Alış, Satış ve Makas verilerini çeker.
     Tüm banka isimleri tekilleştirilmiş kanonik formatta sunulur.
+    Öncelikli olarak kur.doviz.com ve altin.doviz.com canlı tablolarını kullanır.
     """
     usd_map: Dict[str, SpreadOffer] = {}
     gold_map: Dict[str, SpreadOffer] = {}
 
+    # 1. doviz.com üzerinden Canlı Banka Dolar Kurları
     try:
-        resp = requests.get("https://tlkur.com/dolar", headers=HEADERS, timeout=8)
-        if resp.status_code == 200:
-            soup = BeautifulSoup(resp.text, "html.parser")
-            for tr in soup.find_all("tr"):
-                cols = [c.get_text(strip=True) for c in tr.find_all(["th", "td"])]
-                if len(cols) >= 3:
-                    raw_name = re.sub(r"\d{2}:\d{2}(:\d{2})?", "", cols[0]).strip()
-                    if not raw_name or raw_name in ("Kaynak", "Serbest Piyasa", "TCMB", "Altınkaynak", "Kapalıçarşı"):
-                        continue
-                    name = normalize_bank_name(raw_name)
-                    buy_v = _parse_tr_float(cols[1])
-                    sell_v = _parse_tr_float(cols[2])
-                    if 35.0 < buy_v < sell_v < 80.0:
-                        usd_map[name] = SpreadOffer(
-                            bank_name=name,
-                            asset="USD",
-                            buy_price=buy_v,
-                            sell_price=sell_v,
-                        )
+        r_usd = requests.get("https://kur.doviz.com/serbest-piyasa/amerikan-dolari", headers=HEADERS, timeout=8)
+        if r_usd.status_code == 200:
+            soup_u = BeautifulSoup(r_usd.text, "html.parser")
+            tbl_u = soup_u.find("table")
+            if tbl_u:
+                for tr in tbl_u.find_all("tr")[1:]:
+                    cols = [c.get_text(strip=True) for c in tr.find_all(["th", "td"])]
+                    if len(cols) >= 3:
+                        raw = cols[0]
+                        if any(x in raw.lower() for x in ("kapalıçarşı", "altınkaynak", "harem", "odacı", "venüs", "merkez bankası", "tcmb", "kaynak", "serbest")):
+                            continue
+                        name = normalize_bank_name(raw)
+                        buy_v = _parse_tr_float(cols[1])
+                        sell_v = _parse_tr_float(cols[2])
+                        if 30.0 < buy_v < sell_v < 100.0 and (sell_v - buy_v) >= 0.05:
+                            usd_map[name] = SpreadOffer(
+                                bank_name=name,
+                                asset="USD",
+                                buy_price=buy_v,
+                                sell_price=sell_v,
+                            )
     except Exception:
         pass
 
+    # 2. doviz.com üzerinden Canlı Banka Gram Altın Kurları
     try:
-        r_enp = requests.get("https://www.enpara.com/hesaplar/doviz-ve-altin-kurlari", headers=HEADERS, timeout=8)
-        if r_enp.status_code == 200:
-            soup_enp = BeautifulSoup(r_enp.text, "html.parser")
-            for item in soup_enp.select(".enpara-gold-exchange-rates__table-item"):
-                parts = [p.strip() for p in item.get_text("|", strip=True).split("|") if p.strip()]
-                if len(parts) >= 3:
-                    label = parts[0]
-                    buy_v = _parse_tr_float(parts[1])
-                    sell_v = _parse_tr_float(parts[2])
-                    if "USD ($)" in label and 35.0 < buy_v < sell_v < 80.0:
-                        usd_map["Enpara"] = SpreadOffer("Enpara", "USD", buy_v, sell_v)
-                    elif "Altın (gram)" in label and "/USD" not in label and 5500.0 < buy_v < sell_v < 9000.0:
-                        gold_map["Enpara"] = SpreadOffer("Enpara", "ALTIN", buy_v, sell_v)
-    except Exception:
-        pass
-
-    try:
-        r_gold = requests.get("https://altin.in/banka/altin", headers=HEADERS, timeout=8)
+        r_gold = requests.get("https://altin.doviz.com/gram-altin", headers=HEADERS, timeout=8)
         if r_gold.status_code == 200:
             soup_g = BeautifulSoup(r_gold.text, "html.parser")
-            for ul in soup_g.find_all("ul"):
-                parts = [p.strip() for p in ul.get_text("|", strip=True).split("|") if p.strip()]
-                if len(parts) >= 5 and "Gram Altın" in parts:
-                    raw_bank = parts[0]
-                    norm_bank = normalize_bank_name(raw_bank)
-                    if norm_bank == "Enpara" and "Enpara" in gold_map:
-                        continue
-                    idx_g = parts.index("Gram Altın")
-                    if len(parts) >= idx_g + 3:
-                        buy_v = _parse_tr_float(parts[idx_g + 1])
-                        sell_v = _parse_tr_float(parts[idx_g + 2])
-                        if 5500.0 < buy_v < sell_v < 9000.0:
-                            gold_map[norm_bank] = SpreadOffer(norm_bank, "ALTIN", buy_v, sell_v)
+            tbl_g = soup_g.find("table")
+            if tbl_g:
+                for tr in tbl_g.find_all("tr")[1:]:
+                    cols = [c.get_text(strip=True) for c in tr.find_all(["th", "td"])]
+                    if len(cols) >= 3:
+                        raw = cols[0]
+                        if any(x in raw.lower() for x in ("kapalıçarşı", "altınkaynak", "harem", "odacı", "venüs", "merkez bankası", "tcmb", "kaynak", "serbest")):
+                            continue
+                        name = normalize_bank_name(raw)
+                        buy_v = _parse_tr_float(cols[1])
+                        sell_v = _parse_tr_float(cols[2])
+                        # Makas en az 15 TL olmalıdır (hatalı/donmuş 6 TL gibi sahte verileri engelle)
+                        if 3500.0 < buy_v < sell_v < 15000.0 and (sell_v - buy_v) >= 15.0:
+                            gold_map[name] = SpreadOffer(
+                                bank_name=name,
+                                asset="ALTIN",
+                                buy_price=buy_v,
+                                sell_price=sell_v,
+                            )
     except Exception:
         pass
+
+    # 3. Enpara resmi sayfasından teyit/tamamlama
+    if "Enpara" not in usd_map or "Enpara" not in gold_map:
+        try:
+            r_enp = requests.get("https://www.enpara.com/hesaplar/doviz-ve-altin-kurlari", headers=HEADERS, timeout=8)
+            if r_enp.status_code == 200:
+                soup_enp = BeautifulSoup(r_enp.text, "html.parser")
+                for item in soup_enp.select(".enpara-gold-exchange-rates__table-item"):
+                    parts = [p.strip() for p in item.get_text("|", strip=True).split("|") if p.strip()]
+                    if len(parts) >= 3:
+                        label = parts[0]
+                        buy_v = _parse_tr_float(parts[1])
+                        sell_v = _parse_tr_float(parts[2])
+                        if "USD ($)" in label and 30.0 < buy_v < sell_v < 100.0 and "Enpara" not in usd_map:
+                            usd_map["Enpara"] = SpreadOffer("Enpara", "USD", buy_v, sell_v)
+                        elif "Altın (gram)" in label and "/USD" not in label and 3500.0 < buy_v < sell_v < 15000.0 and "Enpara" not in gold_map:
+                            gold_map["Enpara"] = SpreadOffer("Enpara", "ALTIN", buy_v, sell_v)
+        except Exception:
+            pass
+
+    # 4. Yedek Kaynak (Eğer doviz.com geçici olarak yanıt vermezse tlkur.com)
+    if len(usd_map) < 3:
+        try:
+            resp = requests.get("https://tlkur.com/dolar", headers=HEADERS, timeout=8)
+            if resp.status_code == 200:
+                soup = BeautifulSoup(resp.text, "html.parser")
+                for tr in soup.find_all("tr"):
+                    cols = [c.get_text(strip=True) for c in tr.find_all(["th", "td"])]
+                    if len(cols) >= 3:
+                        raw_name = re.sub(r"\d{2}:\d{2}(:\d{2})?", "", cols[0]).strip()
+                        if not raw_name or raw_name in ("Kaynak", "Serbest Piyasa", "TCMB", "Altınkaynak", "Kapalıçarşı"):
+                            continue
+                        name = normalize_bank_name(raw_name)
+                        buy_v = _parse_tr_float(cols[1])
+                        sell_v = _parse_tr_float(cols[2])
+                        if 30.0 < buy_v < sell_v < 100.0 and (sell_v - buy_v) >= 0.05:
+                            usd_map[name] = SpreadOffer(
+                                bank_name=name,
+                                asset="USD",
+                                buy_price=buy_v,
+                                sell_price=sell_v,
+                            )
+        except Exception:
+            pass
 
     usd_list = sorted(usd_map.values(), key=lambda x: x.spread_pct)[:7]
     gold_list = sorted(gold_map.values(), key=lambda x: x.spread_pct)[:7]
