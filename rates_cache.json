@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-28 08:29",
+  "updated_at": "2026-11-28 08:30",
   "ihtiyac_kredisi": {
     "Odeabank": 3.15,
     "Ziraat Bankası": 3.69,
@@ -109,8 +109,8 @@
     "Albaraka Türk": 3.27,
     "Vakıf Katılım": 3.19
   },
-  "last_dispatched_slot": "2026-11-28_09_bulten",
-  "last_dispatched_at": "2026-11-28 09:29:24",
+  "last_dispatched_slot": "2026-11-28_11_ihtiyac",
+  "last_dispatched_at": "2026-11-28 11:30:14",
   "last_makas_date": "2026-11-27",
   "last_published_fingerprints": {
     "ihtiyac": {
@@ -337,7 +337,8 @@
       "mevduat"
     ],
     "2026-11-28": [
-      "bulten"
+      "bulten",
+      "ihtiyac"
     ]
   },
   "daily_instagram_posts": {
