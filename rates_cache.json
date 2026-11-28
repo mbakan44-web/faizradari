@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-28 06:29",
+  "updated_at": "2026-11-28 08:29",
   "ihtiyac_kredisi": {
     "Odeabank": 3.15,
     "Ziraat Bankası": 3.69,
@@ -341,10 +341,6 @@
     ]
   },
   "daily_instagram_posts": {
-    "2026-11-20": [
-      "haber",
-      "ihtiyac"
-    ],
     "2026-11-21": [
       "haber",
       "analiz"
@@ -372,6 +368,9 @@
     "2026-11-27": [
       "haber",
       "ihtiyac"
+    ],
+    "2026-11-28": [
+      "haber"
     ]
   },
   "dispatched_news_history": [
@@ -419,6 +418,11 @@
       "date": "2026-11-27",
       "headline": "BDDK Başkanlığı'na Yusuf Kenan Bağır atandı",
       "category": "BANKACILIK & KREDİ KARARI"
+    },
+    {
+      "date": "2026-11-28",
+      "headline": "TCMB, bir elektronik para kuruluşunun faaliyet iznini iptal etti",
+      "category": "MERKEZ BANKASI & FAİZ"
     }
   ]
 }
